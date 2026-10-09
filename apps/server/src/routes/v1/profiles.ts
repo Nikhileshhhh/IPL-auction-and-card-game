@@ -5,10 +5,23 @@ import { requireIngress } from '../../http/ingress';
 import { parseBody } from '../../http/validation';
 import { authenticateMember } from '../../modules/auth/service';
 import { completeOnboarding, usernameAvailable } from '../../modules/profiles/onboarding';
+import { activeAnnouncements, memberSummary } from '../../modules/profiles/summary';
 import { consumeRate, RATE_RULES } from '../../modules/security/rate-limit';
 import type { RuntimeDeps } from '../../runtime';
 
 export async function profileRoutes(app: FastifyInstance, deps: RuntimeDeps) {
+  /** S04: own identity, receipt-derived medal counters and friend counts. */
+  app.get('/me/summary', async (request) => {
+    const ctx = await authenticateMember(deps, requireIngress(request));
+    return success(await memberSummary(deps.pool, ctx), request.id, new Date());
+  });
+
+  /** Active plain-text announcements; failure here never blocks the games. */
+  app.get('/announcements', async (request) => {
+    await authenticateMember(deps, requireIngress(request));
+    return success({ items: await activeAnnouncements(deps.pool) }, request.id, new Date());
+  });
+
   app.get('/profiles/availability', async (request) => {
     const ctx = await authenticateMember(deps, requireIngress(request));
     await consumeRate(deps.pool, deps.secrets.lookupKey, RATE_RULES.usernameCheck, ctx.userId);

@@ -23,6 +23,7 @@
     "react": "19.3.0"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "1.1.23",
     "clsx": "2.1.1"
   }
 }

@@ -7,6 +7,8 @@ export const colors = {
   textSecondary: '#B5C3D6',
   textMuted: '#91A5C0',
   lineDefault: '#334B66',
+  /** Interactive control boundaries (WCAG 1.4.11 needs 3:1); separators keep lineDefault. */
+  lineControl: '#64809F',
   accentCard: '#44E0B1',
   accentAuction: '#F0C879',
   accentFocus: '#7DBAFF',

@@ -33,7 +33,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
           aria-describedby={describedBy}
           className={cx(
             'min-h-12 w-full rounded-[var(--radius-control)] border bg-midnight px-4 text-base text-ink placeholder:text-ink-3',
-            error ? 'border-bad' : 'border-line',
+            error ? 'border-bad' : 'border-control',
             trailing ? 'pr-24' : '',
           )}
           {...rest}

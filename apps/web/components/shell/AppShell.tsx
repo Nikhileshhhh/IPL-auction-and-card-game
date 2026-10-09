@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SessionProjection } from '@stumps/contracts';
+import { ConnectionBoundary } from './ConnectionBoundary';
 import { SignOutButton } from './SignOutButton';
 import { Wordmark } from './Wordmark';
 
@@ -59,12 +60,14 @@ export function AppShell({
           </nav>
         </div>
       </header>
-      <main
-        id="main"
-        className="mx-auto w-full max-w-[var(--content-max)] flex-1 px-[var(--gutter)] py-8"
-      >
-        {children}
-      </main>
+      <ConnectionBoundary>
+        <main
+          id="main"
+          className="mx-auto w-full max-w-[var(--content-max)] flex-1 px-[var(--gutter)] py-8"
+        >
+          {children}
+        </main>
+      </ConnectionBoundary>
       <footer className="border-t border-line px-[var(--gutter)] py-4 text-xs text-ink-3">
         STUMPS is an independent fan simulator. Not affiliated with the IPL, BCCI or any franchise.
       </footer>

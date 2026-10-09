@@ -138,7 +138,7 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
             rows={3}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            className="rounded-[var(--radius-control)] border border-line bg-midnight px-4 py-3 text-base"
+            className="rounded-[var(--radius-control)] border border-control bg-midnight px-4 py-3 text-base"
           />
           <p className="text-sm text-ink-3">{240 - bio.length} characters left</p>
         </div>
@@ -147,7 +147,7 @@ export function OnboardingForm({ initialDisplayName }: { initialDisplayName: str
           {VISIBILITY.map((option) => (
             <label
               key={option.value}
-              className="flex min-h-11 cursor-pointer gap-3 rounded-lg border border-line p-3"
+              className="flex min-h-11 cursor-pointer gap-3 rounded-lg border border-control p-3"
             >
               <input
                 type="radio"

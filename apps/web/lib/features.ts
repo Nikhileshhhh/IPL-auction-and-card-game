@@ -5,7 +5,7 @@
  */
 export const FEATURES = {
   accessGate: true,
-  dashboard: false,
+  dashboard: true,
   cardBattle: false,
   megaAuction: false,
   social: false,
