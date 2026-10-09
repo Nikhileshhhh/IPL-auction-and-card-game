@@ -86,10 +86,38 @@ export const SessionProjectionSchema = z
     displayName: z.string(),
     onboarded: z.boolean(),
     gate: z.object({ status: GateStatusSchema, expiresAt: IsoTimestamp.optional() }).strict(),
-    csrfToken: z.string().min(16),
   })
   .strict();
 export type SessionProjection = z.infer<typeof SessionProjectionSchema>;
+
+export const InviteCallbackRequestSchema = z
+  .object({
+    tokenHash: z.string().min(16).max(256),
+    enrollment: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  })
+  .strict();
+export const SetPasswordRequestSchema = z.object({ password: PasswordSchema }).strict();
+export const RecoveryCompleteRequestSchema = z
+  .object({ tokenHash: z.string().min(16).max(256), password: PasswordSchema })
+  .strict();
+export const UsernameAvailabilitySchema = z
+  .object({ available: z.boolean(), suggestion: z.string().optional() })
+  .strict();
+
+export const AccessRotationRequestSchema = z
+  .object({
+    newCode: PasswordSchema.optional(),
+    generate: z.boolean().optional(),
+    expiresAt: IsoTimestamp.nullable(),
+    windowSeconds: z.number().int().min(60).max(86400),
+    lockoutSeconds: z.number().int().min(60).max(86400),
+    rotationPolicy: z.enum(['REVOKE_EXISTING', 'PRESERVE_EXISTING']),
+    version: z.string().regex(/^[1-9][0-9]{0,18}$/),
+  })
+  .strict()
+  .refine((v) => Boolean(v.newCode) !== Boolean(v.generate), {
+    message: 'Provide a new code or request a generated one.',
+  });
 
 export const AdminLoginResultSchema = z
   .object({ mfaRequired: z.literal(true), factorId: z.string().optional() })
@@ -104,4 +132,7 @@ export const AdminMfaRequestSchema = z
 
 export const SocketTicketResponseSchema = z
   .object({ ticket: z.string().min(32), expiresAt: IsoTimestamp })
+  .strict();
+export const AdminChallengeRequestSchema = z
+  .object({ factorId: z.string().min(1).max(64) })
   .strict();

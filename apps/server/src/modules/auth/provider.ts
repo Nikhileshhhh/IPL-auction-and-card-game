@@ -10,13 +10,47 @@ export interface VerifiedIdentity {
   expiresAt: Date;
 }
 
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+}
+
+export interface TotpEnrollment {
+  factorId: string;
+  otpauthUri: string;
+  secret: string;
+}
+
 /**
- * Auth adapter boundary (ADR-005, ADR-016). Phase 02 needs token verification;
- * phase 03 extends this interface with sign-in, invitation, recovery and MFA.
+ * Auth adapter boundary (ADR-005, ADR-016). The API never stores user
+ * passwords itself; production delegates to Supabase Auth.
  */
 export interface AuthProvider {
   readonly kind: 'supabase' | 'local';
   verifyAccessToken(token: string): Promise<VerifiedIdentity>;
+  /** Throws BAD_CREDENTIALS generically. */
+  signInWithPassword(email: string, password: string): Promise<AuthTokens>;
+  refresh(refreshToken: string): Promise<AuthTokens>;
+  signOut(identity: VerifiedIdentity, scope: 'local' | 'global'): Promise<void>;
+  /** Sends an invitation email unless the address already has an account. */
+  inviteUser(email: string, redirectTo: string): Promise<{ invited: boolean }>;
+  /** Single-use email token (invite or recovery) → session. Throws CALLBACK_EXPIRED. */
+  verifyEmailToken(tokenHash: string, type: 'invite' | 'recovery'): Promise<AuthTokens>;
+  sendRecovery(email: string, redirectTo: string): Promise<void>;
+  setPassword(userId: string, password: string): Promise<void>;
+  /** Revoke every Auth session for a user except, optionally, one. */
+  revokeOtherSessions(userId: string, keepSessionId: string | undefined): Promise<void>;
+  listVerifiedFactors(session: AuthTokens): Promise<{ id: string }[]>;
+  enrollTotp(session: AuthTokens, label: string): Promise<TotpEnrollment>;
+  challengeTotp(session: AuthTokens, factorId: string): Promise<{ challengeId: string }>;
+  /** Verifies the code and returns an AAL2 session. Throws MFA_REQUIRED on failure. */
+  verifyTotp(
+    session: AuthTokens,
+    factorId: string,
+    challengeId: string,
+    code: string,
+  ): Promise<AuthTokens>;
 }
 
 /**

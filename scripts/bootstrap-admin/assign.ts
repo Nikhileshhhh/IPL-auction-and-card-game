@@ -51,10 +51,10 @@ export async function assignAdmin(client: pg.Client, input: AssignAdminInput) {
     }
 
     await client.query(
-      `INSERT INTO app_private.admin_assignments (user_id, role, assigned_by)
-       VALUES ($1, $2, $3)
+      `INSERT INTO app_private.admin_assignments (user_id, role, assigned_by, mfa_enrollment_until)
+       VALUES ($1, $2, $3, now() + interval '1 hour')
        ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role, assigned_by = EXCLUDED.assigned_by,
-         assigned_at = now(), revoked_at = NULL`,
+         assigned_at = now(), revoked_at = NULL, mfa_enrollment_until = EXCLUDED.mfa_enrollment_until`,
       [target.id, input.role, assignedBy],
     );
     await client.query(

@@ -1,25 +1,32 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import type { SessionProjection } from '@stumps/contracts';
+import { SignOutButton } from './SignOutButton';
 import { Wordmark } from './Wordmark';
 
 const NAV = [
   { href: '/play', label: 'Play' },
   { href: '/play/cards', label: 'Card Battle' },
   { href: '/play/auction', label: 'Mega Auction' },
-  { href: '/status', label: 'Status' },
 ] as const;
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  session,
+}: {
+  children: ReactNode;
+  session?: SessionProjection;
+}) {
   return (
     <div className="flex min-h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-raised focus:px-4 focus:py-2"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-raised focus:px-4 focus:py-2"
       >
         Skip to content
       </a>
       <header className="border-b border-line bg-raised">
-        <div className="mx-auto flex h-16 max-w-[var(--content-max)] items-center justify-between gap-4 px-[var(--gutter)]">
+        <div className="mx-auto flex min-h-16 max-w-[var(--content-max)] flex-wrap items-center justify-between gap-2 px-[var(--gutter)] py-2">
           <Link href="/play" className="rounded-lg text-ink">
             <Wordmark />
           </Link>
@@ -35,6 +42,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 </li>
               ))}
+              {session ? (
+                <>
+                  <li
+                    className="px-2 text-ink-2"
+                    aria-label={`Signed in as ${session.displayName}`}
+                  >
+                    <span aria-hidden="true">{session.displayName}</span>
+                  </li>
+                  <li>
+                    <SignOutButton />
+                  </li>
+                </>
+              ) : null}
             </ul>
           </nav>
         </div>

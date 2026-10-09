@@ -6,9 +6,9 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 
 | ID | Requirement | Phase(s) | Module(s) | Acceptance test | Status |
 |---|---|---|---|---|---|
-| RQ-01 | Private website gate: exactly 3 failed attempts per protected bucket, lockout, rotation (preserve/revoke) | 3 | server/modules/access-gate; web (public)/access | `tests/security/access-gate.spec.ts` | Planned |
-| RQ-02 | Supabase Auth closed enrollment via gate-bound invitation; login/recovery; HttpOnly BFF session | 3 | server/modules/auth; web lib/server-auth, app/api/v1 | `tests/security/auth-session.spec.ts` | Planned |
-| RQ-03 | Admin role from DB assignment + MFA (AAL2) + step-up; operator bootstrap script | 3 | server/modules/admin; scripts/bootstrap-admin | `tests/security/admin-mfa.spec.ts` | Planned |
+| RQ-01 | Private website gate: exactly 3 failed attempts per protected bucket, lockout, rotation (preserve/revoke) | 3 | server/modules/access-gate; web (public)/access | `tests/security/access-gate.spec.ts` | Done (phase 03) |
+| RQ-02 | Supabase Auth closed enrollment via gate-bound invitation; login/recovery; HttpOnly BFF session | 3 | server/modules/auth; web lib/server-auth, app/api/v1 | `tests/security/auth-session.spec.ts` | Done (phase 03) |
+| RQ-03 | Admin role from DB assignment + MFA (AAL2) + step-up; operator bootstrap script | 3 | server/modules/admin; scripts/bootstrap-admin | `tests/security/admin-mfa.spec.ts` | Done (phase 03) |
 | RQ-04 | Browser roles denied on all app tables; FORCE RLS; app_runtime least privilege | 2 | supabase/migrations | `tests/integration/rls.spec.ts` | Done (phase 02) |
 | RQ-05 | Two-game dashboard (S04) with profile/medal summary from receipts only | 4 | web (member)/play; packages/ui | `tests/e2e/dashboard.spec.ts` | Planned |
 | RQ-06 | Generated 12-char room codes, optional room password, capacity under lock, lobby readiness/config version, host lifecycle | 5 | server/modules/rooms, presence | `tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts` | Planned |
@@ -43,9 +43,9 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 
 | ID | Phase | Module | Test file | Status |
 |---|---|---|---|---|
-| E01 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Planned |
-| E02 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Planned |
-| E03 | 3 | auth/access-gate | `tests/security/gate-bypass.spec.ts` | Planned |
+| E01 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Done (phase 03) |
+| E02 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Done (phase 03) |
+| E03 | 3 | auth/access-gate | `tests/security/auth-session.spec.ts` | Done (phase 03) |
 | E04 | 5 | rooms | `tests/security/room-join.spec.ts` | Planned |
 | E05 | 5 | rooms | `tests/integration/rooms.spec.ts` | Planned |
 | E06 | 5 | rooms/presence | `tests/concurrency/host-transfer.spec.ts` | Planned |
@@ -113,7 +113,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E68 | 13 | chat | `tests/security/chat-acl.spec.ts` | Planned |
 | E69 | 16 | admin | `tests/security/admin-scope.spec.ts` | Planned |
 | E70 | 19 | ops | `docs/runbooks/restore.md drill` | Planned |
-| E71 | 3 | auth | `tests/security/auth-session.spec.ts` | Planned |
+| E71 | 3 | auth | `tests/security/auth-session.spec.ts` | Done (phase 03) |
 | E72 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
 
 ## 3. Gameplay acceptance vectors (rules §14)
@@ -146,8 +146,8 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 
 | Scenario | Phase | Test |
 |---|---|---|
-| No gate grant → dashboard/API/media/socket denied | 3 | `tests/security/gate-bypass.spec.ts` |
-| Third wrong code concurrently in two tabs | 3 | `tests/security/access-gate.spec.ts` |
+| No gate grant → dashboard/API/media/socket denied | 3 | `tests/security/auth-session.spec.ts`, `tests/security/socket-tickets.spec.ts`, `tests/e2e/shell.spec.ts` (done, phase 03; media URLs in phase 06) |
+| Third wrong code concurrently in two tabs | 3 | `tests/security/access-gate.spec.ts` (done, phase 03) |
 | Admin rotates in revoke mode → bid requires reverification | 3, 10 | `tests/security/access-gate.spec.ts` |
 | Host changes rules → readiness cleared | 5 | `tests/integration/rooms.spec.ts` |
 | Collaborator knows team code → private chat denied before approval | 11, 13 | `tests/security/team-acl.spec.ts` |
@@ -166,3 +166,4 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | 00 | 2026-10-09 | Docs and contract catalogs created | `docs/phase-reports/phase-00.md` |
 | 01 | 2026-10-09 | Runnable monorepo, health-only API, branded shell | `docs/phase-reports/phase-01.md` |
 | 02 | 2026-10-09 | Migrations 000–030, RLS/grants, transaction helper, Auth adapter, admin bootstrap | `docs/phase-reports/phase-02.md` |
+| 03 | 2026-10-09 | Gate, BFF, Auth adapter flows, admin MFA/step-up, socket tickets, S01–S03/S32 | `docs/phase-reports/phase-03.md` |

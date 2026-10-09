@@ -1,8 +1,9 @@
 @import 'tailwindcss';
 @import '@stumps/ui/tokens.css';
+@source '../../../packages/ui/src';
 
 @theme {
-  --color-base: var(--bg-base);
+  --color-midnight: var(--bg-base);
   --color-raised: var(--bg-raised);
   --color-overlay: var(--bg-overlay);
   --color-ink: var(--text-primary);

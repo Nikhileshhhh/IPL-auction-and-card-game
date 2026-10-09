@@ -7,12 +7,18 @@ import { loggerOptions } from './observability/logger';
 import { AppError } from './http/app-error';
 import { failure } from './http/envelope';
 import type { ReadinessCheck } from './http/readiness';
+import { ingressPlugin, type NonceCache } from './http/ingress';
 import { healthRoutes } from './routes/health';
 import { v1Routes } from './routes/v1/index';
+import type { RuntimeDeps } from './runtime';
 
 export interface AppDependencies {
   env: ServerEnv;
   readinessChecks: readonly ReadinessCheck[];
+  /** Feature modules are mounted only when runtime dependencies are supplied. */
+  runtime?: RuntimeDeps;
+  nonces?: NonceCache;
+  now?: () => number;
 }
 
 export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> {
@@ -35,6 +41,8 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   app.setErrorHandler((error: FastifyError | AppError, request, reply) => {
     const now = new Date();
     if (error instanceof AppError) {
+      const retryAfter = error.details?.retryAfterSeconds;
+      if (typeof retryAfter === 'number') reply.header('Retry-After', String(retryAfter));
       return reply
         .code(error.httpStatus)
         .send(failure(error.code, error.message, request.id, now, error.details));
@@ -61,8 +69,19 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     reply.code(404).send(failure('NOT_FOUND', 'Not found.', request.id, new Date())),
   );
 
+  if (deps.runtime) {
+    await app.register(ingressPlugin, {
+      signingKey: deps.runtime.secrets.bffSigningKey,
+      publicPaths: new Set(['/v1/meta/version']),
+      ...(deps.nonces ? { nonces: deps.nonces } : {}),
+      ...(deps.now ? { now: deps.now } : {}),
+    });
+  }
   await app.register(healthRoutes, { readinessChecks: deps.readinessChecks });
-  await app.register(v1Routes, { prefix: '/v1' });
+  await app.register(v1Routes, {
+    prefix: '/v1',
+    ...(deps.runtime ? { runtime: deps.runtime } : {}),
+  });
 
   return app;
 }

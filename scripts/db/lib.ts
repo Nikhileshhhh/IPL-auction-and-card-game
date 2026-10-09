@@ -7,6 +7,8 @@ import pg from 'pg';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
 export const SEED_DIR = join(ROOT, 'supabase', 'seed');
+/** Dev/test-only SQL (LocalAuthProvider storage, ADR-016). Never applied to real environments. */
+export const LOCAL_DIR = join(ROOT, 'supabase', 'local');
 
 /** Admin (superuser) URL used only by local reset/test tooling, never by the runtime. */
 export function adminUrl(): string {
@@ -105,7 +107,10 @@ export async function applyMigrations(client: pg.Client, files = listMigrations(
 }
 
 /** Drop and recreate a database, then apply all migrations (and optionally seeds). */
-export async function resetDatabase(name: string, options: { seed?: boolean } = {}) {
+export async function resetDatabase(
+  name: string,
+  options: { seed?: boolean; localAuth?: boolean } = {},
+) {
   const admin = adminUrl();
   assertSafeToReset(admin);
   if (!/^[a-z_][a-z0-9_]{0,62}$/.test(name)) throw new Error('invalid database name');
@@ -125,6 +130,9 @@ export async function resetDatabase(name: string, options: { seed?: boolean } = 
     const roleExists = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime'`);
     if (roleExists.rowCount === 1) {
       await client.query(`ALTER ROLE app_runtime WITH LOGIN PASSWORD 'local-dev-only'`);
+    }
+    if (options.localAuth !== false) {
+      for (const file of listSeeds(LOCAL_DIR)) await client.query(file.sql);
     }
     const seeds: string[] = [];
     if (options.seed) {

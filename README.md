@@ -23,11 +23,16 @@ Requirements: Node 22+, pnpm 10, PostgreSQL 16 binaries (no Docker needed).
 
 ```bash
 pnpm install
-scripts/db/local-pg.sh start   # local PostgreSQL on 127.0.0.1:54329
-pnpm db:reset                  # create database 'stumps' from migrations
-cp .env.example .env           # adjust as needed
-pnpm dev                       # web on :3000, API on :4000
+scripts/db/local-pg.sh start                 # local PostgreSQL on 127.0.0.1:54329
+pnpm setup:env                               # writes .env + apps/web/.env.local with fresh secrets
+pnpm db:reset                                # create database 'stumps' from migrations
+printf 'your-club-code-here\n' | pnpm ops:set-access-code   # open the gate (operator, once)
+pnpm dev                                     # web on :3000, API on :4000
+pnpm dev:mailbox                             # local invitation/recovery emails (LocalAuthProvider)
+pnpm ops:bootstrap-admin --email you@example.com   # after you have signed up: first super admin
 ```
+
+Local development uses a dev-only Auth adapter (ADR-016); production uses Supabase Auth.
 
 Quality gates: `pnpm lint`, `pnpm typecheck`, `pnpm contracts:check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:e2e`, `pnpm build`. See [AGENTS.md](AGENTS.md) for conventions and `docs/phase-reports/` for per-phase evidence.
 

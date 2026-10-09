@@ -12,6 +12,7 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `010_profiles_security` | 2–3 | profiles, admin_assignments, access_config, access_attempts, access_request_receipts, gate_grants, enrollment_invites, app_sessions, socket_tickets, request_receipts, security_events, admin_audit, runtime_leases, announcements |
 | `020_catalog` | 2, 6 | data_sources, seasons, franchises, season_franchises, players, player_external_ids, player_seasons, data_versions, player_statistics, player_ratings, media_assets, card_definitions, card_players, auction_rulesets, auction_pool_entries |
 | `030_social_achievements` | 2, 13–14 | friendships, user_blocks, notifications, achievement_receipts, achievement_summaries |
+| `035_access_auth` | 3 | admin_assignments.mfa_enrollment_until, rate_counters, access_config.rotated_at |
 | `040_rooms_streams_deadlines` | 5 | rooms, room_members, room_invites, room_connections, room_commands, room_streams, room_events, deadline_jobs, host_handovers |
 | `050_card_engine` | 7–8 | card_games, card_seats, card_instances, card_comparisons, card_contributions, card_cycle_counts |
 | `060_auction` | 9–12 | auction_games, auction_franchises, franchise_members, team_handovers, franchise_invites, franchise_join_requests, auction_pool, auction_nominations, auction_bids, auction_acquisitions, retention_packages, auto_strategies, team_shortlists, shortlist_votes |
@@ -72,6 +73,7 @@ Database-enforced invariants added: published data versions/rulesets and all the
 | `enrollment_invites` | S | expire 1h, delete ≤24h | auth |
 | `app_sessions` | S | delete revoked/expired after 24h | auth |
 | `socket_tickets` | S | delete ≤5 min | realtime/tickets |
+| `rate_counters` | S | 24h maximum window; swept by security-cleanup job | access-gate/auth |
 | `request_receipts` | S | 24h or room deletion | transaction |
 | `notifications` | O | max 30 days | friends/notifications |
 | `admin_audit` | O | 90 days | admin |

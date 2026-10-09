@@ -10,6 +10,15 @@ const OriginList = z
   )
   .pipe(z.array(z.url()).min(1));
 
+/** base64url secret of at least 32 bytes. Values are never echoed in errors. */
+const Base64Secret = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/, 'must be base64url')
+  .refine(
+    (value) => Buffer.from(value, 'base64url').length >= 32,
+    'must decode to at least 32 bytes',
+  );
+
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -27,6 +36,15 @@ const EnvSchema = z
     SUPABASE_JWT_ISSUER: z.url().optional(),
     SUPABASE_JWKS_URL: z.url().optional(),
     LOCAL_AUTH_JWT_SECRET: z.string().min(32).optional(),
+    SUPABASE_PUBLISHABLE_KEY: z.string().min(20).optional(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
+    AUTH_REDIRECT_ORIGIN: z.url().optional(),
+    // Secrets (base64url). Required whenever the API serves /v1 traffic.
+    BFF_SIGNING_KEY: Base64Secret.optional(),
+    ACCESS_CODE_PEPPER_V1: Base64Secret.optional(),
+    ROOM_PASSWORD_PEPPER_V1: Base64Secret.optional(),
+    INVITE_LOOKUP_HMAC_KEY: Base64Secret.optional(),
+    DATA_ENCRYPTION_KEY_V1: Base64Secret.optional(),
   })
   .transform((env) => ({
     ...env,
@@ -57,6 +75,19 @@ const EnvSchema = z
     }
     if (!env.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
+    }
+    for (const key of [
+      'BFF_SIGNING_KEY',
+      'ACCESS_CODE_PEPPER_V1',
+      'ROOM_PASSWORD_PEPPER_V1',
+      'INVITE_LOOKUP_HMAC_KEY',
+      'DATA_ENCRYPTION_KEY_V1',
+      'SUPABASE_URL',
+      'SUPABASE_PUBLISHABLE_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY',
+    ] as const) {
+      if (!env[key])
+        ctx.addIssue({ code: 'custom', path: [key], message: 'required in production' });
     }
     for (const origin of env.ALLOWED_ORIGINS) {
       if (!origin.startsWith('https://')) {

@@ -58,7 +58,8 @@ async function fingerprint(client: pg.Client): Promise<string> {
 }
 
 beforeAll(async () => {
-  await resetDatabase(DB);
+  // Production-shaped grants: without the dev-only local Auth schema (ADR-016).
+  await resetDatabase(DB, { localAuth: false });
   admin = await connect(databaseUrlFor(DB));
   runtime = await connect(runtimeUrl(DB));
 });

@@ -80,3 +80,30 @@ describe('protected admin bootstrap', () => {
     }
   });
 });
+
+describe('initial access code (operator)', () => {
+  it('sets the first code once, audits it, and refuses silent overwrites', async () => {
+    const { hashAccessCode, setInitialAccessCode } =
+      await import('../../scripts/bootstrap-admin/access-code');
+    const name = 'stumps_it_initial_code';
+    await resetDatabase(name);
+    const client = await connect(databaseUrlFor(name));
+    try {
+      const pepper = Buffer.alloc(32, 7).toString('base64url');
+      await setInitialAccessCode(client, await hashAccessCode('first-gate-code-123', pepper));
+      const cfg = await client.query(
+        'SELECT code_hash IS NOT NULL AS set, version::int FROM app_private.access_config',
+      );
+      expect(cfg.rows[0]).toEqual({ set: true, version: 2 });
+      await expect(
+        setInitialAccessCode(client, await hashAccessCode('second-code-xyz', pepper)),
+      ).rejects.toThrow(/already set/);
+      const audit = await client.query(
+        `SELECT count(*)::int AS n FROM app_private.admin_audit WHERE action = 'access.bootstrap'`,
+      );
+      expect(audit.rows[0]).toEqual({ n: 1 });
+    } finally {
+      await client.end();
+    }
+  });
+});

@@ -4,12 +4,12 @@
  * Each flag flips only in the phase that makes the flow genuinely work.
  */
 export const FEATURES = {
-  accessGate: false,
+  accessGate: true,
   dashboard: false,
   cardBattle: false,
   megaAuction: false,
   social: false,
-  admin: false,
+  admin: true,
 } as const;
 
 export type FeatureName = keyof typeof FEATURES;

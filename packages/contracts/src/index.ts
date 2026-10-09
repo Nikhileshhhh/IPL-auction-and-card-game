@@ -5,3 +5,4 @@ export * from './commands';
 export * from './events';
 export * from './health';
 export * from './auth';
+export * from './ingress';

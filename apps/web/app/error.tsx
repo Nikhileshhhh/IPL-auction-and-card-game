@@ -11,7 +11,7 @@ export default function RouteError({ reset }: { error: Error; reset: () => void 
         <button
           type="button"
           onClick={reset}
-          className="mt-6 min-h-12 rounded-lg bg-card px-5 font-semibold text-base"
+          className="mt-6 min-h-12 rounded-lg bg-card px-5 font-semibold text-midnight"
         >
           Retry
         </button>
