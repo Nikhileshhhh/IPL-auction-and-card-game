@@ -17,4 +17,18 @@ The normative product specification lives in [`docs/spec/`](docs/spec/):
 | [UI/UX design system](docs/spec/UI_UX_DESIGN_SYSTEM.md) | Tokens, components and all 35 screens |
 | [Implementation prompts](docs/spec/CODEX_IMPLEMENTATION_PROMPTS.md) | Phase-by-phase build roadmap (phases 00–19) |
 
+## Development
+
+Requirements: Node 22+, pnpm 10, PostgreSQL 16 binaries (no Docker needed).
+
+```bash
+pnpm install
+scripts/db/local-pg.sh start   # local PostgreSQL on 127.0.0.1:54329
+pnpm db:reset                  # create database 'stumps' from migrations
+cp .env.example .env           # adjust as needed
+pnpm dev                       # web on :3000, API on :4000
+```
+
+Quality gates: `pnpm lint`, `pnpm typecheck`, `pnpm contracts:check`, `pnpm test:unit`, `pnpm test:integration`, `pnpm test:e2e`, `pnpm build`. See [AGENTS.md](AGENTS.md) for conventions and `docs/phase-reports/` for per-phase evidence.
+
 STUMPS is not affiliated with the IPL, BCCI or any franchise. Historical rulesets are labeled as simulations.

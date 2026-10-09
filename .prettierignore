@@ -1,0 +1,11 @@
+node_modules
+dist
+.next
+pnpm-lock.yaml
+docs/spec
+coverage
+playwright-report
+test-results
+.local
+*.md
+packages/contracts/schema

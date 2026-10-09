@@ -1,0 +1,36 @@
+# Supabase CLI configuration for environments where Docker is available.
+# The container used for this build has no Docker daemon; local tests use
+# scripts/db/local-pg.sh instead (ADR-016). Migrations are identical.
+project_id = "stumps"
+
+[api]
+enabled = true
+port = 54321
+# Game tables live in app_private and are never exposed through the Data API.
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 50
+
+[db]
+port = 54322
+major_version = 16
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+enable_signup = false
+enable_anonymous_sign_ins = false
+jwt_expiry = 3600
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "2MiB"

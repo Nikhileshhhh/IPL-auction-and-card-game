@@ -1,0 +1,42 @@
+/* STUMPS design tokens (UI/UX spec §2). */
+:root {
+  --bg-base: #07111f;
+  --bg-raised: #101e30;
+  --bg-overlay: #172941;
+  --text-primary: #f4f7fb;
+  --text-secondary: #b5c3d6;
+  --text-muted: #91a5c0;
+  --line-default: #334b66;
+  --accent-card: #44e0b1;
+  --accent-auction: #f0c879;
+  --accent-focus: #7dbaff;
+  --status-success: #72dda7;
+  --status-warning: #ffd280;
+  --status-error: #ff9ea5;
+  --rarity-normal: #9aafc4;
+  --rarity-bronze: #cf9466;
+  --rarity-silver: #d6e1ed;
+  --rarity-gold: #ebc875;
+  --rarity-platinum: #bce5f1;
+  --rarity-dual: #cbb9ff;
+  --radius-control: 8px;
+  --radius-panel-sm: 12px;
+  --radius-panel: 20px;
+  --radius-tile: 24px;
+  --radius-card-art: 16px;
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.24);
+  --shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.32);
+  --shadow-overlay: 0 24px 80px rgba(0, 0, 0, 0.48);
+  --gutter: 16px;
+  --content-max: 1440px;
+}
+@media (min-width: 640px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 40px;
+  }
+}

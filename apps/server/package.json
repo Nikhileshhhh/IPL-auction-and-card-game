@@ -1,0 +1,28 @@
+{
+  "name": "@stumps/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@stumps/contracts": "workspace:*",
+    "@stumps/game-engines": "workspace:*",
+    "fastify": "5.12.5",
+    "pg": "8.23.0",
+    "pino": "10.3.1",
+    "socket.io": "4.8.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "socket.io-client": "4.8.3",
+    "tsup": "8.5.1"
+  }
+}

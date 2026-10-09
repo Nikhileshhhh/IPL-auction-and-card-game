@@ -164,3 +164,4 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | Phase | Date | Result | Report |
 |---|---|---|---|
 | 00 | 2026-10-09 | Docs and contract catalogs created | `docs/phase-reports/phase-00.md` |
+| 01 | 2026-10-09 | Runnable monorepo, health-only API, branded shell | `docs/phase-reports/phase-01.md` |

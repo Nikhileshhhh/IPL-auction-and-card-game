@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+@import '@stumps/ui/tokens.css';
+
+@theme {
+  --color-base: var(--bg-base);
+  --color-raised: var(--bg-raised);
+  --color-overlay: var(--bg-overlay);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-muted);
+  --color-line: var(--line-default);
+  --color-card: var(--accent-card);
+  --color-auction: var(--accent-auction);
+  --color-focus: var(--accent-focus);
+  --color-ok: var(--status-success);
+  --color-warn: var(--status-warning);
+  --color-bad: var(--status-error);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-feature-settings: 'tnum' 1;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
