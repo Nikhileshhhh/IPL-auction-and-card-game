@@ -1,0 +1,12 @@
+{
+  "$comment": "Audience projection rules (DB/realtime §3.1, §10 authorization matrix). The projection module is the single redaction boundary.",
+  "specVersion": "1.0",
+  "streams": {
+    "room":   { "key": "room:{roomId}",            "members": "current room members incl. spectators (public projection only)" },
+    "team":   { "key": "team:{franchiseId}",       "members": "current approved franchise members; former members lose replay access" },
+    "member": { "key": "member:{membershipId}",    "members": "that membership only" }
+  },
+  "neverInPublicPayloads": ["undealt deck order", "future card identities", "RNG seed before terminal state", "auto strategy ceilings", "team shortlist/notes", "team chat", "room password", "invitation codes (except authorized display to members)", "email addresses", "Auth IDs"],
+  "spectator": "Receives only the public room projection (P1, max 20).",
+  "adminDefault": "No ordinary admin endpoint exposes undealt cards, private team strategy or private chat."
+}

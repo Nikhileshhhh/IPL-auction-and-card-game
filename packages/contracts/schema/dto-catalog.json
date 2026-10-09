@@ -1,0 +1,28 @@
+{
+  "$comment": "Server-produced DTO field catalogue (DB/realtime §10). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
+  "specVersion": "1.0",
+  "envelopes": {
+    "success": ["ok:true", "data", "serverNow", "requestId"],
+    "failure": ["ok:false", "error:{code,message,retryable,details?}", "serverNow", "requestId"]
+  },
+  "dtos": {
+    "MemberSummary":         ["id", "username", "displayName", "avatarUrl?", "connectionStatus", "seat?", "ready", "role"],
+    "RoomLobbyDTO":          ["roomId", "gameType", "name", "hostMemberId", "configVersion", "stateVersion", "lifecycle", "phase", "settings", "ruleLabels", "members", "myCapabilities", "myMembershipId", "roomCode?", "expiresAt"],
+    "PublicCardDTO":         ["instanceId", "definitionId", "players", "rarity", "stars", "ratings", "provenance", "dataVersion", "modelVersion"],
+    "PublicCardPlayer":      ["id", "name", "country", "role", "battingStyle", "bowlingStyle?", "franchiseId?", "portraitUrl"],
+    "PermittedCardSnapshot": ["totalCards", "deckCountsBySeat", "visibleCards", "potCount", "contributions", "comparisonId", "chainIndex", "selectorSeat", "eligibleSeats", "tiedSeats", "metric?", "deadline?", "myAllowedActions", "seedCommitment", "finishPending"],
+    "PlayerPublicDTO":       ["id", "name", "country", "role", "capabilityTags", "portraitUrl", "franchiseHistory", "rawStatistics", "ratings", "completeness", "sourceLabels", "dataVersion", "availability"],
+    "NominationDTO":         ["id", "player", "stage", "status", "basePriceRupees", "highBidRupees?", "highFranchiseId?", "bidVersion", "deadline?", "rtmFranchiseId?", "publicFranchisePursesAndCounts", "ownLegalNextBidRupees?", "ownRejectionReason?"],
+    "SquadDTO":              ["franchiseId", "acquisitions", "remainingPurseRupees", "reserveRupees", "overseasCount", "rosterCount", "deficits", "provisionalXI?"],
+    "StrategyDTO":           ["franchiseId", "version", "enabled", "targetLimits", "roleLimits", "priorityOrder", "totalAutoCapRupees", "spentAutoRupees", "maxAutoPurchases", "purchasesAuto", "minReserveRupees", "allowRTM", "rtmCeilingRupees?", "controlEpoch"],
+    "VoteDTO":               ["id", "startsAt", "expiresAt", "electorateCount", "threshold", "status", "canVote", "myRecordedChoice?", "representativeMemberId?", "savedPhaseLabel"],
+    "ResultDTO":             ["gameType", "completionReason", "qualificationStatus", "rankings", "ownCredits", "publicScoreReports?", "ownPrivateReport?", "rulesVersion", "dataVersion", "evaluatorVersion?", "resultsExpiresAt", "seedAudit?"],
+    "ProfileDTO":            ["userId", "username", "displayName", "avatarUrl?", "bio?", "privacy", "friendshipStatus", "achievementSummary", "permittedActivity?"],
+    "PermittedSnapshotDTO":  ["room", "me", "game", "presence", "openVote?", "results?", "cursors", "serverNow"],
+    "BidAcceptedDTO":        ["commandId", "nominationVersion", "acceptedAmountRupees", "deadline", "stateVersion"],
+    "AttemptStatusDTO":      ["gateStatus", "remainingAttempts", "lockedUntil?", "grantExpiresAt?", "serverNow"]
+  },
+  "changesFromSpec": [
+    "PublicCardPlayer.portraitUrl and PlayerPublicDTO.portraitUrl are REQUIRED (spec lists them optional). Decision ADR-017: every published card/pool player has an approved portrait asset; an original silhouette asset is the explicit fallback, never an absent image."
+  ]
+}
