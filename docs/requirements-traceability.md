@@ -9,7 +9,7 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-01 | Private website gate: exactly 3 failed attempts per protected bucket, lockout, rotation (preserve/revoke) | 3 | server/modules/access-gate; web (public)/access | `tests/security/access-gate.spec.ts` | Planned |
 | RQ-02 | Supabase Auth closed enrollment via gate-bound invitation; login/recovery; HttpOnly BFF session | 3 | server/modules/auth; web lib/server-auth, app/api/v1 | `tests/security/auth-session.spec.ts` | Planned |
 | RQ-03 | Admin role from DB assignment + MFA (AAL2) + step-up; operator bootstrap script | 3 | server/modules/admin; scripts/bootstrap-admin | `tests/security/admin-mfa.spec.ts` | Planned |
-| RQ-04 | Browser roles denied on all app tables; FORCE RLS; app_runtime least privilege | 2 | supabase/migrations | `tests/integration/rls.spec.ts` | Planned |
+| RQ-04 | Browser roles denied on all app tables; FORCE RLS; app_runtime least privilege | 2 | supabase/migrations | `tests/integration/rls.spec.ts` | Done (phase 02) |
 | RQ-05 | Two-game dashboard (S04) with profile/medal summary from receipts only | 4 | web (member)/play; packages/ui | `tests/e2e/dashboard.spec.ts` | Planned |
 | RQ-06 | Generated 12-char room codes, optional room password, capacity under lock, lobby readiness/config version, host lifecycle | 5 | server/modules/rooms, presence | `tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts` | Planned |
 | RQ-07 | Command receipts/idempotency, audience streams, outbox, snapshot/replay, durable deadlines, runtime lease | 5 | server/db/transaction; realtime/*; jobs/* | `tests/integration/realtime.spec.ts` | Planned |
@@ -106,7 +106,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E61 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
 | E62 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
 | E63 | 14 | evaluation | `tests/integration/evaluation-resume.spec.ts` | Planned |
-| E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` | Planned |
+| E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` | Partial — DB immutability triggers tested in `tests/integration/rls.spec.ts` (phase 02); room snapshot behavior pending phase 06/07 |
 | E65 | 6 | media | `tests/security/uploads.spec.ts` | Planned |
 | E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
 | E67 | 13 | friends | `tests/integration/friends.spec.ts` | Planned |
@@ -165,3 +165,4 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 |---|---|---|---|
 | 00 | 2026-10-09 | Docs and contract catalogs created | `docs/phase-reports/phase-00.md` |
 | 01 | 2026-10-09 | Runnable monorepo, health-only API, branded shell | `docs/phase-reports/phase-01.md` |
+| 02 | 2026-10-09 | Migrations 000–030, RLS/grants, transaction helper, Auth adapter, admin bootstrap | `docs/phase-reports/phase-02.md` |

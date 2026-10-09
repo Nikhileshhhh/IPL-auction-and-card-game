@@ -3,6 +3,7 @@ import { buildApp } from './app';
 import { createPool } from './db/pool';
 import { databaseCheck } from './http/readiness';
 import { attachGateway } from './realtime/gateway';
+import { schemaCheck } from './db/schema-version';
 
 async function main() {
   const env = loadEnv();
@@ -10,7 +11,7 @@ async function main() {
     ? createPool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX })
     : undefined;
 
-  const app = await buildApp({ env, readinessChecks: [databaseCheck(pool)] });
+  const app = await buildApp({ env, readinessChecks: [databaseCheck(pool), schemaCheck(pool)] });
   const io = attachGateway(app.server, { allowedOrigins: env.ALLOWED_ORIGINS });
 
   await app.listen({ host: env.HOST, port: env.PORT });

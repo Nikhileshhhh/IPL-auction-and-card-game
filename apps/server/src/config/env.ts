@@ -22,13 +22,39 @@ const EnvSchema = z
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
     APP_ORIGIN: z.url().default('http://localhost:3000'),
     ALLOWED_ORIGINS: OriginList.optional(),
+    AUTH_PROVIDER: z.enum(['supabase', 'local']).optional(),
+    SUPABASE_URL: z.url().optional(),
+    SUPABASE_JWT_ISSUER: z.url().optional(),
+    SUPABASE_JWKS_URL: z.url().optional(),
+    LOCAL_AUTH_JWT_SECRET: z.string().min(32).optional(),
   })
   .transform((env) => ({
     ...env,
     ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? [env.APP_ORIGIN],
   }))
   .superRefine((env, ctx) => {
+    if (env.AUTH_PROVIDER === 'supabase' && (!env.SUPABASE_JWT_ISSUER || !env.SUPABASE_JWKS_URL)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SUPABASE_JWKS_URL'],
+        message: 'SUPABASE_JWT_ISSUER and SUPABASE_JWKS_URL are required for the supabase provider',
+      });
+    }
+    if (env.AUTH_PROVIDER === 'local' && !env.LOCAL_AUTH_JWT_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LOCAL_AUTH_JWT_SECRET'],
+        message: 'required for the local provider',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
+    if (env.AUTH_PROVIDER !== 'supabase') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_PROVIDER'],
+        message: 'production requires supabase',
+      });
+    }
     if (!env.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
     }

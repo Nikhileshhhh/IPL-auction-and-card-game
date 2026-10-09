@@ -22,6 +22,22 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 
 Phase 02 delivers files numbered `000`–`030` exactly as the phase 02 prompt requires; later phases add their own numbered files (`040`+). If a later phase needs to change an earlier table it adds a new forward migration rather than editing an applied one.
 
+## Implemented deviations from the spec dictionary (phase 02)
+
+| Table | Change | Reason |
+|---|---|---|
+| `profiles` | added `onboarded_at` | A profile row (temporary username) must exist when the gate grant binds at first sign-in (`gate_grants.user_id → profiles`); onboarding (S03) sets the real username and this timestamp |
+| `app_sessions` | added `gate_grant_id`, `aal`, `step_up_at` | Gate binding, admin AAL2 and 5-minute step-up checks are enforced from server state |
+| `player_seasons` | keyed by `(data_version_id, player_id)` instead of `(player, season)`; added `portrait_asset_id` | Published snapshots must be immutable per data version; portrait per version (ADR-017) |
+| `players`, `franchises` | added `is_fictional`; franchises add `short_name`, `secondary_hex` | DEMO labeling and original crest rendering |
+| `media_assets` | added `purpose`, `width`, `height`, `variant_widths`, `rights_basis`, `alt_text` | Portrait pipeline with WebP variants and descriptive alt text |
+| `data_versions` | added `kind`, `derived_from` | Demo vs factual packs; correction lineage |
+| `auction_rulesets` | added `data_version_id`, `published_at` | A ruleset pool resolves player facts/portraits from one frozen data version |
+| `auction_pool_entries` | added `set_label` | Published role/base-price sets for nomination order |
+| `access_config` | `code_hash` nullable | Gate is closed (fail-closed) until an operator sets the first code |
+
+Database-enforced invariants added: published data versions/rulesets and all their child rows are immutable (triggers); dual cards have exactly two players and other rarities one (deferred constraint trigger); receipts' medal ↔ place mapping and `medal ⇒ qualifies`; runtime role cannot insert `admin_assignments`, update/delete receipts, or run DDL.
+
 ## Retention ownership map
 
 | Table | Class | TTL / deletion owner | Owner module |

@@ -44,6 +44,10 @@ export default defineConfig(
     },
   },
   {
+    files: ['tests/**/*.ts', '**/test/**/*.ts'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks, '@next/next': nextPlugin },
     languageOptions: { globals: { ...globals.browser } },

@@ -21,14 +21,27 @@ describe('loadEnv', () => {
   });
 
   it('never echoes variable values in errors', () => {
-    const secret = 'postgres://user:super-secret-password@db/x';
+    const secret = 'postgres://user:fixture-secret-value@db/x';
     try {
       loadEnv({ DATABASE_URL: secret, PORT: 'not-a-port' });
       expect.unreachable();
     } catch (error) {
-      expect((error as Error).message).not.toContain('super-secret-password');
+      expect((error as Error).message).not.toContain('fixture-secret-value');
       expect((error as Error).message).toContain('PORT');
     }
+  });
+
+  it('production requires the Supabase Auth provider with pinned issuer and JWKS', () => {
+    expect(() =>
+      loadEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://x@db/y',
+        APP_ORIGIN: 'https://play.test',
+        AUTH_PROVIDER: 'local',
+        LOCAL_AUTH_JWT_SECRET: 'x'.repeat(40),
+      }),
+    ).toThrow(/AUTH_PROVIDER: production requires supabase/);
+    expect(() => loadEnv({ AUTH_PROVIDER: 'supabase' })).toThrow(/SUPABASE_JWKS_URL/);
   });
 
   it('bounds the pool size', () => {
