@@ -70,6 +70,8 @@ export function totp(secret: string): string {
 }
 
 export async function expectNoSeriousA11yViolations(page: Page) {
+  // Client navigations stream metadata; audit the settled page, not a half-updated head.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();

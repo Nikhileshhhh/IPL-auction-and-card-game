@@ -12,6 +12,7 @@ export function GameHub({
   createHref,
   joinHref,
   rules,
+  browse,
 }: {
   title: string;
   accent: 'card' | 'auction';
@@ -21,6 +22,8 @@ export function GameHub({
   createHref: string;
   joinHref: string;
   rules: string[];
+  /** Optional extra link, e.g. the card pool browser. */
+  browse?: { href: string; label: string };
 }) {
   const action = `inline-flex min-h-12 items-center justify-center rounded-[var(--radius-control)] px-5 font-semibold`;
   return (
@@ -46,6 +49,11 @@ export function GameHub({
             <Link href={joinHref} className={`${action} border border-control bg-raised`}>
               Join with a code
             </Link>
+            {browse ? (
+              <Link href={browse.href} className={`${action} text-ink-2 underline`}>
+                {browse.label}
+              </Link>
+            ) : null}
           </>
         ) : (
           <StatusMessage tone="info" title="Rooms are not open yet">

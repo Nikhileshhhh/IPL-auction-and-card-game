@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BODY = 16 * 1024;
 const MAX_IMPORT_BODY = 5 * 1024 * 1024;
+// Admin portrait uploads: 2 MiB image as base64 inside JSON.
+const MAX_MEDIA_BODY = 3 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function failure(status: number, code: string, message: string) {
@@ -49,7 +51,12 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     }
   }
 
-  const limit = joined === 'admin/catalog/imports' ? MAX_IMPORT_BODY : MAX_BODY;
+  const limit =
+    joined === 'admin/catalog/imports'
+      ? MAX_IMPORT_BODY
+      : joined === 'admin/catalog/media'
+        ? MAX_MEDIA_BODY
+        : MAX_BODY;
   const declared = Number(request.headers.get('content-length') ?? '0');
   if (declared > limit) return failure(413, 'PAYLOAD_TOO_LARGE', 'Request body is too large.');
   const body = method === 'GET' || method === 'HEAD' ? '' : await request.text();

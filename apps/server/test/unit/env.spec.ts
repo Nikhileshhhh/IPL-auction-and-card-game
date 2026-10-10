@@ -44,6 +44,13 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ AUTH_PROVIDER: 'supabase' })).toThrow(/SUPABASE_JWKS_URL/);
   });
 
+  it('production keeps portraits in private Supabase Storage, not on local disk', () => {
+    expect(() => loadEnv({ NODE_ENV: 'production', APP_ORIGIN: 'https://play.test' })).toThrow(
+      /MEDIA_STORAGE: production requires supabase/,
+    );
+    expect(loadEnv({}).MEDIA_STORAGE).toBe('local');
+  });
+
   it('bounds the pool size', () => {
     expect(() => loadEnv({ DATABASE_POOL_MAX: '500' })).toThrow(/DATABASE_POOL_MAX/);
   });

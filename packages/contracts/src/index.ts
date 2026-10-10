@@ -8,3 +8,4 @@ export * from './auth';
 export * from './ingress';
 export * from './profile';
 export * from './rooms';
+export * from './catalog';

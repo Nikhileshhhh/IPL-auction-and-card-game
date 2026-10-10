@@ -48,3 +48,92 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* ------------------------------------------------------------------ cards
+   Original STUMPS frames (UI spec §2 card art): effects sit on the frame only
+   and never cover numbers; reduced motion removes the spectral shimmer. */
+.stumps-card {
+  --frame: var(--rarity-normal);
+  --frame-2: #5d7187;
+  background: linear-gradient(145deg, var(--frame), var(--frame-2) 55%, var(--frame));
+  clip-path: polygon(
+    14px 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    14px 100%,
+    0 calc(100% - 14px),
+    0 14px
+  );
+}
+.stumps-card[data-rarity='bronze'] {
+  --frame: var(--rarity-bronze);
+  --frame-2: #7a4a27;
+}
+.stumps-card[data-rarity='silver'] {
+  --frame: var(--rarity-silver);
+  --frame-2: #7f93a8;
+}
+.stumps-card[data-rarity='gold'] {
+  --frame: var(--rarity-gold);
+  --frame-2: #9a7428;
+}
+.stumps-card[data-rarity='platinum'] {
+  --frame: var(--rarity-platinum);
+  --frame-2: #6aa6bd;
+}
+.stumps-card[data-rarity='dual_platinum'] {
+  --frame: var(--rarity-dual);
+  --frame-2: #6aa6bd;
+}
+.stumps-card[data-rarity='platinum'],
+.stumps-card[data-rarity='dual_platinum'] {
+  background: linear-gradient(
+    120deg,
+    var(--frame),
+    var(--frame-2),
+    #f3e9ff,
+    var(--frame),
+    var(--frame-2)
+  );
+  background-size: 300% 300%;
+  animation: stumps-spectral 9s ease-in-out infinite alternate;
+}
+.stumps-card[data-rarity='gold'] .stumps-card-foil {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 235, 170, 0.22) 45%,
+    transparent 60%
+  );
+}
+.stumps-card[data-rarity='silver'] .stumps-card-foil {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 40%);
+}
+.stumps-card-inner {
+  clip-path: polygon(
+    11px 0,
+    calc(100% - 11px) 0,
+    100% 11px,
+    100% calc(100% - 11px),
+    calc(100% - 11px) 100%,
+    11px 100%,
+    0 calc(100% - 11px),
+    0 11px
+  );
+}
+@keyframes stumps-spectral {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stumps-card[data-rarity='platinum'],
+  .stumps-card[data-rarity='dual_platinum'] {
+    animation: none;
+  }
+}

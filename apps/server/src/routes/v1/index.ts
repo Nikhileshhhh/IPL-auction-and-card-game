@@ -8,11 +8,13 @@ import { authRoutes } from './auth';
 import { profileRoutes } from './profiles';
 import { realtimeRoutes } from './realtime';
 import { roomRoutes } from './rooms';
+import { catalogRoutes } from './catalog';
 
 /** Versioned API root. Feature modules register here as their phases land. */
 export async function v1Routes(app: FastifyInstance, opts: { runtime?: RuntimeDeps }) {
   app.addHook('onSend', async (_request, reply) => {
-    reply.header('Cache-Control', 'private, no-store');
+    // Private by default; media bytes set their own short private cache.
+    if (!reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'private, no-store');
   });
 
   app.get('/meta/version', async (request) =>
@@ -31,4 +33,5 @@ export async function v1Routes(app: FastifyInstance, opts: { runtime?: RuntimeDe
   await adminRoutes(app, runtime);
   await realtimeRoutes(app, runtime);
   await roomRoutes(app, runtime);
+  await catalogRoutes(app, runtime);
 }

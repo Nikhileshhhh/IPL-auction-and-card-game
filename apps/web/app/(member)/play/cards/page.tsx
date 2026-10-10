@@ -14,6 +14,7 @@ export default function CardsHubPage() {
       enabled={FEATURES.rooms}
       createHref="/play/cards/create"
       joinHref="/play/cards/join"
+      browse={{ href: '/play/cards/collection', label: 'Browse the card pool' }}
       rules={[
         'Each round everyone reveals their top card; the selector picks one category.',
         'The highest rating wins every card in the pot; ties grow the pot until resolved.',

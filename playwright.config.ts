@@ -60,6 +60,7 @@ export default defineConfig({
         ROOM_PASSWORD_PEPPER_V1: secret('ROOM_PASSWORD_PEPPER_V1'),
         INVITE_LOOKUP_HMAC_KEY: secret('INVITE_LOOKUP_HMAC_KEY'),
         DATA_ENCRYPTION_KEY_V1: secret('DATA_ENCRYPTION_KEY_V1'),
+        MEDIA_DIR: '.local/e2e-media',
       },
       reuseExistingServer: false,
       timeout: 120_000,

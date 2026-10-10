@@ -13,3 +13,6 @@ playwright-report/
 test-results/
 .DS_Store
 next-env.d.ts
+
+# Downloaded third-party data (re-fetch with pnpm data:fetch)
+data/raw/

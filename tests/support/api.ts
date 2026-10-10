@@ -15,6 +15,9 @@ import {
 import { sha256 } from '../../apps/server/src/security/crypto';
 import type { RuntimeDeps } from '../../apps/server/src/runtime';
 import { createRoomRuntime } from '../../apps/server/src/modules/rooms/runtime';
+import { LocalDiskStorage } from '../../apps/server/src/modules/media/storage';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { connect, databaseUrlFor, resetDatabase, runtimeUrl } from './db';
 
 export const TEST_ORIGIN = 'http://play.test';
@@ -41,7 +44,10 @@ export interface TestApi {
 }
 
 /** Spin up the real API (runtime deps + LocalAuthProvider) on a fresh database. */
-export async function createTestApi(dbName: string): Promise<TestApi> {
+export async function createTestApi(
+  dbName: string,
+  envOverrides: Record<string, string> = {},
+): Promise<TestApi> {
   await resetDatabase(dbName);
   const env = loadEnv({
     NODE_ENV: 'test',
@@ -55,6 +61,7 @@ export async function createTestApi(dbName: string): Promise<TestApi> {
     ROOM_PASSWORD_PEPPER_V1: secret(),
     INVITE_LOOKUP_HMAC_KEY: secret(),
     DATA_ENCRYPTION_KEY_V1: secret(),
+    ...envOverrides,
   });
   const pool = new pg.Pool({ connectionString: runtimeUrl(dbName), max: 8 });
   const secrets = loadSecrets(env);
@@ -70,6 +77,7 @@ export async function createTestApi(dbName: string): Promise<TestApi> {
     auth,
     bus: new SecurityBus(),
     rooms: createRoomRuntime(pool, secrets),
+    media: new LocalDiskStorage(join(tmpdir(), 'stumps-test-media', dbName)),
   };
   const app = await buildApp({ env, readinessChecks: [], runtime: deps });
   await app.ready();

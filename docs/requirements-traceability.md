@@ -13,9 +13,9 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-05 | Two-game dashboard (S04) with profile/medal summary from receipts only | 4 | web (member)/play; packages/ui | `tests/e2e/dashboard.spec.ts` | Done (phase 04) |
 | RQ-06 | Generated 12-char room codes, optional room password, capacity under lock, lobby readiness/config version, host lifecycle | 5 | server/modules/rooms, presence | `tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts; tests/security/rooms.spec.ts; tests/e2e/rooms.spec.ts` | Done (phase 05) |
 | RQ-07 | Command receipts/idempotency, audience streams, outbox, snapshot/replay, durable deadlines, runtime lease | 5 | server/db/transaction; realtime/*; jobs/* | `tests/integration/rooms-realtime.spec.ts; tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts` | Done (phase 05) |
-| RQ-08 | Cricket data pipeline: sources, versions, immutable publish, synthetic ratings v1, stars, rarity, dual cards | 6 | game-engines/ratings; server/modules/cricket-data, admin/catalog | `packages/game-engines/test/ratings.spec.ts; tests/integration/catalog.spec.ts` | Planned |
-| RQ-09 | Six rarity card renderers + dual card; readable on 360px | 6,16 | web components/cards; packages/ui | `tests/e2e/cards-visual.spec.ts` | Planned |
-| RQ-10 | Player portraits on every card and every auction lot (ADR-017, product-owner requirement) | 6,7,10,16 | media pipeline; PremiumCricketCard; AuctionPlayerSpotlight | `tests/integration/portraits.spec.ts; tests/e2e/portraits.spec.ts` | Planned |
+| RQ-08 | Cricket data pipeline: sources, versions, immutable publish, synthetic ratings v1, stars, rarity, dual cards | 6 | game-engines/ratings; server/modules/cricket-data, admin/catalog | `packages/game-engines/test/{cricsheet,ratings}.spec.ts; tests/integration/catalog.spec.ts` | Done (phase 06) |
+| RQ-09 | Six rarity card renderers + dual card; readable on 360px | 6,16 | web components/cards; packages/ui | `tests/e2e/cards.spec.ts` (six rarities + dual, 360 px and desktop screenshots, axe) | Done (phase 06); polish phase 16 |
+| RQ-10 | Player portraits on every card and every auction lot (ADR-017, product-owner requirement) | 6,7,10,16 | media pipeline; PremiumCricketCard; AuctionPlayerSpotlight | `tests/integration/catalog.spec.ts; tests/e2e/cards.spec.ts` | Partial — cards (phase 06): publish gate, photo serving, every card renders its photo(s); auction lots in phase 10 |
 | RQ-11 | Committed randomness (seed commitment, HMAC streams, rejection sampling), stratified fair deal | 7 | game-engines/card/rng, deal | `packages/game-engines/test/card-rng.spec.ts` | Planned |
 | RQ-12 | Normal contest: reveal all tops, selector chooses, timeout policy, pot to winner tail, selector passes | 7 | game-engines/card/reduce; server/modules/cards | `packages/game-engines/test/card-reduce.spec.ts` | Planned |
 | RQ-13 | Card conservation N through all transitions (DECK/ACTIVE/POT single location) | 7,8 | game-engines/card/invariants; migration 050 deferred trigger | `tests/property/card-conservation.spec.ts` | Planned |
@@ -83,7 +83,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E38 | 5 | rooms | `tests/integration/rooms.spec.ts; tests/e2e/rooms.spec.ts` | Done (phase 05) |
 | E39 | 7 | cards/catalog | `tests/integration/card-setup.spec.ts` | Planned |
 | E40 | 5 | rooms/cards | `tests/integration/rooms.spec.ts` (start refusal + suggested totals; card deal itself phase 07) | Done (phase 05) |
-| E41 | 6 | cricket-data | `packages/game-engines/test/ratings.spec.ts` | Planned |
+| E41 | 6 | cricket-data | `packages/game-engines/test/ratings.spec.ts` | Done (phase 06) |
 | E42 | 7 | cards | `packages/game-engines/test/card-deal.spec.ts` | Planned |
 | E43 | 5 | transaction | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
 | E44 | 5 | transaction | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
@@ -106,8 +106,8 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E61 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
 | E62 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
 | E63 | 14 | evaluation | `tests/integration/evaluation-resume.spec.ts` | Planned |
-| E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` | Partial — DB immutability triggers tested in `tests/integration/rls.spec.ts` (phase 02); room snapshot behavior pending phase 06/07 |
-| E65 | 6 | media | `tests/security/uploads.spec.ts` | Planned |
+| E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` (published version immutable; new data → new version) | Done (phase 06) |
+| E65 | 6 | media | `apps/server/test/unit/media.spec.ts; tests/integration/catalog.spec.ts` | Done (phase 06) |
 | E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
 | E67 | 13 | friends | `tests/integration/friends.spec.ts` | Planned |
 | E68 | 13 | chat | `tests/security/chat-acl.spec.ts` | Planned |

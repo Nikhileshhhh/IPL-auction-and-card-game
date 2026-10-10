@@ -411,6 +411,78 @@
       "phase": 6
     },
     {
+      "method": "GET",
+      "path": "/v1/catalog/showcase",
+      "rights": "G",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/catalog/cards",
+      "rights": "G",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/catalog/cards/:id",
+      "rights": "G",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/media/:assetId/:width",
+      "rights": "G",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/versions",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/imports/:id",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/versions/:id/players",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/versions/:id/cards",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/cards/:id",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/versions/:id/discard",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/catalog/media/:id/review",
+      "rights": "A",
+      "phase": 6
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/catalog/media/:assetId/:width",
+      "rights": "A",
+      "phase": 6
+    },
+    {
       "method": "POST",
       "path": "/v1/admin/users/:id/restrictions",
       "rights": "A+step-up",

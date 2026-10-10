@@ -10,6 +10,8 @@ import { SecurityBus } from './realtime/security-bus';
 import { startSecurityCleanup } from './jobs/security-cleanup';
 import { startRoomWorkers } from './jobs/room-workers';
 import { createRoomRuntime } from './modules/rooms/runtime';
+import { LocalDiskStorage, SupabaseStorage, type MediaStorage } from './modules/media/storage';
+import { failInterruptedImports } from './modules/cricket-data/service';
 import { OutboxDispatcher } from './realtime/dispatcher';
 import { evictFromRoom, registerRoomSockets } from './realtime/rooms-socket';
 import type { ServerEnv } from './config/env';
@@ -19,6 +21,17 @@ import { randomUUID } from 'node:crypto';
 function requireValue(value: string | undefined, name: string): string {
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+function createMediaStorage(env: ServerEnv): MediaStorage {
+  if (env.MEDIA_STORAGE === 'supabase') {
+    return new SupabaseStorage(
+      requireValue(env.SUPABASE_URL, 'SUPABASE_URL'),
+      requireValue(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY'),
+      env.MEDIA_BUCKET,
+    );
+  }
+  return new LocalDiskStorage(env.MEDIA_DIR);
 }
 
 function createAuthProvider(env: ServerEnv, pool: pg.Pool): AuthProvider {
@@ -60,6 +73,7 @@ async function main() {
           auth: createAuthProvider(env, pool),
           bus: new SecurityBus(),
           rooms: createRoomRuntime(pool, secrets),
+          media: createMediaStorage(env),
         }
       : undefined;
   const instanceId = randomUUID();
@@ -81,6 +95,7 @@ async function main() {
   // Rooms: durable outbox → Socket.IO, fenced deadline workers, presence sweep.
   let stopRooms: () => Promise<void> = async () => undefined;
   if (runtime) {
+    await failInterruptedImports(runtime.pool).catch(() => undefined);
     const outbox = new OutboxDispatcher(runtime.pool, io);
     runtime.rooms.bind({
       wake: outbox.wake,

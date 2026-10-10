@@ -32,11 +32,16 @@ export interface ApiCall {
   refresh?: string;
   /** Validated command idempotency key (separate from the ingress nonce). */
   idempotencyKey?: string;
+  binary?: boolean;
 }
 
 export interface ApiResult {
   status: number;
   text: string;
+  /** Raw bytes when the call asked for `binary` (images). */
+  bytes?: ArrayBuffer;
+  contentType?: string | null;
+  cacheControl?: string | null;
   directives: BffDirectives | undefined;
   retryAfter: string | null;
 }
@@ -113,6 +118,18 @@ export async function callApi(call: ApiCall): Promise<ApiResult> {
     } catch {
       directives = undefined;
     }
+  }
+  const contentType = response.headers.get('content-type');
+  if (call.binary && response.ok && contentType?.startsWith('image/')) {
+    return {
+      status: response.status,
+      text: '',
+      bytes: await response.arrayBuffer(),
+      contentType,
+      cacheControl: response.headers.get('cache-control'),
+      directives,
+      retryAfter: null,
+    };
   }
   return {
     status: response.status,

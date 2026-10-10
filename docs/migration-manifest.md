@@ -14,6 +14,7 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `030_social_achievements` | 2, 13–14 | friendships, user_blocks, notifications, achievement_receipts, achievement_summaries |
 | `035_access_auth` | 3 | admin_assignments.mfa_enrollment_until, rate_counters, access_config.rotated_at |
 | `040_rooms_streams_deadlines` | 5 | rooms, room_members, room_invites, room_connections, room_commands, room_streams, room_events, deadline_jobs, host_handovers |
+| `045_catalog_media_ratings` | 6 | catalog_imports; alters players, player_seasons, media_assets (free-license evidence), data_versions, card_definitions |
 | `050_card_engine` | 7–8 | card_games, card_seats, card_instances, card_comparisons, card_contributions, card_cycle_counts |
 | `060_auction` | 9–12 | auction_games, auction_franchises, franchise_members, team_handovers, franchise_invites, franchise_join_requests, auction_pool, auction_nominations, auction_bids, auction_acquisitions, retention_packages, auto_strategies, team_shortlists, shortlist_votes |
 | `070_votes_chat_assets_results_cleanup` | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
@@ -60,6 +61,7 @@ Database-enforced invariants added: published data versions/rulesets and all the
 | `player_ratings` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |
 | `media_assets` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |
 | `card_definitions` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |
+| `catalog_imports` | O | 1 year of import history, then delete; never referenced by gameplay | cricket-data |
 | `card_players` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |
 | `auction_rulesets` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |
 | `auction_pool_entries` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | cricket-data |

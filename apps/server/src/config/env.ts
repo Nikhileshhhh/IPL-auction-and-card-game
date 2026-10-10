@@ -45,6 +45,15 @@ const EnvSchema = z
     ROOM_PASSWORD_PEPPER_V1: Base64Secret.optional(),
     INVITE_LOOKUP_HMAC_KEY: Base64Secret.optional(),
     DATA_ENCRYPTION_KEY_V1: Base64Secret.optional(),
+    // Private media storage (player portraits). Local disk for dev/test; Supabase in production.
+    MEDIA_STORAGE: z.enum(['local', 'supabase']).default('local'),
+    MEDIA_DIR: z.string().min(1).default('.local/media'),
+    MEDIA_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9-]{3,63}$/)
+      .default('catalog-media'),
+    // Cricsheet archive location for imports (downloaded by scripts/data/fetch-cricsheet.ts).
+    CRICSHEET_DIR: z.string().min(1).default('data/raw/cricsheet'),
   })
   .transform((env) => ({
     ...env,
@@ -75,6 +84,14 @@ const EnvSchema = z
     }
     if (!env.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
+    }
+    if (env.MEDIA_STORAGE !== 'supabase') {
+      // Render's disk is ephemeral; portraits must live in private Supabase Storage.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MEDIA_STORAGE'],
+        message: 'production requires supabase',
+      });
     }
     for (const key of [
       'BFF_SIGNING_KEY',
