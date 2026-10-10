@@ -11,7 +11,7 @@ export default function AuctionHubPage() {
       accent="auction"
       art={<AuctionArt />}
       intro="An IPL-inspired auction simulator. Claim a franchise, invite teammates, and bid for players — each lot shows the player's portrait and ratings."
-      enabled={FEATURES.megaAuction}
+      enabled={FEATURES.rooms}
       createHref="/play/auction/create"
       joinHref="/play/auction/join"
       rules={[

@@ -6,8 +6,11 @@
 export const FEATURES = {
   accessGate: true,
   dashboard: true,
+  /** Room create/join/lobby works end to end; starting a match still needs an engine. */
+  rooms: true,
   cardBattle: false,
   megaAuction: false,
+  teams: false,
   social: false,
   admin: true,
 } as const;
@@ -17,8 +20,10 @@ export type FeatureName = keyof typeof FEATURES;
 export const FEATURE_PHASE: Record<FeatureName, string> = {
   accessGate: '03',
   dashboard: '04',
+  rooms: '05',
   cardBattle: '07',
   megaAuction: '10',
+  teams: '11',
   social: '13',
   admin: '03',
 };

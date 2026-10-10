@@ -49,6 +49,15 @@ export class PasswordHasher {
     }
   }
 
+  private dummy?: Promise<string>;
+
+  /** Same verification cost when there is nothing to compare against (unknown room/account). */
+  async verifyNothing(secret: string): Promise<false> {
+    this.dummy ??= this.hash(`dummy:${Math.random()}`);
+    await this.verify(await this.dummy, secret);
+    return false;
+  }
+
   hash(secret: string): Promise<string> {
     return this.slot(() => argon2.hash(this.peppered(secret, this.currentPepper), ARGON2_PARAMS));
   }

@@ -31,13 +31,22 @@ const OFFLINE: ApiError = {
  */
 export async function api<T>(
   path: string,
-  init: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown } = {},
+  init: {
+    method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+    body?: unknown;
+    /** Reuse the same key when retrying one logical action; defaults to a fresh UUID. */
+    idempotencyKey?: string;
+  } = {},
 ): Promise<ClientResult<T>> {
   const method = init.method ?? 'GET';
+  // Every mutation carries an Idempotency-Key; the CSRF retry below reuses it.
+  const idempotencyKey =
+    method === 'GET' ? undefined : (init.idempotencyKey ?? crypto.randomUUID());
   const send = async (token: string | undefined) => {
     const headers: Record<string, string> = { accept: 'application/json' };
     if (init.body !== undefined) headers['content-type'] = 'application/json';
     if (method !== 'GET' && token) headers['x-csrf-token'] = token;
+    if (idempotencyKey) headers['idempotency-key'] = idempotencyKey;
     return fetch(`/api/v1${path}`, {
       method,
       headers,

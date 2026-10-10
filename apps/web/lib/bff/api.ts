@@ -30,6 +30,8 @@ export interface ApiCall {
   gate?: string;
   attempt?: string;
   refresh?: string;
+  /** Validated command idempotency key (separate from the ingress nonce). */
+  idempotencyKey?: string;
 }
 
 export interface ApiResult {
@@ -73,6 +75,7 @@ export async function callApi(call: ApiCall): Promise<ApiResult> {
   if (call.gate) headers[INGRESS_HEADERS.gate] = call.gate;
   if (call.attempt) headers[INGRESS_HEADERS.attempt] = call.attempt;
   if (call.refresh) headers[INGRESS_HEADERS.refresh] = call.refresh;
+  if (call.idempotencyKey) headers['idempotency-key'] = call.idempotencyKey;
   if (body) headers['content-type'] = 'application/json';
 
   let response: Response;

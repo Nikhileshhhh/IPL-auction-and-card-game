@@ -11,8 +11,8 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-03 | Admin role from DB assignment + MFA (AAL2) + step-up; operator bootstrap script | 3 | server/modules/admin; scripts/bootstrap-admin | `tests/security/admin-mfa.spec.ts` | Done (phase 03) |
 | RQ-04 | Browser roles denied on all app tables; FORCE RLS; app_runtime least privilege | 2 | supabase/migrations | `tests/integration/rls.spec.ts` | Done (phase 02) |
 | RQ-05 | Two-game dashboard (S04) with profile/medal summary from receipts only | 4 | web (member)/play; packages/ui | `tests/e2e/dashboard.spec.ts` | Done (phase 04) |
-| RQ-06 | Generated 12-char room codes, optional room password, capacity under lock, lobby readiness/config version, host lifecycle | 5 | server/modules/rooms, presence | `tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts` | Planned |
-| RQ-07 | Command receipts/idempotency, audience streams, outbox, snapshot/replay, durable deadlines, runtime lease | 5 | server/db/transaction; realtime/*; jobs/* | `tests/integration/realtime.spec.ts` | Planned |
+| RQ-06 | Generated 12-char room codes, optional room password, capacity under lock, lobby readiness/config version, host lifecycle | 5 | server/modules/rooms, presence | `tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts; tests/security/rooms.spec.ts; tests/e2e/rooms.spec.ts` | Done (phase 05) |
+| RQ-07 | Command receipts/idempotency, audience streams, outbox, snapshot/replay, durable deadlines, runtime lease | 5 | server/db/transaction; realtime/*; jobs/* | `tests/integration/rooms-realtime.spec.ts; tests/integration/rooms.spec.ts; tests/concurrency/rooms.spec.ts` | Done (phase 05) |
 | RQ-08 | Cricket data pipeline: sources, versions, immutable publish, synthetic ratings v1, stars, rarity, dual cards | 6 | game-engines/ratings; server/modules/cricket-data, admin/catalog | `packages/game-engines/test/ratings.spec.ts; tests/integration/catalog.spec.ts` | Planned |
 | RQ-09 | Six rarity card renderers + dual card; readable on 360px | 6,16 | web components/cards; packages/ui | `tests/e2e/cards-visual.spec.ts` | Planned |
 | RQ-10 | Player portraits on every card and every auction lot (ADR-017, product-owner requirement) | 6,7,10,16 | media pipeline; PremiumCricketCard; AuctionPlayerSpotlight | `tests/integration/portraits.spec.ts; tests/e2e/portraits.spec.ts` | Planned |
@@ -46,16 +46,16 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E01 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Done (phase 03) |
 | E02 | 3 | access-gate | `tests/security/access-gate.spec.ts` | Done (phase 03) |
 | E03 | 3 | auth/access-gate | `tests/security/auth-session.spec.ts` | Done (phase 03) |
-| E04 | 5 | rooms | `tests/security/room-join.spec.ts` | Planned |
-| E05 | 5 | rooms | `tests/integration/rooms.spec.ts` | Planned |
-| E06 | 5 | rooms/presence | `tests/concurrency/host-transfer.spec.ts` | Planned |
+| E04 | 5 | rooms | `tests/security/rooms.spec.ts` | Done (phase 05) |
+| E05 | 5 | rooms | `tests/integration/rooms.spec.ts` | Done (phase 05) |
+| E06 | 5 | rooms/presence | `tests/concurrency/rooms.spec.ts; tests/integration/rooms-realtime.spec.ts` | Done (phase 05) |
 | E07 | 7 | cards | `tests/integration/card-timeout.spec.ts` | Planned |
 | E08 | 8 | cards | `packages/game-engines/test/card-ties.spec.ts` | Planned |
 | E09 | 8 | cards | `packages/game-engines/test/card-ties.spec.ts` | Planned |
 | E10 | 8 | cards | `packages/game-engines/test/card-ties.spec.ts` | Planned |
 | E11 | 8 | cards | `packages/game-engines/test/card-ties.spec.ts` | Planned |
 | E12 | 7 | cards | `packages/game-engines/test/card-reduce.spec.ts` | Planned |
-| E13 | 5 | rooms | `tests/concurrency/rooms.spec.ts` | Planned |
+| E13 | 5 | rooms | `tests/concurrency/rooms.spec.ts` | Done (phase 05) |
 | E14 | 12 | teams/presence | `tests/integration/recovery.spec.ts` | Planned |
 | E15 | 11 | teams/auctions | `tests/concurrency/team-bids.spec.ts` | Planned |
 | E16 | 10 | auctions | `tests/concurrency/bids.spec.ts` | Planned |
@@ -79,17 +79,17 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E34 | 15 | cleanup/results | `tests/integration/cleanup.spec.ts` | Planned |
 | E35 | 15 | cleanup | `tests/concurrency/cleanup.spec.ts` | Planned |
 | E36 | 12 | auth/realtime | `tests/security/revocation.spec.ts` | Planned |
-| E37 | 5 | rooms | `tests/integration/rooms.spec.ts` | Planned |
-| E38 | 5 | rooms | `tests/integration/rooms.spec.ts` | Planned |
+| E37 | 5 | rooms | `tests/integration/rooms.spec.ts` | Done (phase 05) |
+| E38 | 5 | rooms | `tests/integration/rooms.spec.ts; tests/e2e/rooms.spec.ts` | Done (phase 05) |
 | E39 | 7 | cards/catalog | `tests/integration/card-setup.spec.ts` | Planned |
-| E40 | 5 | rooms/cards | `packages/contracts/test/room-settings.spec.ts` | Planned |
+| E40 | 5 | rooms/cards | `tests/integration/rooms.spec.ts` (start refusal + suggested totals; card deal itself phase 07) | Done (phase 05) |
 | E41 | 6 | cricket-data | `packages/game-engines/test/ratings.spec.ts` | Planned |
 | E42 | 7 | cards | `packages/game-engines/test/card-deal.spec.ts` | Planned |
-| E43 | 5 | transaction | `tests/integration/idempotency.spec.ts` | Planned |
-| E44 | 5 | transaction | `tests/integration/idempotency.spec.ts` | Planned |
-| E45 | 5 | realtime | `apps/web/test/room-store.spec.ts` | Planned |
-| E46 | 5 | realtime | `tests/integration/streams.spec.ts` | Planned |
-| E47 | 5 | transaction | `tests/concurrency/deadlock.spec.ts` | Planned |
+| E43 | 5 | transaction | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
+| E44 | 5 | transaction | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
+| E45 | 5 | realtime | `apps/web/test/room-events.spec.ts` | Done (phase 05) |
+| E46 | 5 | realtime | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
+| E47 | 5 | transaction | `tests/integration/transaction.spec.ts` | Done (phase 05) |
 | E48 | 12 | realtime/web | `tests/e2e/reconnect.spec.ts` | Planned |
 | E49 | 17 | realtime | `tests/load/reconnect-storm.ts` | Planned |
 | E50 | 12 | presence | `tests/integration/recovery.spec.ts` | Planned |

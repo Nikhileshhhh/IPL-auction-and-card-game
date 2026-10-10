@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BODY = 16 * 1024;
 const MAX_IMPORT_BODY = 5 * 1024 * 1024;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function failure(status: number, code: string, message: string) {
   return NextResponse.json(
@@ -76,6 +77,8 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       (refreshed.status === 200 ? bearer : undefined);
   }
 
+  // Only a well-formed UUID is forwarded; anything else is dropped (the API then refuses).
+  const idempotencyKey = request.headers.get('idempotency-key')?.toLowerCase();
   const forwardRefresh =
     isRefresh || (admin && joined.startsWith('admin/auth/mfa')) ? refreshCookie : undefined;
   const result = await callApi({
@@ -88,6 +91,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     ...(cookies.gate ? { gate: cookies.gate } : {}),
     ...(cookies.attempt ? { attempt: cookies.attempt } : {}),
     ...(forwardRefresh ? { refresh: forwardRefresh } : {}),
+    ...(idempotencyKey && UUID.test(idempotencyKey) ? { idempotencyKey } : {}),
   });
 
   const response = new NextResponse(result.text, {

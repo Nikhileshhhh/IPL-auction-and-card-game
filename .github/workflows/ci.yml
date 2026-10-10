@@ -51,6 +51,7 @@ jobs:
       - run: pnpm db:lint
       - run: pnpm test:integration
       - run: pnpm test:security
+      - run: pnpm test:concurrency
 
   e2e:
     runs-on: ubuntu-latest

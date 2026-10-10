@@ -11,7 +11,7 @@ export default function CardsHubPage() {
       accent="card"
       art={<CardBattleArt />}
       intro="A collectible stat-comparison game for 2–8 friends. Every revealed card shows the player's portrait and six game ratings."
-      enabled={FEATURES.cardBattle}
+      enabled={FEATURES.rooms}
       createHref="/play/cards/create"
       joinHref="/play/cards/join"
       rules={[

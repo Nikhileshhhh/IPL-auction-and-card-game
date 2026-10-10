@@ -154,6 +154,12 @@
     },
     {
       "method": "GET",
+      "path": "/v1/me/rooms",
+      "rights": "G",
+      "phase": 5
+    },
+    {
+      "method": "GET",
       "path": "/v1/announcements",
       "rights": "G",
       "phase": 4

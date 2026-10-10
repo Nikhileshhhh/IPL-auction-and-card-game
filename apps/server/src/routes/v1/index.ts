@@ -7,6 +7,7 @@ import { adminRoutes } from './admin';
 import { authRoutes } from './auth';
 import { profileRoutes } from './profiles';
 import { realtimeRoutes } from './realtime';
+import { roomRoutes } from './rooms';
 
 /** Versioned API root. Feature modules register here as their phases land. */
 export async function v1Routes(app: FastifyInstance, opts: { runtime?: RuntimeDeps }) {
@@ -29,4 +30,5 @@ export async function v1Routes(app: FastifyInstance, opts: { runtime?: RuntimeDe
   await profileRoutes(app, runtime);
   await adminRoutes(app, runtime);
   await realtimeRoutes(app, runtime);
+  await roomRoutes(app, runtime);
 }

@@ -8,8 +8,13 @@ import { schemaCheck } from './db/schema-version';
 import { LocalAuthProvider, SupabaseAuthProvider, type AuthProvider } from './modules/auth';
 import { SecurityBus } from './realtime/security-bus';
 import { startSecurityCleanup } from './jobs/security-cleanup';
+import { startRoomWorkers } from './jobs/room-workers';
+import { createRoomRuntime } from './modules/rooms/runtime';
+import { OutboxDispatcher } from './realtime/dispatcher';
+import { evictFromRoom, registerRoomSockets } from './realtime/rooms-socket';
 import type { ServerEnv } from './config/env';
 import type pg from 'pg';
+import { randomUUID } from 'node:crypto';
 
 function requireValue(value: string | undefined, name: string): string {
   if (!value) throw new Error(`${name} is required`);
@@ -39,19 +44,25 @@ function createAuthProvider(env: ServerEnv, pool: pg.Pool): AuthProvider {
 async function main() {
   const env = loadEnv();
   const pool = env.DATABASE_URL
-    ? createPool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX })
+    ? createPool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX }, () =>
+        console.warn('database connection dropped; reconnecting on demand'),
+      )
     : undefined;
 
   // Without a database only liveness/readiness are served (readiness fails closed).
-  const runtime = pool
-    ? {
-        env,
-        pool,
-        secrets: loadSecrets(env),
-        auth: createAuthProvider(env, pool),
-        bus: new SecurityBus(),
-      }
-    : undefined;
+  const secrets = pool ? loadSecrets(env) : undefined;
+  const runtime =
+    pool && secrets
+      ? {
+          env,
+          pool,
+          secrets,
+          auth: createAuthProvider(env, pool),
+          bus: new SecurityBus(),
+          rooms: createRoomRuntime(pool, secrets),
+        }
+      : undefined;
+  const instanceId = randomUUID();
 
   const app = await buildApp({
     env,
@@ -67,6 +78,36 @@ async function main() {
     ? startSecurityCleanup(pool, 5 * 60_000, () => app.log.warn('security cleanup sweep failed'))
     : () => undefined;
 
+  // Rooms: durable outbox → Socket.IO, fenced deadline workers, presence sweep.
+  let stopRooms: () => Promise<void> = async () => undefined;
+  if (runtime) {
+    const outbox = new OutboxDispatcher(runtime.pool, io);
+    runtime.rooms.bind({
+      wake: outbox.wake,
+      onMemberRemoved: (roomId, memberId) => evictFromRoom(io, roomId, memberId),
+      onRoomClosed: (roomId) => evictFromRoom(io, roomId),
+    });
+    registerRoomSockets(io, {
+      pool: runtime.pool,
+      secrets: runtime.secrets,
+      rooms: runtime.rooms.deps,
+      commands: runtime.rooms.commands,
+      instanceId,
+      ...(runtime.rooms.gameProjector ? { gameProjector: runtime.rooms.gameProjector } : {}),
+    });
+    outbox.start();
+    const stopWorkers = startRoomWorkers({
+      pool: runtime.pool,
+      rooms: runtime.rooms,
+      instanceId,
+      onError: () => app.log.warn('room worker pass failed'),
+    });
+    stopRooms = async () => {
+      outbox.stop();
+      await stopWorkers();
+    };
+  }
+
   await app.listen({ host: env.HOST, port: env.PORT });
 
   let shuttingDown = false;
@@ -75,6 +116,7 @@ async function main() {
     shuttingDown = true;
     app.log.info({ signal }, 'draining');
     stopCleanup();
+    await stopRooms();
     await io.close();
     await app.close();
     await pool?.end();

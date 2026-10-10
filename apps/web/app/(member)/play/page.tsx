@@ -39,7 +39,9 @@ export default async function PlayPage() {
           accent="card"
           art={<CardBattleArt />}
           facts={['2–8 players', 'Six rarities', 'Fair committed deal']}
-          {...(FEATURES.cardBattle ? {} : { status: 'Rooms coming soon' })}
+          {...(FEATURES.cardBattle
+            ? {}
+            : { status: FEATURES.rooms ? 'Lobbies open · matches soon' : 'Rooms coming soon' })}
         />
         <GameSelectionCard
           href="/play/auction"
@@ -48,7 +50,9 @@ export default async function PlayPage() {
           accent="auction"
           art={<AuctionArt />}
           facts={['Up to 10 franchises', 'Retention & RTM', 'Team collaboration']}
-          {...(FEATURES.megaAuction ? {} : { status: 'Rooms coming soon' })}
+          {...(FEATURES.megaAuction
+            ? {}
+            : { status: FEATURES.rooms ? 'Lobbies open · matches soon' : 'Rooms coming soon' })}
         />
       </div>
 

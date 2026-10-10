@@ -14,6 +14,7 @@ import {
 } from '../../apps/server/src/http/bff-directives';
 import { sha256 } from '../../apps/server/src/security/crypto';
 import type { RuntimeDeps } from '../../apps/server/src/runtime';
+import { createRoomRuntime } from '../../apps/server/src/modules/rooms/runtime';
 import { connect, databaseUrlFor, resetDatabase, runtimeUrl } from './db';
 
 export const TEST_ORIGIN = 'http://play.test';
@@ -62,7 +63,14 @@ export async function createTestApi(dbName: string): Promise<TestApi> {
     jwtSecret: env.LOCAL_AUTH_JWT_SECRET!,
     pool,
   });
-  const deps: RuntimeDeps = { env, pool, secrets, auth, bus: new SecurityBus() };
+  const deps: RuntimeDeps = {
+    env,
+    pool,
+    secrets,
+    auth,
+    bus: new SecurityBus(),
+    rooms: createRoomRuntime(pool, secrets),
+  };
   const app = await buildApp({ env, readinessChecks: [], runtime: deps });
   await app.ready();
   const admin = await connect(databaseUrlFor(dbName));
@@ -195,6 +203,16 @@ export class BffClient {
     if (typeof directives === 'string')
       this.apply(JSON.parse(Buffer.from(directives, 'base64url').toString()) as BffDirectives);
     return { status: res.statusCode, body: res.json(), headers: res.headers };
+  }
+
+  /** Mutation with an `Idempotency-Key` (fresh unless a retry key is supplied). */
+  async mutate<T = unknown>(
+    method: 'POST' | 'PATCH',
+    url: string,
+    payload: unknown = {},
+    key: string = randomUUID(),
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(method, url, payload, { rawHeaders: { 'idempotency-key': key } });
   }
 
   apply(d: BffDirectives) {

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { StatusMessage, Surface } from '@stumps/ui';
 
-/** Create/join hub for one game. Actions stay disabled (with a reason) until rooms ship. */
+/** Create/join hub for one game. Actions stay disabled (with a reason) while rooms are off. */
 export function GameHub({
   title,
   accent,

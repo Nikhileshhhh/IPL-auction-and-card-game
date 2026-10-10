@@ -73,6 +73,7 @@ export default defineConfig({
         BFF_SIGNING_KEY: secret('BFF_SIGNING_KEY'),
         CSRF_SIGNING_KEY: secret('CSRF_SIGNING_KEY'),
         CLIENT_IP_HEADER: 'none',
+        NEXT_PUBLIC_SOCKET_URL: `http://localhost:${API_PORT}`,
         NEXT_TELEMETRY_DISABLED: '1',
       },
       reuseExistingServer: false,
