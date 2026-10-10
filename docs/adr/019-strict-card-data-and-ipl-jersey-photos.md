@@ -68,5 +68,5 @@ A data version cannot be published while any card player has a gap. The gaps and
 
 ## Consequences
 - A real-data pack cannot be published until the operator supplies a licensed IPL-jersey photo and the facts for each player kept in the pack. The admin players table lists exactly what each player is missing.
-- The Wikimedia Commons importer (ADR-018) now registers only photos it identifies as IPL kit. Others are left for the player sheet.
+- The Wikimedia Commons importer (ADR-018) registers photos only as unconfirmed candidates (`ipl_kit = false`). In the first real run, all four photos it labelled "IPL" from their descriptions showed casual wear or off-field events. Only a person can confirm the jersey, through the player sheet.
 - The platform records the operator's licence evidence. The operator remains responsible for the rights they state they hold.

@@ -1,9 +1,11 @@
 /**
  * pnpm data:photos -- [--version <dataVersionId>] [--limit N] [--dry-run]
  *
- * Finds freely licensed photos of real players in IPL franchise jersey
- * on Wikimedia Commons via Wikidata (ESPNcricinfo ID), re-encodes them and
- * registers them with full licence/author credit. Never scrapes official IPL,
+ * Finds freely licensed candidate photos of real players in IPL context on
+ * Wikimedia Commons via Wikidata (ESPNcricinfo ID), re-encodes them and
+ * registers them with full licence/author credit. They are NOT marked as IPL
+ * jersey: descriptions proved unreliable (ceremonies, casual wear), so a person
+ * confirms the jersey through the player sheet (ADR-019). Never scrapes official IPL,
  * BCCI or agency photos. Players without a free photo are listed for an admin
  * upload (S34). Requires network access to query.wikidata.org,
  * commons.wikimedia.org and upload.wikimedia.org.
@@ -143,8 +145,10 @@ for (const p of players) {
       await registerPortrait(tx, storage, p.id, image, {
         basis: 'free-license',
         status: 'approved',
-        altText: `Photo of ${fullName} in IPL jersey`,
-        iplKit: true,
+        // Text metadata cannot prove the jersey (ADR-019): a person confirms it in the
+        // player sheet (ipl_jersey=yes); until then the photo does not satisfy the gate.
+        altText: `Photo of ${fullName}`,
+        iplKit: false,
         attribution: attributionFor(choice.candidate),
         licenceLabel: choice.candidate.licence.slice(0, 80),
         licenceUrl: choice.candidate.licenceUrl?.startsWith('https://')
@@ -162,7 +166,8 @@ for (const p of players) {
   await sleep(1500);
 }
 console.warn(
-  `IPL jersey photos: ${report.found} imported, ${report.missing.length} still needed.` +
+  `Candidate photos: ${report.found} imported, NOT yet confirmed as IPL jersey (check each and ` +
+    `confirm it with ipl_jersey=yes in the player sheet); ${report.missing.length} players have none.` +
     (report.missing.length
       ? `\nAdd licensed IPL jersey photos via the player sheet (pnpm data:profiles) for: ${report.missing.join(', ')}`
       : ''),
