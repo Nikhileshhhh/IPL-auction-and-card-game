@@ -75,7 +75,6 @@ export interface CardSpec {
   playerIds: [string] | [string, string];
   ratings: Record<RatingMetric, number>;
   stars: 1 | 2 | 3 | 4 | 5;
-  starsProvisional: boolean;
 }
 
 const STAR_THRESHOLDS = [200, 450, 700, 900] as const;
@@ -119,7 +118,6 @@ export function buildCatalog(players: readonly PlayerRatings[]): CardSpec[] {
         playerIds: [p.playerId],
         ratings: { ...p.ratings },
         stars: p.stars,
-        starsProvisional: p.starsProvisional,
       });
     }
   }
@@ -147,14 +145,12 @@ export function buildCatalog(players: readonly PlayerRatings[]): CardSpec[] {
     );
     let stars = 1;
     for (const t of STAR_THRESHOLDS) if (pct >= t) stars += 1;
-    const provisional = first.starsProvisional || second.starsProvisional;
     cards.push({
       key: `dual:${first.playerId}+${second.playerId}`,
       rarity: 'dual_platinum',
       playerIds: [first.playerId, second.playerId],
       ratings,
-      stars: (provisional ? Math.min(stars, 3) : stars) as 1 | 2 | 3 | 4 | 5,
-      starsProvisional: provisional,
+      stars: stars as 1 | 2 | 3 | 4 | 5,
     });
   }
   return cards;

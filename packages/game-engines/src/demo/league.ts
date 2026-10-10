@@ -11,6 +11,9 @@ export interface DemoPlayer {
   team: string;
   role: 'batter' | 'bowler' | 'all_rounder' | 'wicketkeeper';
   country: string;
+  battingStyle: 'right_hand' | 'left_hand';
+  /** null only for players who never bowl. */
+  bowlingStyle: string | null;
   bat: number; // 0..1 hidden skill
   bowl: number;
   kit: [string, string];
@@ -85,7 +88,14 @@ const LAST = [
   'Whitlock',
   'Yarrow',
 ];
-const COUNTRIES = ['IN', 'IN', 'IN', 'IN', 'AU', 'GB', 'ZA', 'NZ', 'AF', 'LK', 'WI'] as const;
+const COUNTRIES = ['IN', 'IN', 'IN', 'IN', 'AU', 'GB', 'ZA', 'NZ', 'AF', 'LK', 'JM'] as const;
+const PACE = [
+  'Right-arm fast',
+  'Right-arm fast-medium',
+  'Left-arm fast-medium',
+  'Right-arm medium',
+];
+const SPIN = ['Right-arm off-break', 'Slow left-arm orthodox', 'Right-arm leg-break'];
 
 /** mulberry32: tiny seeded PRNG (fixtures only, never in engines). */
 export function prng(seed: number) {
@@ -147,6 +157,11 @@ export function demoPlayers(seed = 2026): DemoPlayer[] {
               ? 0.45 + 0.4 * rnd()
               : 0.5 + 0.5 * rnd(),
         kit: team.kit,
+        battingStyle: rnd() < 0.7 ? 'right_hand' : 'left_hand',
+        bowlingStyle:
+          role === 'batter' || role === 'wicketkeeper'
+            ? null
+            : ((rnd() < 0.6 ? PACE : SPIN)[Math.floor(rnd() * 3)] ?? 'Right-arm medium'),
       });
     });
   });

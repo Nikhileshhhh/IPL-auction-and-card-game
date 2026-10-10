@@ -41,7 +41,6 @@ const SEASON_WEIGHTS = [2n, 3n, 5n] as const;
 const K_BALLS = 120n;
 const K_APPEARANCES = 20n;
 const RECENT_APPEARANCES = 10;
-const PHASE_MIN_BALLS = 30;
 const STAR_THRESHOLDS = [200, 450, 700, 900] as const;
 
 export interface RatingsInput {
@@ -86,15 +85,10 @@ export interface PlayerRatings {
   role: Role;
   ratings: Record<RatingMetric, number>;
   phases: Record<PhaseMetric, number>;
-  /** Metrics that used a fallback/prior instead of observed inputs. */
-  estimated: (RatingMetric | PhaseMetric)[];
   roleStrength: number;
   /** Within-role midrank percentile of role strength, permille. */
   roleStrengthPermille: number;
   stars: 1 | 2 | 3 | 4 | 5;
-  starsProvisional: boolean;
-  /** Share of the six ratings computed from observed inputs, permille. */
-  completenessPermille: number;
   primaryTeam: string | null;
   raw: RawStats;
 }
@@ -549,15 +543,13 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
       .filter(([, c]) => c.balls > 0n),
     wP,
   );
+  // Form always comes from the player's own latest appearances (up to 10, at least one
+  // exists for everyone in the cohort); exposure shrinkage handles short samples.
   const formIdx = new Map<string, number>();
-  const formEstimated = new Set<string>();
   for (const id of ids) {
     const role = roles.get(id) as Role;
-    const lines = recent.get(id) ?? [];
-    const lowSample = lines.length < 3;
-    if (lowSample) formEstimated.add(id);
-    const bat = lowSample ? (battingIdx.get(id) ?? 0) : (recentBatIdx.get(id) ?? 0);
-    const bowl = lowSample ? (bowlingIdx.get(id) ?? 0) : (recentBowlIdx.get(id) ?? 0);
+    const bat = recentBatIdx.get(id) ?? 0;
+    const bowl = recentBowlIdx.get(id) ?? 0;
     formIdx.set(
       id,
       role === 'all_rounder'
@@ -581,17 +573,12 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
     ]),
   );
 
-  // Phase indexes (coverage ≥ 30 balls in the phase, else discipline fallback, estimated).
+  // Phase indexes from each player's own phase deliveries; none in a phase is a real 0.
   const phaseRatings = new Map<string, Record<PhaseMetric, number>>();
-  const phaseEstimated = new Map<string, PhaseMetric[]>();
-  for (const id of ids) {
-    phaseRatings.set(id, {} as Record<PhaseMetric, number>);
-    phaseEstimated.set(id, []);
-  }
-  const minPhase = BigInt(PHASE_MIN_BALLS);
+  for (const id of ids) phaseRatings.set(id, {} as Record<PhaseMetric, number>);
   for (const ph of PHASES) {
-    const covBat = all.filter(([, a]) => a.phase[ph].batBalls >= minPhase * a.w);
-    const covBowl = all.filter(([, a]) => a.phase[ph].bowlBalls >= minPhase * a.w);
+    const covBat = all.filter(([, a]) => a.phase[ph].batBalls > 0n);
+    const covBowl = all.filter(([, a]) => a.phase[ph].bowlBalls > 0n);
     const pb = batIndexes(
       covBat.map(([id, a]) => [
         id,
@@ -627,23 +614,13 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
       const batKey = `${ph}_batting` as PhaseMetric;
       const bowlKey = `${ph}_bowling` as PhaseMetric;
       const target = phaseRatings.get(id) as Record<PhaseMetric, number>;
-      const est = phaseEstimated.get(id) as PhaseMetric[];
-      if (rb.has(id)) target[batKey] = rb.get(id) as number;
-      else {
-        target[batKey] = batting.get(id) ?? 0;
-        est.push(batKey);
-      }
-      if (rw.has(id)) target[bowlKey] = rw.get(id) as number;
-      else {
-        target[bowlKey] = bowling.get(id) ?? 0;
-        est.push(bowlKey);
-      }
+      target[batKey] = rb.get(id) ?? 0;
+      target[bowlKey] = rw.get(id) ?? 0;
     }
   }
 
   // Assemble, then role strength → within-role percentile → stars.
   const result: PlayerRatings[] = ids.map((id) => {
-    const a = weighted.get(id) as Weighted;
     const role = roles.get(id) as Role;
     const ratings: Record<RatingMetric, number> = {
       batting: batting.get(id) ?? 0,
@@ -654,10 +631,6 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
       versatility: 0,
     };
     ratings.versatility = Number(isqrtRound(BigInt(ratings.batting) * BigInt(ratings.bowling)));
-    const estimated: (RatingMetric | PhaseMetric)[] = [];
-    if (formEstimated.has(id)) estimated.push('form');
-    estimated.push(...(phaseEstimated.get(id) ?? []));
-    const completeness = Math.round((1000 * (6 - (formEstimated.has(id) ? 1 : 0))) / 6);
     const roleStrength =
       role === 'all_rounder'
         ? combine([
@@ -671,14 +644,6 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
             [20, ratings.form],
             [10, ratings.fielding],
           ]);
-    const primaryBalls =
-      role === 'bowler'
-        ? a.bowlBalls
-        : role === 'all_rounder'
-          ? a.bowlBalls > a.batBalls
-            ? a.bowlBalls
-            : a.batBalls
-          : a.batBalls;
     const teams = [...(teamApps.get(id) ?? new Map<string, number>())].sort(
       (x, y) => y[1] - x[1] || x[0].localeCompare(y[0]),
     );
@@ -687,13 +652,9 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
       role,
       ratings,
       phases: phaseRatings.get(id) as Record<PhaseMetric, number>,
-      estimated,
       roleStrength,
       roleStrengthPermille: 0,
       stars: 1,
-      // Exposure below 120 effective balls in the primary discipline caps stars at 3.
-      starsProvisional: completeness < 700 || primaryBalls < K_BALLS * a.w,
-      completenessPermille: completeness,
       primaryTeam: teams[0]?.[0] ?? null,
       raw: rawStats(plain.get(id) ?? [], recentWindowLines(input, id, windowSeasons.get(id))),
     };
@@ -704,8 +665,7 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
     const pct = midrankPermille(group.map((r) => [r.playerId, rat(r.roleStrength)]));
     for (const r of group) {
       r.roleStrengthPermille = pct.get(r.playerId) ?? 0;
-      const stars = starsFor(r.roleStrengthPermille);
-      r.stars = r.starsProvisional ? (Math.min(stars, 3) as 1 | 2 | 3) : stars;
+      r.stars = starsFor(r.roleStrengthPermille);
     }
   }
   return result;

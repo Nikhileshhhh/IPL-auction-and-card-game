@@ -26,6 +26,11 @@ import {
 } from '../../modules/cricket-data/read';
 import { archiveVersion, discardDraft, publishVersion } from '../../modules/cricket-data/publish';
 import { importStatus, startImport } from '../../modules/cricket-data/service';
+import {
+  applyManifest,
+  manifestTemplate,
+  parseManifest,
+} from '../../modules/cricket-data/manifest';
 import { uploadPortrait, reviewPortrait } from '../../modules/media/admin';
 import { MAX_UPLOAD_BYTES, VARIANT_WIDTHS, type VariantWidth } from '../../modules/media/pipeline';
 import { portraitPath, readPortrait } from '../../modules/media/service';
@@ -182,7 +187,7 @@ export async function catalogRoutes(app: FastifyInstance, deps: RuntimeDeps) {
     const q = z
       .object({
         q: z.string().max(80).optional(),
-        missingPhoto: z.enum(['true', 'false']).optional(),
+        incomplete: z.enum(['true', 'false']).optional(),
         offset: z.coerce.number().int().min(0).max(100_000).optional(),
       })
       .safeParse(request.query);
@@ -190,9 +195,38 @@ export async function catalogRoutes(app: FastifyInstance, deps: RuntimeDeps) {
     return success(
       await listAdminPlayers(deps.pool, idOf(request), {
         ...(q.data.q ? { query: q.data.q } : {}),
-        missingPhoto: q.data.missingPhoto === 'true',
+        incomplete: q.data.incomplete === 'true',
         offset: q.data.offset ?? 0,
       }),
+      request.id,
+      new Date(),
+    );
+  });
+
+  /** Pre-filled player sheet (facts + licensed IPL-jersey photo columns) for a version. */
+  app.get('/admin/catalog/versions/:id/player-sheet', async (request) => {
+    await admin(request);
+    return success(
+      { csv: await manifestTemplate(deps.pool, idOf(request)) },
+      request.id,
+      new Date(),
+    );
+  });
+
+  /** Apply a filled player sheet. Photos here must be https URLs on PHOTO_IMPORT_HOSTS. */
+  app.post('/admin/catalog/player-sheet', { bodyLimit: 3 * 1024 * 1024 }, async (request) => {
+    const ctx = await admin(request);
+    const body = parseBody(
+      z.object({ csv: z.string().min(1).max(2_500_000) }).strict(),
+      request.body,
+    );
+    const parsed = parseManifest(body.csv);
+    const report = await applyManifest(deps.pool, deps.media, parsed.rows, {
+      allowedHosts: deps.env.PHOTO_IMPORT_HOSTS,
+      actorId: ctx.userId,
+    });
+    return success(
+      { ...report, issues: [...parsed.issues, ...report.issues].sort((a, b) => a.line - b.line) },
       request.id,
       new Date(),
     );

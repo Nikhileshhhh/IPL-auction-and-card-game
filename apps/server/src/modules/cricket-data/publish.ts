@@ -3,12 +3,12 @@ import type pg from 'pg';
 import { AppError } from '../../http/app-error';
 import { withTransaction } from '../../db/transaction';
 import { canonicalJson } from '../../rooms/room-tx';
-import { validateVersion, type ValidationReport } from './validate';
+import { INCOMPLETE_CARDS, validateVersion, type ValidationReport } from './validate';
 
 /**
- * Publish a draft: optionally drop cards whose players lack an approved photo
- * (the coverage report says how many), re-validate, hash the content and
- * freeze it. Published versions are immutable (DB triggers); corrections
+ * Publish a draft: optionally drop incomplete cards (no approved photo in IPL
+ * jersey, or a missing fact; the report says how many), re-validate, hash the
+ * content and freeze it. Published versions are immutable (DB triggers); corrections
  * publish a new version.
  */
 export async function publishVersion(
@@ -35,13 +35,7 @@ export async function publishVersion(
       let pruned = 0;
       if (options.prune) {
         const res = await tx.query(
-          `DELETE FROM app_private.card_definitions d
-            WHERE d.data_version_id = $1 AND EXISTS (
-              SELECT 1 FROM app_private.card_players cp
-                JOIN app_private.player_seasons ps ON ps.data_version_id = d.data_version_id AND ps.player_id = cp.player_id
-                LEFT JOIN app_private.media_assets a ON a.id = ps.portrait_asset_id
-               WHERE cp.card_id = d.id
-                 AND (a.id IS NULL OR a.rights_status <> 'approved' OR (a.expires_at IS NOT NULL AND a.expires_at <= now())))`,
+          `DELETE FROM app_private.card_definitions WHERE id IN (${INCOMPLETE_CARDS})`,
           [versionId],
         );
         pruned = res.rowCount ?? 0;

@@ -54,6 +54,16 @@ const EnvSchema = z
       .default('catalog-media'),
     // Cricsheet archive location for imports (downloaded by scripts/data/fetch-cricsheet.ts).
     CRICSHEET_DIR: z.string().min(1).default('data/raw/cricsheet'),
+    // Hosts the player sheet may download licensed IPL-jersey photos from (comma list).
+    PHOTO_IMPORT_HOSTS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((h) => h.trim().toLowerCase())
+          .filter((h) => /^[a-z0-9.-]+$/.test(h)),
+      ),
   })
   .transform((env) => ({
     ...env,

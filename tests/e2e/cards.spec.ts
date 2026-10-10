@@ -41,6 +41,8 @@ async function expectPortraitsLoaded(page: Page) {
 test('card pool shows six rarities with player photos and 0–100 Game ratings', async ({
   page,
 }, testInfo) => {
+  // Onboarding, every portrait load and two full-page axe scans.
+  test.setTimeout(90_000);
   await onboardThroughUi(page, CODE, `cards_${testInfo.project.name}_${Date.now() % 100000}`);
   await page.goto('/play/cards');
   await page.getByRole('link', { name: 'Browse the card pool' }).click();
@@ -50,12 +52,13 @@ test('card pool shows six rarities with player photos and 0–100 Game ratings',
     await expect(showcase.getByText(rarity, { exact: true })).toBeVisible();
   }
   await expectPortraitsLoaded(page);
-  // Ratings are whole numbers on a 0–100 scale.
+  // Ratings are definite whole numbers on a 0–100 scale (never estimated or blank).
   const values = await page.locator('article[data-rarity] dd').allTextContents();
   expect(values.length).toBeGreaterThan(30);
   for (const v of values) {
-    const n = Number(v.replace(/\D+$/, '').replace('*', ''));
-    expect(Number.isInteger(n) && n >= 0 && n <= 100).toBe(true);
+    expect(v.trim()).toMatch(/^\d{1,3}$/);
+    const n = Number(v.trim());
+    expect(n >= 0 && n <= 100).toBe(true);
   }
   await expectNoSeriousA11yViolations(page);
   await expectNoHorizontalScroll(page);
@@ -117,16 +120,19 @@ test('administrator uploads a player photo with rights evidence in the catalog e
   await dialog
     .getByLabel('Image file')
     .setInputFiles({ name: 'player.png', mimeType: 'image/png', buffer: png });
-  await dialog.getByLabel('Author / rights holder').fill('E2E Photographer');
+  const upload = dialog.getByRole('button', { name: 'Upload photo' });
+  await dialog.getByLabel('Licence', { exact: true }).fill('Image licence agreement #E2E');
+  await dialog.getByLabel('Licence holder / photographer').fill('E2E Photographer');
+  await dialog.getByLabel('Credit line shown to players').fill('Photo: E2E Photographer, licensed');
+  // The IPL jersey confirmation is mandatory.
+  await expect(upload).toBeDisabled();
   await dialog
-    .getByLabel('Credit line shown to players')
-    .fill('Photo: E2E Photographer, CC BY-SA 4.0');
-  await dialog
-    .getByLabel('Source page (https)')
-    .fill('https://commons.wikimedia.org/wiki/File:E2E.png');
+    .getByLabel('The photo shows this player wearing their IPL franchise jersey.')
+    .check();
   await dialog.getByRole('button', { name: 'Upload photo' }).click();
   await expect(page.getByText('Photo uploaded and attached to draft versions.')).toBeVisible();
-  await expect(firstRow.getByText('Photo: E2E Photographer, CC BY-SA 4.0')).toBeVisible();
+  await expect(firstRow.getByText('Photo: E2E Photographer, licensed')).toBeVisible();
+  await expect(firstRow.getByText('Ready for publishing')).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
   await page.getByRole('tab', { name: 'Card preview' }).click();

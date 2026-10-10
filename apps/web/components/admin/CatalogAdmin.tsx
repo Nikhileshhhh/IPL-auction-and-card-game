@@ -30,7 +30,15 @@ function readAsBase64(file: File): Promise<string> {
   });
 }
 
-/** Upload a photo the operator holds rights to, or a freely licensed one, with evidence. */
+const MISSING_LABELS: Record<AdminPlayerRow['missing'][number], string> = {
+  photo: 'IPL jersey photo',
+  ipl_kit: 'jersey confirmation',
+  country: 'country',
+  batting_style: 'batting style',
+  bowling_style: 'bowling style',
+};
+
+/** Upload a licensed photo of the player in IPL franchise jersey, with rights evidence. */
 function UploadDialog({
   player,
   onClose,
@@ -41,22 +49,25 @@ function UploadDialog({
   onDone: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [basis, setBasis] = useState<'licensed' | 'free-license'>('free-license');
-  const [licence, setLicence] = useState('CC BY-SA 4.0');
+  const [basis, setBasis] = useState<'licensed' | 'free-license'>('licensed');
+  const [licence, setLicence] = useState('');
   const [author, setAuthor] = useState('');
   const [attribution, setAttribution] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [licenceUrl, setLicenceUrl] = useState('');
+  const [jersey, setJersey] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tooBig = file !== null && file.size > MAX_IMAGE_BYTES;
+  const sourceOk =
+    sourceUrl.trim() === '' ? basis === 'licensed' : sourceUrl.startsWith('https://');
   const valid =
     file !== null &&
     !tooBig &&
+    jersey &&
     licence.trim() &&
     author.trim() &&
     attribution.trim() &&
-    sourceUrl.startsWith('https://');
+    sourceOk;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -68,13 +79,13 @@ function UploadDialog({
       body: {
         playerId: player.playerId,
         imageBase64: await readAsBase64(file),
+        iplKit: true,
         rights: {
           basis,
           licence: licence.trim(),
           author: author.trim(),
           attribution: attribution.trim(),
-          sourceUrl: sourceUrl.trim(),
-          ...(licenceUrl.trim() ? { licenceUrl: licenceUrl.trim() } : {}),
+          ...(sourceUrl.trim() ? { sourceUrl: sourceUrl.trim() } : {}),
         },
       },
     });
@@ -90,8 +101,8 @@ function UploadDialog({
     <Dialog
       open={player !== null}
       onOpenChange={(o) => (!o ? onClose() : undefined)}
-      title={`Photo for ${player?.name ?? ''}`}
-      description="PNG, JPEG or WebP up to 2 MiB. It is cropped, re-encoded and stripped of metadata. Only upload photos you have the right to use; the evidence below is recorded and the credit is shown on the card."
+      title={`IPL jersey photo for ${player?.name ?? ''}`}
+      description="PNG, JPEG or WebP up to 2 MiB showing the player in their IPL franchise jersey. It is cropped to the card frame, re-encoded and stripped of metadata. Your licence details are recorded with the photo."
     >
       <form
         onSubmit={(e) => void submit(e)}
@@ -107,12 +118,21 @@ function UploadDialog({
           />
         </label>
         {tooBig ? <p className="text-sm text-bad">This file is larger than 2 MiB.</p> : null}
+        <label className="flex min-h-11 items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={jersey}
+            onChange={(e) => setJersey(e.target.checked)}
+            className="mt-1"
+          />
+          <span>The photo shows this player wearing their IPL franchise jersey.</span>
+        </label>
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Rights basis</legend>
           {(
             [
-              ['free-license', 'Free licence (e.g. Wikimedia Commons CC BY-SA)'],
-              ['licensed', 'Licensed to us (agreement on file)'],
+              ['licensed', 'Licensed to us (agreement / permission on file)'],
+              ['free-license', 'Free licence (e.g. CC BY-SA)'],
             ] as const
           ).map(([value, label]) => (
             <label key={value} className="flex min-h-11 items-center gap-3">
@@ -126,9 +146,14 @@ function UploadDialog({
             </label>
           ))}
         </fieldset>
-        <TextField label="Licence" value={licence} onChange={(e) => setLicence(e.target.value)} />
         <TextField
-          label="Author / rights holder"
+          label="Licence"
+          value={licence}
+          onChange={(e) => setLicence(e.target.value)}
+          hint="For example: Image licence agreement #2026-01"
+        />
+        <TextField
+          label="Licence holder / photographer"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
         />
@@ -136,17 +161,11 @@ function UploadDialog({
           label="Credit line shown to players"
           value={attribution}
           onChange={(e) => setAttribution(e.target.value)}
-          hint="For example: Photo: Jane Doe, CC BY-SA 4.0, via Wikimedia Commons"
         />
         <TextField
-          label="Source page (https)"
+          label={basis === 'licensed' ? 'Source page (https, optional)' : 'Source page (https)'}
           value={sourceUrl}
           onChange={(e) => setSourceUrl(e.target.value)}
-        />
-        <TextField
-          label="Licence URL (optional)"
-          value={licenceUrl}
-          onChange={(e) => setLicenceUrl(e.target.value)}
         />
         {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
         <div className="flex justify-end gap-3">
@@ -162,6 +181,174 @@ function UploadDialog({
   );
 }
 
+/** Country, batting and bowling style for one player (every card must show them). */
+function FactsDialog({
+  player,
+  onClose,
+  onDone,
+}: {
+  player: AdminPlayerRow | null;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [country, setCountry] = useState(player?.country ?? '');
+  const [batting, setBatting] = useState<'right_hand' | 'left_hand' | ''>(
+    player?.battingStyle ?? '',
+  );
+  const [bowling, setBowling] = useState(player?.bowlingStyle ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const countryOk = /^[A-Za-z]{2}$/.test(country.trim());
+  const bowlingOk = !player?.bowls || bowling.trim().length > 0;
+  const valid = countryOk && batting !== '' && bowlingOk;
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!player || !valid) return;
+    const res = await api(`/admin/catalog/players/${player.playerId}`, {
+      method: 'PATCH',
+      body: {
+        countryCode: country.trim().toUpperCase(),
+        battingStyle: batting,
+        bowlingStyle: bowling.trim() ? bowling.trim() : null,
+      },
+    });
+    if (!res.ok) setError(res.error.message);
+    else onDone(`${player.name}: details saved.`);
+  }
+
+  return (
+    <Dialog
+      open={player !== null}
+      onOpenChange={(o) => (!o ? onClose() : undefined)}
+      title={`Details for ${player?.name ?? ''}`}
+      description="Every published card shows these values."
+    >
+      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-4">
+        <TextField
+          label="Country (2-letter code)"
+          value={country}
+          maxLength={2}
+          onChange={(e) => setCountry(e.target.value)}
+          hint="For example IN, AU, GB, ZA, NZ, AF, LK, JM"
+        />
+        <label className="flex flex-col gap-2 text-sm font-medium">
+          Batting style
+          <select
+            value={batting}
+            onChange={(e) => setBatting(e.target.value as 'right_hand' | 'left_hand' | '')}
+            className="min-h-11 rounded border border-control bg-midnight px-2"
+          >
+            <option value="">Choose…</option>
+            <option value="right_hand">Right-hand bat</option>
+            <option value="left_hand">Left-hand bat</option>
+          </select>
+        </label>
+        <TextField
+          label={player?.bowls ? 'Bowling style' : 'Bowling style (leave empty: does not bowl)'}
+          value={bowling}
+          maxLength={40}
+          onChange={(e) => setBowling(e.target.value)}
+          hint="For example: Right-arm fast-medium, Slow left-arm orthodox"
+        />
+        {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={!valid}>
+            Save details
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+/** Bulk facts + licensed photo URLs via the player sheet (CSV). */
+function PlayerSheet({
+  version,
+  onChanged,
+}: {
+  version: DataVersionSummary;
+  onChanged: () => void;
+}) {
+  const [report, setReport] = useState<{
+    updatedFacts: number;
+    photos: number;
+    issues: { line: number; playerKey: string; message: string }[];
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function download() {
+    const res = await api<{ csv: string }>(`/admin/catalog/versions/${version.id}/player-sheet`);
+    if (!res.ok) {
+      setError(res.error.message);
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([res.data.csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `player-sheet-${version.label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setPending(true);
+    setError(null);
+    const res = await api<NonNullable<typeof report>>('/admin/catalog/player-sheet', {
+      method: 'POST',
+      body: { csv: await file.text() },
+    });
+    setPending(false);
+    if (res.ok) {
+      setReport(res.data);
+      onChanged();
+    } else setError(res.error.message);
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
+      <p className="text-sm text-ink-2">
+        Fill in full names, country, batting and bowling style, and a photo URL of each player in
+        IPL jersey from your licensed source (its host must be listed in PHOTO_IMPORT_HOSTS on the
+        server; local photo files can be imported with <code>pnpm data:profiles</code>).
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="touch" variant="secondary" onClick={() => void download()}>
+          Download player sheet
+        </Button>
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] border border-control px-4 text-sm font-semibold">
+          {pending ? 'Importing…' : 'Upload filled sheet'}
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            className="sr-only"
+            onChange={(e) => void upload(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+      {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
+      {report ? (
+        <StatusMessage tone={report.issues.length ? 'warning' : 'success'}>
+          {report.updatedFacts} players updated, {report.photos} photos imported.
+          {report.issues.length ? (
+            <ul className="mt-2 list-disc pl-5">
+              {report.issues.slice(0, 20).map((i) => (
+                <li key={`${i.line}-${i.playerKey}`}>
+                  Line {i.line} ({i.playerKey}): {i.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </StatusMessage>
+      ) : null}
+    </div>
+  );
+}
+
 function PlayersTab({
   version,
   onChanged,
@@ -171,6 +358,7 @@ function PlayersTab({
 }) {
   const [query, setQuery] = useState('');
   const [missingOnly, setMissingOnly] = useState(false);
+  const [facts, setFacts] = useState<AdminPlayerRow | null>(null);
   const [data, setData] = useState<{ items: AdminPlayerRow[]; total: number } | null>(null);
   const [upload, setUpload] = useState<AdminPlayerRow | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -178,7 +366,7 @@ function PlayersTab({
   const load = useCallback(async () => {
     const qs = new URLSearchParams({
       ...(query ? { q: query } : {}),
-      missingPhoto: String(missingOnly),
+      incomplete: String(missingOnly),
     });
     const res = await api<{ items: AdminPlayerRow[]; total: number }>(
       `/admin/catalog/versions/${version.id}/players?${qs.toString()}`,
@@ -234,7 +422,7 @@ function PlayersTab({
             checked={missingOnly}
             onChange={(e) => setMissingOnly(e.target.checked)}
           />
-          Only players without a photo
+          Only players with something missing
         </label>
         <span className="text-sm text-ink-3">{data ? `${data.total} players` : 'Loading…'}</span>
       </div>
@@ -271,7 +459,22 @@ function PlayersTab({
                 </td>
                 <td>
                   <span className="font-medium">{p.name}</span>
-                  <span className="block text-xs text-ink-3">{p.team ?? 'No team'}</span>
+                  <span className="block text-xs text-ink-3">
+                    {p.team ?? 'No team'} · {p.country ?? '??'} ·{' '}
+                    {p.battingStyle === 'left_hand'
+                      ? 'LHB'
+                      : p.battingStyle === 'right_hand'
+                        ? 'RHB'
+                        : '?'}
+                    {p.bowlingStyle ? ` · ${p.bowlingStyle}` : p.bowls ? ' · bowling style ?' : ''}
+                  </span>
+                  {p.missing.length ? (
+                    <span className="mt-1 block text-xs text-warn">
+                      Missing: {p.missing.map((m) => MISSING_LABELS[m]).join(', ')}
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-xs text-ok">Ready for publishing</span>
+                  )}
                 </td>
                 <td>
                   <select
@@ -312,6 +515,9 @@ function PlayersTab({
                 </td>
                 <td className="text-right">
                   <div className="flex flex-wrap justify-end gap-2">
+                    <Button size="touch" variant="secondary" onClick={() => setFacts(p)}>
+                      Details
+                    </Button>
                     <Button size="touch" variant="secondary" onClick={() => setUpload(p)}>
                       Upload
                     </Button>
@@ -335,6 +541,19 @@ function PlayersTab({
           </tbody>
         </table>
       </div>
+      {facts ? (
+        <FactsDialog
+          key={facts.playerId}
+          player={facts}
+          onClose={() => setFacts(null)}
+          onDone={(m) => {
+            setFacts(null);
+            setMessage(m);
+            void load();
+            onChanged();
+          }}
+        />
+      ) : null}
       <UploadDialog
         player={upload}
         onClose={() => setUpload(null)}
@@ -616,7 +835,12 @@ export function CatalogAdmin() {
           </div>
           <div className="mt-4">
             {tab === 'players' ? (
-              <PlayersTab version={selected} onChanged={() => void load()} />
+              <div className="flex flex-col gap-4">
+                {selected.status === 'draft' ? (
+                  <PlayerSheet version={selected} onChanged={() => void load()} />
+                ) : null}
+                <PlayersTab version={selected} onChanged={() => void load()} />
+              </div>
             ) : (
               <CardsTab version={selected} />
             )}
@@ -659,9 +883,10 @@ export function CatalogAdmin() {
             className="mt-1"
           />
           <span>
-            Leave out cards whose players have no approved photo
-            {missing > 0 ? ` (${missing} players currently without a photo)` : ''}. Without this,
-            publishing is blocked until every card has a photo.
+            Leave out cards that are not complete yet (no IPL jersey photo, or a missing country,
+            batting or bowling style)
+            {missing > 0 ? ` — ${missing} players currently have no photo` : ''}. Without this,
+            publishing is blocked until every card is complete.
           </span>
         </label>
       </Dialog>

@@ -219,7 +219,17 @@ export function demoBundle(options: { label: string; seed?: number }): ImportBun
     },
     aggregate,
     careerAppearances: career,
-    people: new Map(league.players.map((p) => [p.id, { name: p.name, country: p.country }])),
+    people: new Map(
+      league.players.map((p) => [
+        p.id,
+        {
+          name: p.name,
+          country: p.country,
+          battingStyle: p.battingStyle,
+          bowlingStyle: p.bowlingStyle,
+        },
+      ]),
+    ),
     teamColors: new Map(DEMO_TEAMS.map((t) => [t.name, t.kit])),
     fictional: true,
     kits: new Map(league.players.map((p) => [p.id, p.kit])),

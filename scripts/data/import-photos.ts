@@ -1,7 +1,7 @@
 /**
  * pnpm data:photos -- [--version <dataVersionId>] [--limit N] [--dry-run]
  *
- * Finds freely licensed photos of real players (preferring photos in IPL kit)
+ * Finds freely licensed photos of real players in IPL franchise jersey
  * on Wikimedia Commons via Wikidata (ESPNcricinfo ID), re-encodes them and
  * registers them with full licence/author credit. Never scrapes official IPL,
  * BCCI or agency photos. Players without a free photo are listed for an admin
@@ -122,7 +122,8 @@ for (const p of players) {
     console.error(`${fullName}: search failed (${(error as Error).message})`);
   }
   const choice = choosePhoto(candidates, fullName, p.team);
-  if (!choice) {
+  // Strict (ADR-019): only photos in IPL franchise context count; others go to the player sheet.
+  if (!choice || !choice.iplKit) {
     report.missing.push(fullName);
     continue;
   }
@@ -145,7 +146,8 @@ for (const p of players) {
       await registerPortrait(tx, storage, p.id, image, {
         basis: 'free-license',
         status: 'approved',
-        altText: `Photo of ${fullName}${choice.iplKit ? ' in IPL kit' : ''}`,
+        altText: `Photo of ${fullName} in IPL jersey`,
+        iplKit: true,
         attribution: attributionFor(choice.candidate),
         licenceLabel: choice.candidate.licence.slice(0, 80),
         licenceUrl: choice.candidate.licenceUrl?.startsWith('https://')
@@ -163,9 +165,9 @@ for (const p of players) {
   await sleep(250);
 }
 console.warn(
-  `Photos: ${report.found} found (${report.iplKit} in IPL kit), ${report.missing.length} without a free photo.` +
+  `IPL jersey photos: ${report.found} imported, ${report.missing.length} still needed.` +
     (report.missing.length
-      ? `\nUpload photos you hold rights to in the admin catalog for: ${report.missing.join(', ')}`
+      ? `\nAdd licensed IPL jersey photos via the player sheet (pnpm data:profiles) for: ${report.missing.join(', ')}`
       : ''),
 );
 await pool.end();

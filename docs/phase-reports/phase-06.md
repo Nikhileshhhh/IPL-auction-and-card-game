@@ -60,7 +60,7 @@ Product-owner requirements added this phase (ADR-018):
 - **Ratings:**
   - Results are deterministic and independent of input order.
   - The top batter is exactly 100 and the top bowler exactly 100.
-  - A non-bowler is 0. Missing data stays null or is tagged "estimated".
+  - A non-bowler is 0. (Follow-up: every value is now definite; see below.)
   - Stars carry a provisional cap. Role overrides from the editor are respected.
   - Dual cards are the mean of both players, capped at 95.
   - Rarity is visual only.
@@ -90,6 +90,44 @@ Product-owner requirements added this phase (ADR-018):
 - **Photo coverage.** Not every player has a freely licensed photo in IPL kit. The editor lists missing photos for upload by rights holders.
 - **Auction lots** show photos once the auction UI ships (phase 10). The same `portraitUrl` contract and publish gate already apply.
 - **Phase-specific ratings** are stored for the auction evaluator (phase 14). Cards display the six main ratings.
+
+## Follow-up: strict card data and licensed photos in IPL jersey (ADR-019)
+
+**Requirement:** no value may be shown as estimated or empty, and every card and auction lot must show the player in IPL jersey. The operator states they hold the licence and permission for the photos.
+
+### What changed
+- **Engine.**
+  - `estimated`, `starsProvisional` and `completenessPermille` were removed.
+  - Every rating, phase rating and form value is computed. Zero exposure is a definite 0.
+- **Migration `046_ipl_kit_photos`.** `media_assets.ipl_kit`, plus a CHECK that no generated illustration is marked as kit.
+- **Publish gate.**
+  - The gate reports `NO_PHOTO`, `NOT_KIT` (factual packs), `NO_COUNTRY`, `NO_BATTING` and `NO_BOWLING`.
+  - "Publish without incomplete cards" prunes and reports how many cards it dropped.
+- **Player sheet CSV.**
+  - Admin catalog: `GET /v1/admin/catalog/versions/:id/player-sheet` and `POST /v1/admin/catalog/player-sheet`.
+  - CLI: `pnpm data:profiles`.
+  - Each row can import licensed IPL-jersey photos from local files or from `PHOTO_IMPORT_HOSTS` URLs, together with country and batting/bowling style.
+- **Admin upload.** It requires the jersey confirmation and the licence plus licence holder fields.
+- **Players table.** It shows "Missing: …" or "Ready for publishing" for each player.
+- **Commons importer.** It now registers only photos identified as IPL kit.
+- **Card detail (S10).** Exact values throughout: "never dismissed", "did not bat", "Does not bowl (0 overs)", and the full country name.
+
+### Checks actually run (follow-up)
+| Command | Result |
+| --- | --- |
+| `pnpm typecheck` | pass |
+| `pnpm contracts:check` | pass (84 operations) |
+| `pnpm test:unit` | pass (102) |
+| `pnpm test:integration` | pass (75) |
+| `pnpm test:security` | pass (43) |
+| `pnpm test:concurrency` | pass (7) |
+| `pnpm db:reset` / `pnpm db:lint` | pass |
+| `pnpm build` | pass |
+| `pnpm test:e2e` | pass (36 passed, 4 skipped, the existing mobile-only skips); the card-pool test timeout was raised to 90 s for its two full-page axe scans |
+
+### Still blocked
+- **Real IPL pack.** It needs cricsheet.org to be allowed by the network policy, and the operator's licensed IPL-jersey photos supplied through the player sheet. `PHOTO_IMPORT_HOSTS` must name their photo host for URL rows.
+- **Demo pack.** Until those are in place, only the demo pack is publishable.
 
 ## Next phase
 Phase 07 — card engine (RNG, fair deal, round reducer, invariants) and the card arena.

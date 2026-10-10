@@ -78,13 +78,12 @@ describe('ratings v1 (ADR-018 Attax-style scale)', () => {
     expect(mean(sorted.slice(half))).toBeGreaterThan(mean(sorted.slice(0, half)));
   });
 
-  it('derives roles and stars with provisional caps', () => {
+  it('derives roles and definite 1–5 star ratings (no provisional caps)', () => {
     const roles = new Set(ratings.map((r) => r.role));
     expect(roles).toEqual(new Set(['batter', 'bowler', 'all_rounder', 'wicketkeeper']));
     for (const r of ratings) {
       expect(r.stars).toBeGreaterThanOrEqual(1);
       expect(r.stars).toBeLessThanOrEqual(5);
-      if (r.starsProvisional) expect(r.stars).toBeLessThanOrEqual(3);
     }
     expect(ratings.some((r) => r.stars === 5)).toBe(true);
     // Versatility = round(sqrt(batting·bowling)).
@@ -104,9 +103,23 @@ describe('ratings v1 (ADR-018 Attax-style scale)', () => {
     expect(overridden.find((r) => r.playerId === someone.playerId)?.role).toBe('all_rounder');
   });
 
-  it('marks low-sample form as estimated instead of inventing a number', () => {
-    const lowSample = computeRatings({ ...input, cutoffDate: '2023-04-02' });
-    expect(lowSample.some((r) => r.estimated.includes('form'))).toBe(true);
+  it('every player has a definite value for every rating, even with a tiny sample', () => {
+    // A cutoff two days into the data: most players have one or two appearances.
+    const early = aggregateMatches(league.matches, { toDate: '2023-04-03' });
+    const tiny = computeRatings({
+      seasons: early.seasons,
+      lines: early.lines,
+      latestSeason: 2023,
+      cutoffDate: '2023-04-03',
+    });
+    expect(tiny.length).toBeGreaterThan(20);
+    for (const r of tiny) {
+      for (const m of RATING_METRICS) expect(Number.isInteger(r.ratings[m])).toBe(true);
+      for (const v of Object.values(r.phases)) expect(Number.isInteger(v)).toBe(true);
+      expect(Object.keys(r.phases)).toHaveLength(6);
+    }
+    expect(Math.max(...tiny.map((r) => r.ratings.batting))).toBe(1000);
+    expect(Math.max(...tiny.map((r) => r.ratings.form))).toBe(1000);
   });
 });
 

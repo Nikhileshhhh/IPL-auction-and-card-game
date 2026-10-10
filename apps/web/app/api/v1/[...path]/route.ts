@@ -54,7 +54,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   const limit =
     joined === 'admin/catalog/imports'
       ? MAX_IMPORT_BODY
-      : joined === 'admin/catalog/media'
+      : joined === 'admin/catalog/media' || joined === 'admin/catalog/player-sheet'
         ? MAX_MEDIA_BODY
         : MAX_BODY;
   const declared = Number(request.headers.get('content-length') ?? '0');

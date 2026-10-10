@@ -1,6 +1,6 @@
 # ADR-018: Real IPL statistics, real player photos and an Attax-style 0–100 scale
 
-- **Status:** Accepted (product-owner requirements, 10 October 2026). Amends ADR-017.
+- **Status:** Accepted (product-owner requirements, 10 October 2026). Amends ADR-017. The "estimated" and "Not available" rules are superseded by ADR-019.
 - **Requirements:**
   - "On the cards and in the auction game the original images of the players must be present."
   - "The stats/ratings must be based on their original stats."
@@ -19,7 +19,7 @@ The default published pack is built from **Cricsheet** IPL ball-by-ball data (so
   - super overs are excluded;
   - players are keyed by Cricsheet register ID, never by name.
 - Data after the snapshot cutoff never enters a pack.
-- Facts Cricsheet lacks (country, batting/bowling style) render as "Not available" until an admin enters them. They are never guessed.
+- Facts Cricsheet lacks (country, batting/bowling style) are never guessed. Under ADR-019 they are required before publishing (player sheet or S34 editor).
 
 ### 2. Real photos, lawfully
 "Visible on the web" is not "free to reuse". Photos from iplt20.com, BCCI or picture agencies are **not** scraped (S05, S06). Real photos come from two sources:
@@ -42,7 +42,7 @@ Original illustrated portraits remain **only** for the fictional demo league (of
 - After the rules §3.2 composite (exposure shrinkage, midrank percentiles, fixed integer weights), each rating is **rank-rescaled within the published cohort**: `Q = 10 + round(990·(r−1)/(n−1))`, with midrank ties, among players with exposure.
   - The best batter therefore rates exactly **100 batting** and the best bowler exactly **100 bowling**.
   - A confirmed non-batter or non-bowler is **0**.
-  - Missing data uses the prior and an "estimated" tag.
+  - ~~Missing data uses the prior and an "estimated" tag.~~ Superseded by ADR-019: every value is computed and definite.
 - Dual cards average their two players, capped at 95.
 - Rarity never changes ratings (R19).
 

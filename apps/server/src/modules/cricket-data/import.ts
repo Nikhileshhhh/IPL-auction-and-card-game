@@ -2,7 +2,6 @@ import type pg from 'pg';
 import {
   buildCatalog,
   computeRatings,
-  RATING_METRICS,
   RATINGS_MODEL_VERSION,
   type Aggregate,
   type PlayerRatings,
@@ -13,6 +12,14 @@ import { one } from '../../db/rows';
 import { withTransaction, type Tx } from '../../db/transaction';
 import { approvedPortrait } from '../media/service';
 import { validateVersion } from './validate';
+
+/** Identity facts known at import (others come from the manifest or the editor). */
+export interface PersonFacts {
+  name: string;
+  country?: string | null;
+  battingStyle?: 'right_hand' | 'left_hand' | null;
+  bowlingStyle?: string | null;
+}
 
 export interface ImportSource {
   publisher: string;
@@ -36,7 +43,7 @@ export interface ImportBundle {
   aggregate: Aggregate;
   /** All-time appearances up to the cutoff (experience). */
   careerAppearances: ReadonlyMap<string, number>;
-  people: ReadonlyMap<string, { name: string; country?: string | null }>;
+  people: ReadonlyMap<string, PersonFacts>;
   teamColors: ReadonlyMap<string, readonly [string, string]>;
   fictional: boolean;
   /** Extra identifiers per register ID (e.g. ESPNcricinfo keys used to find photos). */
@@ -170,11 +177,13 @@ export async function importDataVersion(
         // IDs are drawn once in a materialized CTE, so both inserts see the same values.
         const inserted = await tx.query<{ id: string; ext: string }>(
           `WITH input AS MATERIALIZED (
-             SELECT gen_random_uuid() AS id, t.ext, t.name, t.country, t.role
-               FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) AS t(ext, name, country, role)
+             SELECT gen_random_uuid() AS id, t.ext, t.name, t.country, t.role, t.bat, t.bowl
+               FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $7::text[], $8::text[])
+                 AS t(ext, name, country, role, bat, bowl)
            ), created AS (
-             INSERT INTO app_private.players (id, canonical_name, country_code, primary_role, is_fictional)
-             SELECT id, name, country, role, $5 FROM input
+             INSERT INTO app_private.players (id, canonical_name, country_code, primary_role, is_fictional,
+               batting_style, bowling_style)
+             SELECT id, name, country, role, $5, bat, bowl FROM input
            ), linked AS (
              INSERT INTO app_private.player_external_ids (player_id, source, external_id)
              SELECT id, $6, ext FROM input
@@ -187,6 +196,8 @@ export async function importDataVersion(
             missing.map((r) => r.role),
             bundle.fictional,
             bundle.externalSource,
+            missing.map((r) => bundle.people.get(r.playerId)?.battingStyle ?? null),
+            missing.map((r) => bundle.people.get(r.playerId)?.bowlingStyle ?? null),
           ],
         );
         for (const row of inserted.rows) playerIds.set(row.ext, row.id);
@@ -372,26 +383,15 @@ async function insertRatings(
   const rows: [string, string, number, number, string][] = [];
   for (const r of rated) {
     const id = playerIds.get(r.playerId) as string;
-    const completeness = r.completenessPermille / 1000;
-    const prov = (metric: string) =>
-      kind === 'demo'
-        ? 'demo'
-        : (r.estimated as string[]).includes(metric)
-          ? 'estimated'
-          : 'observed';
-    for (const [metric, points] of Object.entries(r.ratings)) {
-      rows.push([id, metric, points, completeness, prov(metric)]);
+    // Every rating is computed from the player's own deliveries (ADR-019): no estimates.
+    const provenance = kind === 'demo' ? 'demo' : 'observed';
+    for (const [metric, points] of [
+      ...Object.entries(r.ratings),
+      ...Object.entries(r.phases),
+      ['role_strength', r.roleStrength] as const,
+    ]) {
+      rows.push([id, metric, points, 1, provenance]);
     }
-    for (const [metric, points] of Object.entries(r.phases)) {
-      rows.push([id, metric, points, completeness, prov(metric)]);
-    }
-    rows.push([
-      id,
-      'role_strength',
-      r.roleStrength,
-      completeness,
-      kind === 'demo' ? 'demo' : 'observed',
-    ]);
   }
   await tx.query(
     `INSERT INTO app_private.player_ratings (data_version_id, player_id, model_version, metric, points,
@@ -419,16 +419,12 @@ async function insertCards(
   people: ImportBundle['people'],
 ): Promise<number> {
   const specs = buildCatalog(rated);
-  const byId = new Map(rated.map((r) => [r.playerId, r]));
-  const mainMetrics = new Set<string>(RATING_METRICS);
   const ids = await tx.query<{ id: string; card_key: string }>(
     `INSERT INTO app_private.card_definitions (data_version_id, label, rarity, stars, stars_provisional,
        ratings, model_version, card_key, completeness_permille, estimated)
-     SELECT $1, t.label, t.rarity, t.stars, t.provisional, t.ratings::jsonb, $2, t.key, t.completeness,
-            coalesce(string_to_array(NULLIF(t.estimated_csv, ''), ','), '{}')
-       FROM unnest($3::text[], $4::text[], $5::smallint[], $6::boolean[], $7::text[], $8::text[],
-                   $9::smallint[], $10::text[])
-         AS t(label, rarity, stars, provisional, ratings, key, completeness, estimated_csv)
+     SELECT $1, t.label, t.rarity, t.stars, false, t.ratings::jsonb, $2, t.key, 1000, '{}'
+       FROM unnest($3::text[], $4::text[], $5::smallint[], $6::text[], $7::text[])
+         AS t(label, rarity, stars, ratings, key)
      RETURNING id, card_key`,
     [
       version,
@@ -441,19 +437,8 @@ async function insertCards(
       ),
       specs.map((c) => c.rarity),
       specs.map((c) => c.stars),
-      specs.map((c) => c.starsProvisional),
       specs.map((c) => JSON.stringify(c.ratings)),
       specs.map((c) => c.key),
-      specs.map((c) => Math.min(...c.playerIds.map((p) => byId.get(p)?.completenessPermille ?? 0))),
-      specs.map((c) =>
-        [
-          ...new Set(
-            c.playerIds.flatMap((p) =>
-              (byId.get(p)?.estimated ?? []).filter((m) => mainMetrics.has(m)),
-            ),
-          ),
-        ].join(','),
-      ),
     ],
   );
   const idByKey = new Map(ids.rows.map((r) => [r.card_key, r.id]));

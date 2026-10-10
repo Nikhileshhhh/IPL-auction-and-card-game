@@ -32,9 +32,7 @@ interface CardRow {
   card_key: string | null;
   rarity: Rarity;
   stars: number;
-  stars_provisional: boolean;
   ratings: Record<string, number>;
-  estimated: string[];
   model_version: string;
   window_label: string | null;
   label: string;
@@ -46,7 +44,7 @@ interface CardRow {
     primary_role: PlayerRole;
     team: string | null;
     country: string | null;
-    batting_style: string | null;
+    batting_style: 'right_hand' | 'left_hand' | null;
     bowling_style: string | null;
     portrait: string | null;
     basis: string | null;
@@ -60,7 +58,7 @@ interface CardRow {
 }
 
 const CARD_SELECT = `
-  SELECT d.id, d.card_key, d.rarity, d.stars, d.stars_provisional, d.ratings, d.estimated, d.model_version,
+  SELECT d.id, d.card_key, d.rarity, d.stars, d.ratings, d.model_version,
          v.window_label, v.label, v.kind,
          (SELECT json_agg(json_build_object(
              'id', p.id, 'name', p.canonical_name, 'role', ps.role, 'primary_role', p.primary_role,
@@ -92,7 +90,6 @@ export function toCardDTO(row: CardRow): PublicCardDTO {
     definitionId: row.id,
     rarity: row.rarity,
     stars: row.stars,
-    starsProvisional: row.stars_provisional,
     players: row.players.map((p) => ({
       id: p.id,
       name: p.name,
@@ -108,7 +105,6 @@ export function toCardDTO(row: CardRow): PublicCardDTO {
       photoCredit: creditOf(p),
     })),
     ratings: toDisplay(row.ratings),
-    estimated: row.estimated,
     dataLabel: row.window_label ?? row.label,
     dataKind: row.kind,
     modelVersion: row.model_version,
@@ -213,8 +209,8 @@ export async function cardDetail(
         WHERE data_version_id = $1 AND player_id = $2 AND segment = 'overall'`,
       [row.data_version_id, p.id],
     );
-    const phases = await pool.query<{ metric: string; points: number; completeness: string }>(
-      `SELECT metric, points, completeness::text FROM app_private.player_ratings
+    const phases = await pool.query<{ metric: string; points: number }>(
+      `SELECT metric, points FROM app_private.player_ratings
         WHERE data_version_id = $1 AND player_id = $2 AND metric LIKE '%\\_b%ing' ESCAPE '\\'`,
       [row.data_version_id, p.id],
     );
@@ -244,16 +240,10 @@ export async function cardDetail(
     ]) {
       raw[k] ??= 0;
     }
-    const completeness = await pool.query<{ c: string | null }>(
-      `SELECT max(completeness)::text AS c FROM app_private.player_ratings
-        WHERE data_version_id = $1 AND player_id = $2`,
-      [row.data_version_id, p.id],
-    );
     players.push({
       playerId: p.id,
       raw: stats.rowCount ? (raw as RawStatsDTO) : null,
       phases: Object.fromEntries(phases.rows.map((r) => [r.metric, displayRating(r.points)])),
-      completenessPercent: Math.round(Number(completeness.rows[0]?.c ?? 0) * 100),
     });
   }
   const source = await pool.query<{ publisher: string; licence_label: string; url: string }>(
@@ -317,7 +307,7 @@ export async function listVersions(pool: pg.Pool): Promise<DataVersionSummary[]>
 export async function listAdminPlayers(
   pool: pg.Pool,
   versionId: string,
-  options: { query?: string; missingPhoto?: boolean; offset?: number },
+  options: { query?: string; incomplete?: boolean; offset?: number },
 ): Promise<{ items: AdminPlayerRow[]; total: number }> {
   const res = await pool.query<{
     id: string;
@@ -325,8 +315,13 @@ export async function listAdminPlayers(
     role: PlayerRole;
     role_reviewed: boolean;
     country: string | null;
+    batting_style: 'right_hand' | 'left_hand' | null;
+    bowling_style: string | null;
+    bowls: boolean;
     team: string | null;
     asset_id: string | null;
+    ipl_kit: boolean | null;
+    kind: 'demo' | 'factual';
     status: 'pending' | 'approved' | 'rejected' | 'expired' | null;
     basis: string | null;
     credit: string | null;
@@ -335,46 +330,69 @@ export async function listAdminPlayers(
   }>(
     `WITH rows AS (
        SELECT p.id, p.canonical_name AS name, coalesce(ps.role, p.primary_role) AS role, p.role_reviewed,
-              p.country_code AS country, ps.team_name AS team,
+              p.country_code AS country, p.batting_style, p.bowling_style, ps.team_name AS team, v.kind,
+              coalesce((SELECT st.value > 0 FROM app_private.player_statistics st
+                         WHERE st.data_version_id = ps.data_version_id AND st.player_id = p.id
+                           AND st.metric = 'balls_bowled' AND st.segment = 'overall'), false) AS bowls,
               m.id AS asset_id, m.rights_status AS status, m.rights_basis AS basis, m.attribution AS credit,
+              m.ipl_kit,
+              ps.portrait_asset_id AS current_portrait,
               (SELECT jsonb_object_agg(r.metric, r.points) FROM app_private.player_ratings r
                 WHERE r.data_version_id = ps.data_version_id AND r.player_id = p.id
                   AND r.metric IN ('batting','bowling','fielding','form','experience','versatility')) AS ratings
          FROM app_private.player_seasons ps
          JOIN app_private.players p ON p.id = ps.player_id
+         JOIN app_private.data_versions v ON v.id = ps.data_version_id
          LEFT JOIN LATERAL (
            SELECT a.* FROM app_private.media_assets a
             WHERE a.player_id = p.id AND a.purpose = 'portrait' AND a.rights_status IN ('pending', 'approved')
             ORDER BY (a.id = ps.portrait_asset_id) DESC, a.created_at DESC LIMIT 1) m ON true
         WHERE ps.data_version_id = $1
           AND ($2::text IS NULL OR p.canonical_name ILIKE '%' || $2 || '%')
-          AND (NOT $3::boolean OR ps.portrait_asset_id IS NULL))
-     SELECT *, count(*) OVER ()::int AS total FROM rows ORDER BY name LIMIT 50 OFFSET $4`,
+        )
+     SELECT *, count(*) OVER ()::int AS total FROM rows
+      WHERE NOT $3::boolean OR current_portrait IS NULL OR status IS DISTINCT FROM 'approved'
+         OR (kind = 'factual' AND NOT coalesce(ipl_kit, false))
+         OR country IS NULL OR batting_style IS NULL OR (bowls AND bowling_style IS NULL)
+      ORDER BY name LIMIT 50 OFFSET $4`,
     [
       versionId,
       options.query?.replace(/[%_\\]/g, '') || null,
-      options.missingPhoto ?? false,
+      options.incomplete ?? false,
       options.offset ?? 0,
     ],
   );
   return {
     total: res.rows[0]?.total ?? 0,
-    items: res.rows.map((r) => ({
-      playerId: r.id,
-      name: r.name,
-      role: r.role,
-      roleReviewed: r.role_reviewed,
-      country: r.country,
-      team: r.team,
-      portrait: r.asset_id
-        ? {
-            assetId: r.asset_id,
-            status: r.status ?? 'pending',
-            basis: r.basis ?? '',
-            credit: r.credit,
-          }
-        : null,
-      ratings: r.ratings ? toDisplay(r.ratings) : null,
-    })),
+    items: res.rows.map((r) => {
+      const missing: AdminPlayerRow['missing'] = [];
+      if (!r.asset_id || r.status !== 'approved') missing.push('photo');
+      else if (r.kind === 'factual' && !r.ipl_kit) missing.push('ipl_kit');
+      if (!r.country) missing.push('country');
+      if (!r.batting_style) missing.push('batting_style');
+      if (r.bowls && !r.bowling_style) missing.push('bowling_style');
+      return {
+        playerId: r.id,
+        name: r.name,
+        role: r.role,
+        roleReviewed: r.role_reviewed,
+        country: r.country,
+        battingStyle: r.batting_style,
+        bowlingStyle: r.bowling_style,
+        bowls: r.bowls,
+        team: r.team,
+        portrait: r.asset_id
+          ? {
+              assetId: r.asset_id,
+              status: r.status ?? 'pending',
+              basis: r.basis ?? '',
+              credit: r.credit,
+              iplKit: r.ipl_kit ?? false,
+            }
+          : null,
+        missing,
+        ratings: r.ratings ? toDisplay(r.ratings) : null,
+      };
+    }),
   };
 }

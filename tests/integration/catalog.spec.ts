@@ -221,8 +221,8 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
     expect(src.rows[0].checksum).toMatch(/^[0-9a-f]{64}$/);
   }, 120_000);
 
-  it('publishing is blocked while cards lack photos (PUBLISH_BLOCKED)', async () => {
-    const res = await admin.request(
+  it('publishing is blocked until every card has a jersey photo and complete facts', async () => {
+    const res = await admin.request<unknown>(
       'POST',
       `/v1/admin/catalog/${versionId}/publish`,
       {},
@@ -230,23 +230,30 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
     );
     expect(res.status).toBe(422);
     expect(res.body.error!.code).toBe('PUBLISH_BLOCKED');
+    const codes = (res.body.error!.details as { problems: { code: string }[] }).problems.map(
+      (p) => p.code,
+    );
+    // Cricsheet has no country or batting style: these must be supplied, never left blank.
+    expect(codes).toEqual(expect.arrayContaining(['NO_PHOTO', 'NO_COUNTRY', 'NO_BATTING']));
   });
 
-  it('rejects non-images and oversize uploads; strips metadata from accepted photos', async () => {
-    const players = await admin.request<{ items: { playerId: string; name: string }[] }>(
-      'GET',
-      `/v1/admin/catalog/versions/${versionId}/players?missingPhoto=true`,
-      undefined,
-      { admin: true },
+  let target: { playerId: string; name: string; bowls: boolean } | undefined;
+
+  it('uploads require the IPL-jersey confirmation; images are re-encoded without metadata', async () => {
+    const players = await admin.request<{
+      items: { playerId: string; name: string; bowls: boolean; missing: string[] }[];
+    }>('GET', `/v1/admin/catalog/versions/${versionId}/players?incomplete=true`, undefined, {
+      admin: true,
+    });
+    target = players.body.data!.items[0]!;
+    expect(players.body.data!.items[0]!.missing).toEqual(
+      expect.arrayContaining(['photo', 'country', 'batting_style']),
     );
-    const target = players.body.data!.items[0]!;
     const rights = {
-      basis: 'free-license',
-      licence: 'CC BY-SA 4.0',
-      author: 'Fixture Photographer',
-      attribution: 'Photo: Fixture Photographer, CC BY-SA 4.0, via Wikimedia Commons',
-      sourceUrl: 'https://commons.wikimedia.org/wiki/File:Fixture.jpg',
-      licenceUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      basis: 'licensed',
+      licence: 'Image licence agreement #1',
+      author: 'Startup Media Licensing',
+      attribution: 'Photo licensed to the STUMPS founders',
     };
     const notImage = await admin.request(
       'POST',
@@ -255,6 +262,7 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
         playerId: target.playerId,
         imageBase64: Buffer.from('<svg onload=alert(1)>').toString('base64'),
         rights,
+        iplKit: true,
       },
       { admin: true },
     );
@@ -262,32 +270,84 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
     expect(notImage.body.error!.details).toMatchObject({ reason: 'IMAGE_TYPE' });
 
     const jpeg = await jpegWithExif();
-    expect((await sharp(jpeg).metadata()).exif).toBeDefined();
-    const ok = await admin.request<{ assetId: string }>(
+    const noJersey = await admin.request(
       'POST',
       '/v1/admin/catalog/media',
       { playerId: target.playerId, imageBase64: jpeg.toString('base64'), rights },
       { admin: true },
     );
+    expect(noJersey.status).toBe(400);
+
+    expect((await sharp(jpeg).metadata()).exif).toBeDefined();
+    const ok = await admin.request<{ assetId: string }>(
+      'POST',
+      '/v1/admin/catalog/media',
+      { playerId: target.playerId, imageBase64: jpeg.toString('base64'), rights, iplKit: true },
+      { admin: true },
+    );
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+    const url = `/v1/admin/catalog/media/${ok.body.data!.assetId}/960`;
     const preview = await api.app.inject({
       method: 'GET',
-      url: `/v1/admin/catalog/media/${ok.body.data!.assetId}/960`,
-      headers: admin.signedHeaders(
-        'GET',
-        `/v1/admin/catalog/media/${ok.body.data!.assetId}/960`,
-        '',
-        { admin: true },
-      ),
+      url,
+      headers: admin.signedHeaders('GET', url, '', { admin: true }),
     });
     expect(preview.statusCode).toBe(200);
     const meta = await sharp(preview.rawPayload).metadata();
     expect(meta.exif).toBeUndefined();
     expect([meta.width, meta.height]).toEqual([960, 1280]);
     expect(preview.rawPayload.includes(Buffer.from('fixture-exif-marker'))).toBe(false);
+    const kit = await api.admin.query<{ ipl_kit: boolean }>(
+      'SELECT ipl_kit FROM app_private.media_assets WHERE id = $1',
+      [ok.body.data!.assetId],
+    );
+    expect(kit.rows[0]!.ipl_kit).toBe(true);
   });
 
-  it('publish with prune keeps only cards whose players have approved photos', async () => {
+  it('the player sheet fills facts and rejects unsafe or unconfirmed photo rows', async () => {
+    const template = await admin.request<{ csv: string }>(
+      'GET',
+      `/v1/admin/catalog/versions/${versionId}/player-sheet`,
+      undefined,
+      { admin: true },
+    );
+    expect(template.status).toBe(200);
+    expect(template.body.data!.csv.split('\n')[0]).toBe(
+      'player_key,name,team,role,full_name,country,batting_style,bowling_style,photo,ipl_jersey,licence,licence_holder,attribution,source_url',
+    );
+    const csv = [
+      'player_key,full_name,country,batting_style,bowling_style,photo,ipl_jersey,licence,licence_holder',
+      `${target!.playerId},${target!.name} Full,India,RHB,${target!.bowls ? 'Right-arm medium' : ''},,,,`,
+      `${target!.playerId},,IN,,,https://evil.example/x.jpg,yes,Lic #1,Holder`,
+      `${target!.playerId},,IN,,,https://evil.example/y.jpg,no,Lic #1,Holder`,
+      `${target!.playerId},,Atlantis,,,,,,`,
+      `not-a-player,,IN,RHB,,,,,`,
+    ].join('\n');
+    const res = await admin.request<{
+      updatedFacts: number;
+      photos: number;
+      issues: { line: number; message: string }[];
+    }>('POST', '/v1/admin/catalog/player-sheet', { csv }, { admin: true });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.data!.photos).toBe(0);
+    const byLine = new Map(res.body.data!.issues.map((i) => [i.line, i.message]));
+    expect(byLine.get(3)).toMatch(/PHOTO_IMPORT_HOSTS/);
+    expect(byLine.get(4)).toMatch(/ipl_jersey/);
+    expect(byLine.get(5)).toMatch(/unknown country/);
+    expect(byLine.get(6)).toMatch(/exactly one player/);
+    const player = await api.admin.query<{
+      country_code: string;
+      batting_style: string;
+      canonical_name: string;
+    }>(
+      'SELECT country_code, batting_style, canonical_name FROM app_private.players WHERE id = $1',
+      [target!.playerId],
+    );
+    expect(player.rows[0]).toMatchObject({ country_code: 'IN', batting_style: 'right_hand' });
+    expect(player.rows[0]!.canonical_name).toMatch(/ Full$/);
+  });
+
+  it('publish with prune keeps only complete cards: jersey photo, country, styles, all ratings', async () => {
     const res = await admin.request<{ pruned: number; report: { totals: { cards: number } } }>(
       'POST',
       `/v1/admin/catalog/${versionId}/publish`,
@@ -303,9 +363,18 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
       '/v1/catalog/cards',
     );
     expect(page.body.data!.dataLabel).toMatch(/^IPL 2023–2025, as of/);
+    expect(page.body.data!.items.length).toBeGreaterThanOrEqual(1);
     for (const card of page.body.data!.items) {
       expect(card.dataKind).toBe('factual');
-      expect(card.players[0]!.photoCredit?.licence).toBe('CC BY-SA 4.0');
+      expect(card).not.toHaveProperty('estimated');
+      expect(card).not.toHaveProperty('starsProvisional');
+      for (const v of Object.values(card.ratings)) expect(Number.isInteger(v)).toBe(true);
+      for (const p of card.players) {
+        expect(p.country).toBe('IN');
+        expect(p.battingStyle).toBe('right_hand');
+        expect(p.photoCredit?.licence).toBe('Image licence agreement #1');
+        expect(p.portraitAlt).toMatch(/in IPL jersey/);
+      }
     }
   });
 

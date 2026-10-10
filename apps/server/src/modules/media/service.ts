@@ -19,6 +19,8 @@ export interface PortraitRights {
   /** data_sources row (required for 'licensed'). */
   sourceId?: string | null;
   reviewedBy?: string | null;
+  /** Player is shown in IPL franchise jersey (required for published factual cards). */
+  iplKit?: boolean;
 }
 
 export const variantKey = (objectKey: string, width: VariantWidth) => `${objectKey}/${width}.webp`;
@@ -51,9 +53,9 @@ export async function registerPortrait(
       `INSERT INTO app_private.media_assets
          (bucket, object_key, purpose, mime, size_bytes, width, height, variant_widths, source_id,
           rights_basis, rights_status, attribution, alt_text, licence_label, licence_url, author,
-          source_page_url, content_sha256, player_id, reviewed_by, reviewed_at)
+          source_page_url, content_sha256, player_id, reviewed_by, reviewed_at, ipl_kit)
        VALUES ('catalog-media', $1, 'portrait', 'image/webp', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-               $13, $14, $15, $16, $17, CASE WHEN $8 = 'approved' THEN now() END)
+               $13, $14, $15, $16, $17, CASE WHEN $8 = 'approved' THEN now() END, $18)
        RETURNING id`,
       [
         objectKey,
@@ -73,6 +75,7 @@ export async function registerPortrait(
         image.sha256,
         playerId,
         rights.reviewedBy ?? null,
+        rights.iplKit ?? false,
       ],
     ),
   );
@@ -90,13 +93,13 @@ export async function attachToDrafts(tx: Tx, playerId: string, assetId: string) 
   );
 }
 
-/** Newest approved portrait for a player, if any. */
+/** Newest approved portrait for a player (IPL-jersey photos first), if any. */
 export async function approvedPortrait(tx: Tx, playerId: string): Promise<string | null> {
   const res = await tx.query<{ id: string }>(
     `SELECT id FROM app_private.media_assets
       WHERE player_id = $1 AND purpose = 'portrait' AND rights_status = 'approved'
         AND (expires_at IS NULL OR expires_at > now())
-      ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+      ORDER BY ipl_kit DESC, reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
     [playerId],
   );
   return res.rows[0]?.id ?? null;

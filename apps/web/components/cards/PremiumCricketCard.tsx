@@ -46,22 +46,13 @@ const SIZES: Record<
   },
 };
 
-function Stars({ count, provisional }: { count: number; provisional: boolean }) {
+function Stars({ count }: { count: number }) {
   return (
-    <span
-      className="flex items-center gap-1"
-      role="img"
-      aria-label={`${count} of 5 stars${provisional ? ', provisional' : ''}`}
-    >
+    <span className="flex items-center gap-1" role="img" aria-label={`${count} of 5 stars`}>
       <span aria-hidden="true" className="tracking-tight text-[#ffd76a]">
         {'★'.repeat(count)}
         <span className="text-white/25">{'★'.repeat(5 - count)}</span>
       </span>
-      {provisional ? (
-        <span aria-hidden="true" className="text-[10px] text-white/70">
-          prov.
-        </span>
-      ) : null}
     </span>
   );
 }
@@ -91,7 +82,6 @@ export function PremiumCricketCard({
   const names = card.players.map((p) => p.name).join(' & ');
   const teams = [...new Set(card.players.map((p) => p.team).filter(Boolean))].join(' / ');
   const roles = [...new Set(card.players.map((p) => ROLE_LABELS[p.role]))].join(' / ');
-  const estimated = new Set(card.estimated);
   return (
     <article
       aria-label={`${RARITY_NAMES[card.rarity]} card: ${names}. ${CARD_METRICS.map(
@@ -171,11 +161,6 @@ export function PremiumCricketCard({
                 className={cx('font-display leading-none font-bold text-white tabular-nums', s.num)}
               >
                 {card.ratings[m]}
-                {estimated.has(m) ? (
-                  <span className="ml-0.5 align-top text-[10px] text-white/60" title="Estimated">
-                    *<span className="sr-only"> estimated</span>
-                  </span>
-                ) : null}
               </dd>
             </div>
           ))}
@@ -194,7 +179,7 @@ export function PremiumCricketCard({
           >
             {RARITY_NAMES[card.rarity]}
           </span>
-          <Stars count={card.stars} provisional={card.starsProvisional} />
+          <Stars count={card.stars} />
         </div>
       </div>
     </article>

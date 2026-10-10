@@ -6,7 +6,7 @@ import type { CardDetailDTO, PublicCardDTO, RawStatsDTO } from '@stumps/contract
 import { api } from '@/lib/api-client';
 import { PremiumCricketCard } from './PremiumCricketCard';
 
-const dec = (x100: number | null) => (x100 === null ? 'Not available' : (x100 / 100).toFixed(2));
+const dec = (x100: number | null) => ((x100 ?? 0) / 100).toFixed(2);
 const overs = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`;
 const PHASE_LABELS: Record<string, string> = {
   powerplay_batting: 'Powerplay batting',
@@ -37,7 +37,30 @@ function StatTable({ caption, rows }: { caption: string; rows: [string, string |
   );
 }
 
+/**
+ * Raw statistics: every row shows a definite value (ADR-019). Undefined ratios
+ * are stated as facts (e.g. "45 runs, never dismissed"), never left blank.
+ */
 function RawStats({ raw }: { raw: RawStatsDTO }) {
+  const bowled = raw.ballsBowled > 0;
+  const battingAverage =
+    raw.innings === 0
+      ? '0.00 (did not bat)'
+      : raw.battingAverageX100 === null
+        ? `${raw.runs} runs, never dismissed`
+        : dec(raw.battingAverageX100);
+  const bowlingRows: [string, string | number][] = bowled
+    ? [
+        ['Overs', overs(raw.ballsBowled)],
+        ['Wickets', raw.wickets],
+        ['Economy', dec(raw.economyX100)],
+        [
+          'Average',
+          raw.wickets ? dec(raw.bowlingAverageX100) : `${raw.runsConceded} runs, 0 wickets`,
+        ],
+        ['Best', raw.bestBowling ? `${raw.bestBowling.wickets}/${raw.bestBowling.runs}` : '0/0'],
+      ]
+    : [['Bowling', 'Does not bowl (0 overs)']];
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <StatTable
@@ -46,8 +69,8 @@ function RawStats({ raw }: { raw: RawStatsDTO }) {
           ['Matches', raw.matches],
           ['Innings', raw.innings],
           ['Runs', raw.runs],
-          ['Highest score', raw.highScore ?? 'Not available'],
-          ['Average', dec(raw.battingAverageX100)],
+          ['Highest score', raw.highScore ?? 0],
+          ['Average', battingAverage],
           ['Strike rate', dec(raw.strikeRateX100)],
           ['Fours / sixes', `${raw.fours} / ${raw.sixes}`],
         ]}
@@ -55,16 +78,7 @@ function RawStats({ raw }: { raw: RawStatsDTO }) {
       <StatTable
         caption="Bowling and fielding"
         rows={[
-          ['Overs', raw.ballsBowled ? overs(raw.ballsBowled) : 'Did not bowl'],
-          ['Wickets', raw.wickets],
-          ['Economy', raw.ballsBowled ? dec(raw.economyX100) : 'Not applicable'],
-          ['Average', raw.wickets ? dec(raw.bowlingAverageX100) : 'Not applicable'],
-          [
-            'Best',
-            raw.bestBowling
-              ? `${raw.bestBowling.wickets}/${raw.bestBowling.runs}`
-              : 'Not applicable',
-          ],
+          ...bowlingRows,
           ['Catches', raw.catches],
           ['Run-outs / stumpings', `${raw.runOuts} / ${raw.stumpings}`],
         ]}
@@ -72,6 +86,18 @@ function RawStats({ raw }: { raw: RawStatsDTO }) {
     </div>
   );
 }
+
+/** Only reachable in unpublished admin drafts; the publish gate blocks gaps (ADR-019). */
+const DRAFT_GAP = 'Missing — fill in the player sheet before publishing';
+
+const regionNames = (() => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' });
+  } catch {
+    return null;
+  }
+})();
+const countryName = (code: string) => regionNames?.of(code) ?? code;
 
 const memberDetailPath = (id: string) => `/catalog/cards/${id}`;
 
@@ -150,27 +176,26 @@ export function CardDetailDialog({
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     <dt className="text-ink-3">Batting style</dt>
                     <dd>
-                      {player?.battingStyle
-                        ? player.battingStyle === 'left_hand'
-                          ? 'Left-hand'
-                          : 'Right-hand'
-                        : 'Not available'}
+                      {player?.battingStyle === 'left_hand'
+                        ? 'Left-hand bat'
+                        : player?.battingStyle === 'right_hand'
+                          ? 'Right-hand bat'
+                          : DRAFT_GAP}
                     </dd>
                     <dt className="text-ink-3">Bowling style</dt>
-                    <dd>{player?.bowlingStyle ?? 'Not available'}</dd>
+                    <dd>
+                      {player?.bowlingStyle ??
+                        (p.raw && p.raw.ballsBowled > 0 ? DRAFT_GAP : 'Does not bowl')}
+                    </dd>
                     <dt className="text-ink-3">Country</dt>
-                    <dd>{player?.country ?? 'Not available'}</dd>
-                    <dt className="text-ink-3">Data completeness</dt>
-                    <dd>{p.completenessPercent}%</dd>
+                    <dd>{player?.country ? countryName(player.country) : DRAFT_GAP}</dd>
                   </dl>
                   {p.raw ? (
                     <>
                       <p className="text-xs text-ink-3">Raw statistics: {p.raw.scopeLabel}</p>
                       <RawStats raw={p.raw} />
                     </>
-                  ) : (
-                    <p className="text-sm text-ink-2">Raw statistics not available.</p>
-                  )}
+                  ) : null}
                   {Object.keys(p.phases).length ? (
                     <StatTable
                       caption="Phase game ratings (0–100)"
@@ -214,7 +239,6 @@ export function CardDetailDialog({
               Statistics: {current.data.source.publisher} ({current.data.source.licence}). Game
               ratings are calculated by STUMPS from these statistics ({card.modelVersion}); they are
               not official ratings.
-              {card.estimated.length ? ' * marks an estimated rating (limited recent data).' : ''}
             </p>
           ) : null}
         </div>

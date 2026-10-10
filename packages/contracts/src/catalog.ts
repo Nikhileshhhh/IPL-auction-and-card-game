@@ -69,10 +69,15 @@ export const PublicCardPlayerSchema = z
     name: z.string(),
     role: PlayerRoleSchema,
     team: z.string().nullable(),
-    /** ISO 3166 alpha-2 or null → "Not available". */
+    /**
+     * ISO 3166 alpha-2. Published cards always carry country and batting style
+     * (publish gate, ADR-019); null only appears in unpublished admin drafts.
+     */
     country: z.string().nullable(),
-    battingStyle: z.string().nullable(),
+    battingStyle: z.enum(['right_hand', 'left_hand']).nullable(),
+    /** null = the player does not bowl (never bowled in the data window). */
     bowlingStyle: z.string().nullable(),
+    /** Photo of the player in IPL franchise jersey (mandatory, ADR-019). */
     portraitUrl: z.string().min(1),
     portraitAlt: z.string(),
     photoCredit: PhotoCreditSchema.nullable(),
@@ -85,11 +90,8 @@ export const PublicCardSchema = z
     definitionId: Uuid,
     rarity: RaritySchema,
     stars: z.number().int().min(1).max(5),
-    starsProvisional: z.boolean(),
     players: z.array(PublicCardPlayerSchema).min(1).max(2),
     ratings: CardRatingsSchema,
-    /** Metrics computed from a fallback prior (shown with an "estimated" tag). */
-    estimated: z.array(z.string()),
     dataLabel: z.string(),
     dataKind: z.enum(['demo', 'factual']),
     modelVersion: z.string(),
@@ -134,7 +136,6 @@ export const CardDetailSchema = z
           playerId: Uuid,
           raw: RawStatsSchema.nullable(),
           phases: z.record(z.string(), Rating),
-          completenessPercent: z.number().int().min(0).max(100),
         })
         .strict(),
     ),
@@ -202,6 +203,10 @@ export const AdminPlayerRowSchema = z
     role: PlayerRoleSchema,
     roleReviewed: z.boolean(),
     country: z.string().nullable(),
+    battingStyle: z.enum(['right_hand', 'left_hand']).nullable(),
+    bowlingStyle: z.string().nullable(),
+    /** Bowled at least one ball in the data window (bowling style then required). */
+    bowls: z.boolean(),
     team: z.string().nullable(),
     portrait: z
       .object({
@@ -209,8 +214,11 @@ export const AdminPlayerRowSchema = z
         status: z.enum(['pending', 'approved', 'rejected', 'expired']),
         basis: z.string(),
         credit: z.string().nullable(),
+        iplKit: z.boolean(),
       })
       .nullable(),
+    /** Facts and photo still needed before this player's card can be published. */
+    missing: z.array(z.enum(['photo', 'ipl_kit', 'country', 'batting_style', 'bowling_style'])),
     ratings: CardRatingsSchema.nullable(),
   })
   .strict();
@@ -256,10 +264,12 @@ export const AdminMediaUploadSchema = z
         licence: z.string().trim().min(2).max(80),
         author: z.string().trim().min(1).max(200),
         attribution: z.string().trim().min(1).max(300),
+        /** Where the photo came from (required for free-licence photos). */
         sourceUrl: z
           .url()
           .max(500)
-          .refine((u) => u.startsWith('https://'), 'https only'),
+          .refine((u) => u.startsWith('https://'), 'https only')
+          .optional(),
         licenceUrl: z
           .url()
           .max(300)
@@ -267,7 +277,13 @@ export const AdminMediaUploadSchema = z
           .optional(),
         expiresAt: IsoTimestamp.optional(),
       })
-      .strict(),
+      .strict()
+      .refine((r) => r.basis !== 'free-license' || !!r.sourceUrl, {
+        message: 'Free-licence photos need their source page',
+        path: ['sourceUrl'],
+      }),
+    /** The uploader confirms the player is wearing the IPL franchise jersey (ADR-019). */
+    iplKit: z.literal(true),
   })
   .strict();
 export type AdminMediaUpload = z.infer<typeof AdminMediaUploadSchema>;
