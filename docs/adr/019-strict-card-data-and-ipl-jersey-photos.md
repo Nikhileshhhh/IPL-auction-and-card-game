@@ -40,6 +40,19 @@ Players that no source covers are listed for the player sheet.
 - `media_assets.ipl_kit` (migration 046) records that the photo shows the player in an IPL franchise jersey. A CHECK constraint forbids setting it on generated illustrations.
 - When several photos are approved, the server prefers the IPL-kit one.
 
+### 2a. Official IPL headshots under the operator's licence
+The product owner chose the official IPL player headshots (players in franchise jersey) as the photo source and states the startup holds the licence for them.
+
+`pnpm data:headshots -- --licence "<reference>" --holder "<holder>" [--credit "<line>"]` imports them:
+- **What it fetches:**
+  - only the ten constant squad pages on `www.iplt20.com`;
+  - headshot images only from `documents.iplt20.com`, through the player-sheet path (re-encode, metadata stripped, private storage, `ipl_kit = true`, licence and audit row).
+- **Matching** is strict and one-to-one:
+  - an exact normalised full name, or initials plus surname within the same franchise;
+  - a tie or a miss is reported, never guessed.
+- **Licence details:** the licence reference and holder are required arguments with no defaults. They are recorded on every photo, and the credit line is shown in the card detail.
+- **Players without a headshot:** players in the pack but not in a current squad (for example, retired) get no headshot. They are supplied through the player sheet or dropped at publish with "publish without incomplete cards".
+
 ### 3. Publish gate
 A data version cannot be published while any card player has a gap. The gaps and their problem codes:
 
