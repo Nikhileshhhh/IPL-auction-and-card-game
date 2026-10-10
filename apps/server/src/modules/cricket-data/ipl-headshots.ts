@@ -1,15 +1,17 @@
 /**
- * Official IPL player headshots (players in franchise jersey), imported under
- * the operator's stated licence (ADR-019 §2a). Only the constant squad pages
- * below are fetched, only from www.iplt20.com; headshots are downloaded through
- * the player-sheet path (loadPhoto) from documents.iplt20.com only. Matching is
+ * Official IPL player headshots (players in their franchise jersey for that
+ * season), imported under the operator's stated licence (ADR-019 §2a).
+ * Only the constant squad feeds below are read (www.iplt20.com team API, one per
+ * franchise and season), and only headshot URLs of the exact
+ * `https://www.iplt20.com/api/team-assets?pathname=player/…png` form are accepted;
+ * they are downloaded through the player-sheet path (loadPhoto). Matching is
  * strict: a name tie or a miss is reported, never guessed.
  */
 
 export const IPL_SITE_HOST = 'www.iplt20.com';
-export const HEADSHOT_HOSTS = ['documents.iplt20.com'] as const;
+export const HEADSHOT_HOSTS = [IPL_SITE_HOST] as const;
 
-const SLUGS: readonly [string, string][] = [
+export const IPL_TEAM_SLUGS: readonly [string, string][] = [
   ['Chennai Super Kings', 'chennai-super-kings'],
   ['Mumbai Indians', 'mumbai-indians'],
   ['Royal Challengers Bengaluru', 'royal-challengers-bengaluru'],
@@ -22,107 +24,68 @@ const SLUGS: readonly [string, string][] = [
   ['Lucknow Super Giants', 'lucknow-super-giants'],
 ];
 
-export const IPL_SQUAD_PAGES: readonly { team: string; url: string }[] = SLUGS.map(
-  ([team, slug]) => ({ team, url: `https://${IPL_SITE_HOST}/teams/${slug}/squad` }),
-);
+/** The team's squad feed for one season (the same data the squad page renders). */
+export function squadFeedUrl(slug: string, season: number): string {
+  if (!/^[a-z-]{3,40}$/.test(slug) || !Number.isInteger(season)) throw new Error('bad squad feed');
+  return `https://${IPL_SITE_HOST}/api/bff/cms/teams/${slug}?tab=squad&season=${season}`;
+}
+
+export function squadPageUrl(slug: string): string {
+  return `https://${IPL_SITE_HOST}/teams/${slug}/squad`;
+}
 
 export interface SquadEntry {
   team: string;
+  season: number;
   name: string;
   headshotUrl: string;
-  profileUrl: string | null;
+  /** ISO 3166-1 alpha-2 when the feed gives one (England → GB; West Indies has none). */
+  country: string | null;
 }
 
-const ENTITIES: Record<string, string> = {
-  amp: '&',
-  quot: '"',
-  apos: "'",
-  '#39': "'",
-  nbsp: ' ',
-  rsquo: '’',
-  eacute: 'é',
-  aacute: 'á',
-  iacute: 'í',
-  oacute: 'ó',
-  uuml: 'ü',
-};
-const decode = (s: string) =>
-  s
-    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (m, e: string) => {
-      const k = e.toLowerCase();
-      if (ENTITIES[k] !== undefined) return ENTITIES[k];
-      if (k.startsWith('#x')) return String.fromCodePoint(parseInt(k.slice(2), 16));
-      if (k.startsWith('#')) return String.fromCodePoint(Number(k.slice(1)));
-      return m;
-    })
-    .replace(/\s+/g, ' ')
-    .trim();
+const HEADSHOT_PATH = /^player\/\d{1,8}\/\d{1,8}\/\d{1,10}\.png$/;
 
-const attr = (tag: string, name: string): string | null => {
-  const m = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i').exec(tag);
-  return m ? decode(m[2] ?? m[3] ?? '') : null;
-};
-
-/** First https URL on an allowed headshot host, or null. */
-function headshotFrom(tag: string): string | null {
-  const raw = [
-    attr(tag, 'data-src'),
-    attr(tag, 'data-lazy-src'),
-    attr(tag, 'src'),
-    ...(attr(tag, 'srcset') ?? attr(tag, 'data-srcset') ?? '').split(',').map((s) => s.trim()),
-  ];
-  for (const candidate of raw) {
-    const url = candidate?.split(/\s+/)[0];
-    if (!url) continue;
-    try {
-      const u = new URL(url);
-      if (u.protocol === 'https:' && (HEADSHOT_HOSTS as readonly string[]).includes(u.hostname)) {
-        return u.toString();
-      }
-    } catch {
-      /* not a URL */
+/** Accept only the IPL's own player headshot asset URL; anything else is dropped. */
+export function headshotUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    const u = new URL(raw);
+    const pathname = u.searchParams.get('pathname') ?? '';
+    if (
+      u.protocol !== 'https:' ||
+      u.hostname !== IPL_SITE_HOST ||
+      u.pathname !== '/api/team-assets' ||
+      !HEADSHOT_PATH.test(pathname)
+    ) {
+      return null;
     }
+    const clean = new URL(`https://${IPL_SITE_HOST}/api/team-assets`);
+    clean.searchParams.set('pathname', pathname);
+    return clean.toString();
+  } catch {
+    return null;
   }
-  return null;
 }
 
-const titleFromSlug = (slug: string) =>
-  slug
-    .split('-')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+function isoCountry(code: unknown): string | null {
+  if (typeof code !== 'string') return null;
+  const c = code.trim().toLowerCase();
+  if (c.startsWith('gb-')) return 'GB';
+  return /^[a-z]{2}$/.test(c) && c !== 'wi' ? c.toUpperCase() : null;
+}
 
-/**
- * Squad page → players with their headshot. Each headshot <img> is named by its
- * alt text, else by the nearest preceding data-player_name or profile link.
- */
-export function parseSquadPage(html: string, team: string): SquadEntry[] {
+/** Squad feed JSON → players with their headshot for that season. */
+export function parseSquadFeed(json: unknown, team: string, season: number): SquadEntry[] {
+  const players = (json as { data?: { squad?: { players?: unknown } } }).data?.squad?.players;
+  if (!Array.isArray(players)) return [];
   const out = new Map<string, SquadEntry>();
-  for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
-    const tag = m[0];
-    const headshotUrl = headshotFrom(tag);
-    if (!headshotUrl) continue;
-    const before = html.slice(Math.max(0, (m.index ?? 0) - 1500), m.index ?? 0);
-    const profiles = [
-      ...before.matchAll(/href\s*=\s*"(https:\/\/www\.iplt20\.com\/players\/([a-z0-9-]+)\/\d+)"/gi),
-    ];
-    const profile = profiles[profiles.length - 1];
-    const dataNames = [...before.matchAll(/data-player_name\s*=\s*"([^"]+)"/gi)];
-    const dataName = dataNames[dataNames.length - 1];
-    const alt = attr(tag, 'alt');
-    // The name source nearest the image belongs to it (a card's own link or attribute).
-    const nearest =
-      dataName && (dataName.index ?? -1) >= (profile?.index ?? -1)
-        ? decode(dataName[1] ?? '')
-        : profile?.[2]
-          ? titleFromSlug(profile[2])
-          : null;
-    const name = (alt && !/logo|team|flag|icon|^image$/i.test(alt) ? alt : null) ?? nearest;
-    if (!name || name.length > 60) continue;
+  for (const p of players as Record<string, unknown>[]) {
+    const name = typeof p.name === 'string' ? p.name.replace(/\s+/g, ' ').trim() : '';
+    const url = headshotUrl(p.imageUrl);
+    if (!name || name.length > 60 || !url) continue;
     const key = normName(name);
     if (!key || out.has(key)) continue;
-    out.set(key, { team, name, headshotUrl, profileUrl: profile?.[1] ?? null });
+    out.set(key, { team, season, name, headshotUrl: url, country: isoCountry(p.countryCode) });
   }
   return [...out.values()];
 }
@@ -148,15 +111,85 @@ function initialSurname(s: string): string | null {
   return first && last ? `${first[0]} ${last}` : null;
 }
 
+function editDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    let prev = row[0] ?? 0;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cur = row[j] ?? 0;
+      row[j] = Math.min(cur + 1, (row[j - 1] ?? 0) + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+  }
+  return row[b.length] ?? 0;
+}
+
+/**
+ * Initials + surname, and the first names must agree when both are spelled out:
+ * Cricsheet initials ("MS", "P") always agree; "Mitch"/"Mitchell" and
+ * "Nicolas"/"Nicholas" agree; "Harpreet"/"Harnoor" do not.
+ */
+export function sameInitialSurname(a: string, b: string): boolean {
+  const ka = initialSurname(a);
+  if (!ka || ka !== initialSurname(b)) return false;
+  const fa = a.trim().split(/\s+/)[0] ?? '';
+  const fb = b.trim().split(/\s+/)[0] ?? '';
+  const initials = (f: string) => /^[A-Z]{1,3}$/.test(f.replace(/\./g, ''));
+  if (initials(fa) || initials(fb)) return true;
+  const x = normName(fa);
+  const y = normName(fb);
+  return x.startsWith(y) || y.startsWith(x) || editDistance(x, y) <= 2;
+}
+
+/**
+ * Same person, different spelling (one contained in the other, e.g. "Sai Kishore" /
+ * "Ravisrinivasan Sai Kishore", "Yudhvir Singh" / "Yudhvir Singh Charak"; or same
+ * first name with a surname at most two letters apart, e.g. "Sooryavanshi" /
+ * "Suryavanshi"). Only used within the same franchise.
+ */
+export function nearName(a: string, b: string): boolean {
+  const x = normName(a).split(' ').filter(Boolean);
+  const y = normName(b).split(' ').filter(Boolean);
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  if (short.length >= 2) {
+    const s = short.join(' ');
+    if (long.slice(0, short.length).join(' ') === s || long.slice(-short.length).join(' ') === s)
+      return true;
+  }
+  const lx = x[x.length - 1] ?? '';
+  const ly = y[y.length - 1] ?? '';
+  return (
+    x.length >= 2 &&
+    y.length >= 2 &&
+    x[0] === y[0] &&
+    Math.min(lx.length, ly.length) >= 6 &&
+    editDistance(lx, ly) <= 2
+  );
+}
+
+/**
+ * Hand-verified alternate names the IPL uses (pack name → IPL name), applied only
+ * within the same franchise.
+ */
+export const IPL_NAME_ALIASES: ReadonlyMap<string, string> = new Map([
+  ['rasikh salam', 'rasikh dar'], // Rasikh Salam Dar
+  ['sumit kumar', 'sumit beniwal'], // Sumit Kumar Beniwal
+]);
+
+const aliasOf = (a: string, b: string) => IPL_NAME_ALIASES.get(normName(b)) === normName(a);
+
 export interface PackPlayer {
   id: string;
-  /** Every known spelling: Wikidata full name, Cricsheet name. */
+  /** Every known spelling: current (Wikidata) full name, Cricsheet register names. */
   names: readonly string[];
   team: string | null;
 }
 
+export type MatchHow = 'full-name' | 'initial-surname' | 'near-name' | 'alias';
+
 export interface MatchResult {
-  matches: { player: PackPlayer; entry: SquadEntry; how: 'full-name' | 'initial-surname' }[];
+  matches: { player: PackPlayer; entry: SquadEntry; how: MatchHow }[];
   ambiguous: { entry: SquadEntry; candidates: string[] }[];
   unmatchedEntries: SquadEntry[];
   unmatchedPlayers: PackPlayer[];
@@ -170,6 +203,7 @@ export interface MatchResult {
 export function matchHeadshots(
   entries: readonly SquadEntry[],
   players: readonly PackPlayer[],
+  options: { requireTeam?: boolean } = {},
 ): MatchResult {
   const result: MatchResult = {
     matches: [],
@@ -182,18 +216,17 @@ export function matchHeadshots(
   const lastAmbiguous = new Map<SquadEntry, string[]>();
 
   const stage = (
-    how: 'full-name' | 'initial-surname',
-    keysOf: (names: readonly string[]) => Set<string>,
+    how: MatchHow,
+    same: (entryName: string, playerName: string) => boolean,
     sameTeam: boolean,
   ) => {
     const pairs: [SquadEntry, PackPlayer][] = [];
     for (const e of entries) {
       if (takenE.has(e)) continue;
-      const ek = keysOf([e.name]);
       for (const p of players) {
         if (takenP.has(p)) continue;
-        if (sameTeam && p.team !== e.team) continue;
-        if ([...keysOf(p.names)].some((k) => ek.has(k))) pairs.push([e, p]);
+        if ((sameTeam || options.requireTeam) && p.team !== e.team) continue;
+        if (p.names.some((n) => same(e.name, n))) pairs.push([e, p]);
       }
     }
     const byE = new Map<SquadEntry, PackPlayer[]>();
@@ -218,8 +251,10 @@ export function matchHeadshots(
     }
   };
 
-  stage('full-name', (names) => new Set(names.map(normName).filter(Boolean)), false);
-  stage('initial-surname', (names) => new Set(names.flatMap((n) => initialSurname(n) ?? [])), true);
+  stage('full-name', (a, b) => normName(a) !== '' && normName(a) === normName(b), false);
+  stage('initial-surname', sameInitialSurname, true);
+  stage('near-name', nearName, true);
+  stage('alias', aliasOf, true);
 
   for (const e of entries) {
     if (takenE.has(e)) continue;
@@ -231,11 +266,45 @@ export function matchHeadshots(
   return result;
 }
 
-/** Fetch one constant squad page politely (contact UA, 429 backoff). */
-export async function fetchSquadHtml(
+/**
+ * The jersey should match the franchise shown on the card: first the latest
+ * season the player was in that franchise's squad, then (for players whose card
+ * franchise has no headshot) the latest squad of any franchise.
+ */
+export function matchBySeason(
+  entries: readonly SquadEntry[],
+  players: readonly PackPlayer[],
+): MatchResult {
+  const seasons = [...new Set(entries.map((e) => e.season))].sort((a, b) => b - a);
+  const total: MatchResult = {
+    matches: [],
+    ambiguous: [],
+    unmatchedEntries: [],
+    unmatchedPlayers: [...players],
+  };
+  const used = new Set<SquadEntry>();
+  for (const requireTeam of [true, false]) {
+    for (const season of seasons) {
+      const r = matchHeadshots(
+        entries.filter((e) => e.season === season && !used.has(e)),
+        total.unmatchedPlayers,
+        { requireTeam },
+      );
+      for (const m of r.matches) used.add(m.entry);
+      total.matches.push(...r.matches);
+      if (!requireTeam) total.ambiguous.push(...r.ambiguous);
+      total.unmatchedPlayers = r.unmatchedPlayers;
+    }
+  }
+  total.unmatchedEntries = entries.filter((e) => !used.has(e));
+  return total;
+}
+
+/** Fetch one constant squad feed politely (contact UA, 429 backoff, same host only). */
+export async function fetchSquadFeed(
   url: string,
   options: { fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void> } = {},
-): Promise<string> {
+): Promise<unknown> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' || parsed.hostname !== IPL_SITE_HOST) {
     throw new Error(`host not allowed: ${parsed.hostname}`);
@@ -246,9 +315,9 @@ export async function fetchSquadHtml(
       headers: {
         'user-agent':
           'STUMPS-licensed-photo-import/1.0 (https://github.com/Nikhileshhhh/IPL-auction-and-card-game)',
-        accept: 'text/html',
+        accept: 'application/json',
       },
-      redirect: 'follow',
+      redirect: 'error',
       signal: AbortSignal.timeout(60_000),
     });
     if ((res.status === 429 || res.status === 503) && attempt < 3) {
@@ -256,8 +325,6 @@ export async function fetchSquadHtml(
       continue;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status} from ${parsed.hostname}`);
-    // Redirects must stay on the IPL site.
-    if (new URL(res.url || url).hostname !== IPL_SITE_HOST) throw new Error('redirected off-site');
-    return res.text();
+    return res.json();
   }
 }

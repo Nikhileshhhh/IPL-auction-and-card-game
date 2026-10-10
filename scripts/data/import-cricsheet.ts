@@ -14,6 +14,8 @@ import { withTransaction } from '../../apps/server/src/db/transaction';
 import { LocalDiskStorage } from '../../apps/server/src/modules/media/storage';
 
 const { values } = parseArgs({
+  // pnpm forwards a literal `--` separator; drop it.
+  args: process.argv.slice(2).filter((a) => a !== '--'),
   options: { season: { type: 'string' }, label: { type: 'string' } },
 });
 const env = loadEnv();

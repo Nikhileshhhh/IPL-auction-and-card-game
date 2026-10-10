@@ -1,99 +1,122 @@
 import { describe, expect, it } from 'vitest';
 import {
-  fetchSquadHtml,
-  IPL_SQUAD_PAGES,
+  fetchSquadFeed,
+  headshotUrl,
+  IPL_TEAM_SLUGS,
+  matchBySeason,
   matchHeadshots,
+  nearName,
   normName,
-  parseSquadPage,
+  parseSquadFeed,
+  sameInitialSurname,
+  squadFeedUrl,
   type PackPlayer,
   type SquadEntry,
 } from '../../src/modules/cricket-data/ipl-headshots';
 
-// Shape of an IPL squad listing: profile link wrapping a lazy-loaded headshot.
-const html = `
-<ul class="ih-pcard-ul">
-  <li><a data-player_name="Ruturaj Gaikwad" href="https://www.iplt20.com/players/ruturaj-gaikwad/5443">
-    <img class="lazyload" data-src="https://documents.iplt20.com/ipl/IPLHeadshot2026/102.png" alt="Ruturaj Gaikwad">
-  </a></li>
-  <li><a href="https://www.iplt20.com/players/ms-dhoni/1">
-    <img src="https://documents.iplt20.com/ipl/IPLHeadshot2026/57.png" alt="">
-  </a></li>
-  <li><a href="https://www.iplt20.com/players/shivam-dube/211">
-    <img srcset="https://documents.iplt20.com/ipl/IPLHeadshot2026/211.png 1x, x 2x" alt="Shivam Dub&eacute;">
-  </a></li>
-  <img src="https://documents.iplt20.com/ipl/CSK/logos/Logooutline/CSKoutline.png" alt="CSK logo">
-  <img src="https://evil.example/ipl/IPLHeadshot2026/9.png" alt="Not Allowed">
-  <img src="http://documents.iplt20.com/ipl/IPLHeadshot2026/10.png" alt="Plain Http">
-</ul>`;
+const asset = (season: number, team: number, id: number) =>
+  `https://www.iplt20.com/api/team-assets?pathname=player%2F${season}%2F${team}%2F${id}.png&brand=ipl`;
 
-describe('IPL squad page parser', () => {
-  const squad = parseSquadPage(html, 'Chennai Super Kings');
+// Shape of the IPL team squad feed (data.squad.players).
+const feed = {
+  status: 200,
+  data: {
+    squad: {
+      filters: { seasonYears: ['2026', '2025'], defaultSeasonYear: '2026' },
+      players: [
+        { name: 'Ruturaj Gaikwad', countryCode: 'in', imageUrl: asset(8903, 1622, 64377) },
+        { name: 'Jamie Overton', countryCode: 'gb-eng', imageUrl: asset(8903, 1622, 1) },
+        { name: 'Akeal Hosein', countryCode: 'wi', imageUrl: asset(8903, 1622, 2) },
+        { name: 'No Photo', countryCode: 'in', imageUrl: null },
+        {
+          name: 'Elsewhere',
+          imageUrl: 'https://evil.example/api/team-assets?pathname=player%2F1%2F2%2F3.png',
+        },
+        {
+          name: 'Not A Headshot',
+          imageUrl:
+            'https://www.iplt20.com/api/team-assets?pathname=static%2Fteams%2F1622%2Flogo.svg',
+        },
+      ],
+    },
+  },
+};
 
-  it('reads name, headshot and profile; names from alt, data attribute or profile slug', () => {
+describe('IPL squad feed', () => {
+  const squad = parseSquadFeed(feed, 'Chennai Super Kings', 2026);
+
+  it('reads name, season headshot and country (England → GB, West Indies → none)', () => {
     expect(squad).toEqual([
       {
         team: 'Chennai Super Kings',
+        season: 2026,
         name: 'Ruturaj Gaikwad',
-        headshotUrl: 'https://documents.iplt20.com/ipl/IPLHeadshot2026/102.png',
-        profileUrl: 'https://www.iplt20.com/players/ruturaj-gaikwad/5443',
+        headshotUrl:
+          'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F64377.png',
+        country: 'IN',
       },
       {
         team: 'Chennai Super Kings',
-        name: 'Ms Dhoni',
-        headshotUrl: 'https://documents.iplt20.com/ipl/IPLHeadshot2026/57.png',
-        profileUrl: 'https://www.iplt20.com/players/ms-dhoni/1',
+        season: 2026,
+        name: 'Jamie Overton',
+        headshotUrl: 'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F1.png',
+        country: 'GB',
       },
       {
         team: 'Chennai Super Kings',
-        name: 'Shivam Dubé',
-        headshotUrl: 'https://documents.iplt20.com/ipl/IPLHeadshot2026/211.png',
-        profileUrl: 'https://www.iplt20.com/players/shivam-dube/211',
+        season: 2026,
+        name: 'Akeal Hosein',
+        headshotUrl: 'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F2.png',
+        country: null,
       },
     ]);
   });
 
-  it('ignores logos, other hosts and non-https images', () => {
-    const urls = squad.map((s) => s.headshotUrl).join(' ');
-    expect(urls).not.toContain('logos');
-    expect(urls).not.toContain('evil.example');
-    expect(urls).not.toContain('http://');
+  it('accepts only the IPL player headshot asset URL', () => {
+    expect(
+      headshotUrl('http://www.iplt20.com/api/team-assets?pathname=player%2F1%2F2%2F3.png'),
+    ).toBeNull();
+    expect(
+      headshotUrl('https://www.iplt20.com/api/other?pathname=player%2F1%2F2%2F3.png'),
+    ).toBeNull();
+    expect(
+      headshotUrl('https://www.iplt20.com/api/team-assets?pathname=player%2F..%2F3.png'),
+    ).toBeNull();
+    expect(headshotUrl(42)).toBeNull();
   });
 
-  it('only the ten constant squad pages on the IPL site', () => {
-    expect(IPL_SQUAD_PAGES).toHaveLength(10);
-    for (const p of IPL_SQUAD_PAGES) expect(p.url).toMatch(/^https:\/\/www\.iplt20\.com\/teams\//);
-  });
-
-  it('refuses to fetch anything but the IPL site', async () => {
-    await expect(fetchSquadHtml('https://example.com/teams/x/squad')).rejects.toThrow(
+  it('only constant feeds on the IPL site, nothing else is fetched', async () => {
+    expect(IPL_TEAM_SLUGS).toHaveLength(10);
+    expect(squadFeedUrl('mumbai-indians', 2025)).toBe(
+      'https://www.iplt20.com/api/bff/cms/teams/mumbai-indians?tab=squad&season=2025',
+    );
+    expect(() => squadFeedUrl('../x', 2025)).toThrow();
+    await expect(fetchSquadFeed('https://example.com/api/bff/cms/teams/x')).rejects.toThrow(
       'host not allowed',
     );
   });
 });
 
 describe('strict headshot matching', () => {
-  const e = (name: string, team = 'Chennai Super Kings'): SquadEntry => ({
+  const e = (name: string, team = 'Chennai Super Kings', season = 2026): SquadEntry => ({
     team,
+    season,
     name,
-    headshotUrl: `https://documents.iplt20.com/ipl/h/${normName(name).replace(/ /g, '-')}.png`,
-    profileUrl: null,
+    headshotUrl: `https://www.iplt20.com/api/team-assets?pathname=player%2F${season}%2F1%2F${normName(name).length}.png`,
+    country: null,
   });
   const p = (
     id: string,
     names: string[],
     team: string | null = 'Chennai Super Kings',
-  ): PackPlayer => ({
-    id,
-    names,
-    team,
-  });
+  ): PackPlayer => ({ id, names, team });
 
-  it('matches full names first, then initials+surname within the same franchise', () => {
+  it('full names first, then initials+surname within the same franchise', () => {
     const r = matchHeadshots(
-      [e('Ruturaj Gaikwad'), e('Shivam Dube'), e('Matheesha Pathirana')],
+      [e('Ruturaj Gaikwad'), e('Mahendra Singh Dhoni'), e('Matheesha Pathirana')],
       [
-        p('1', ['Ruturaj Gaikwad', 'RD Gaikwad']),
-        p('2', ['S Dube']),
+        p('1', ['Ruturaj Gaikwad']),
+        p('2', ['MS Dhoni']),
         p('3', ['M Pathirana'], 'Mumbai Indians'),
       ],
     );
@@ -101,18 +124,45 @@ describe('strict headshot matching', () => {
       ['1', 'full-name'],
       ['2', 'initial-surname'],
     ]);
-    // Initials+surname across franchises is not trusted.
-    expect(r.unmatchedEntries.map((x) => x.name)).toEqual(['Matheesha Pathirana']);
     expect(r.unmatchedPlayers.map((x) => x.id)).toEqual(['3']);
   });
 
+  it('spelled-out first names must agree: Harpreet is not Harnoor', () => {
+    expect(sameInitialSurname('Harnoor Singh', 'Harpreet Singh')).toBe(false);
+    expect(sameInitialSurname('Shashank Singh', 'Shivam Singh')).toBe(false);
+    expect(sameInitialSurname('Mitch Marsh', 'Mitchell Marsh')).toBe(true);
+    expect(sameInitialSurname('Nicholas Pooran', 'Nicolas Pooran')).toBe(true);
+    expect(sameInitialSurname('Prabhsimran Singh', 'P Simran Singh')).toBe(true);
+  });
+
+  it('near names: one contained in the other, or a surname a letter or two apart', () => {
+    expect(nearName('Sai Kishore', 'Ravisrinivasan Sai Kishore')).toBe(true);
+    expect(nearName('Yudhvir Singh Charak', 'Yudhvir Singh')).toBe(true);
+    expect(nearName('Vaibhav Sooryavanshi', 'Vaibhav Suryavanshi')).toBe(true);
+    expect(nearName('Varun Chakaravarthy', 'Varun Chakravarthy')).toBe(true);
+    expect(nearName('Akash Singh', 'Akash Deep')).toBe(false);
+    expect(nearName('Rahul Chahar', 'Deepak Chahar')).toBe(false);
+  });
+
   it('a tie is reported, never guessed', () => {
-    const r = matchHeadshots(
-      [e('Rahul Sharma')],
-      [p('a', ['R Sharma']), p('b', ['Rohit Sharma', 'RG Sharma'])],
-    );
+    const r = matchHeadshots([e('Rahul Sharma')], [p('a', ['R Sharma']), p('b', ['RG Sharma'])]);
     expect(r.matches).toHaveLength(0);
-    expect(r.ambiguous[0]?.candidates).toEqual(['R Sharma', 'Rohit Sharma']);
+    expect(r.ambiguous[0]?.candidates).toEqual(['R Sharma', 'RG Sharma']);
+  });
+
+  it('prefers the jersey of the franchise shown on the card, then the latest season', () => {
+    const samson = p('s', ['Sanju Samson'], 'Rajasthan Royals');
+    const r = matchBySeason(
+      [e('Sanju Samson', 'Chennai Super Kings', 2026), e('Sanju Samson', 'Rajasthan Royals', 2025)],
+      [samson],
+    );
+    expect(r.matches[0]?.entry.season).toBe(2025);
+    expect(r.matches[0]?.entry.team).toBe('Rajasthan Royals');
+    const moved = matchBySeason(
+      [e('Sanju Samson', 'Chennai Super Kings', 2026), e('Sanju Samson', 'Delhi Capitals', 2024)],
+      [samson],
+    );
+    expect(moved.matches[0]?.entry.season).toBe(2026);
   });
 
   it('name normalisation ignores accents, punctuation and Cricsheet disambiguators', () => {

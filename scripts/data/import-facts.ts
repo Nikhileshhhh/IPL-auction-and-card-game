@@ -22,6 +22,8 @@ import {
 import { fetchAllowed, wikidataUrl } from '../../apps/server/src/modules/media/commons';
 
 const { values } = parseArgs({
+  // pnpm forwards a literal `--` separator; drop it.
+  args: process.argv.slice(2).filter((a) => a !== '--'),
   options: { version: { type: 'string' }, 'dry-run': { type: 'boolean', default: false } },
 });
 const dryRun = values['dry-run'] ?? false;

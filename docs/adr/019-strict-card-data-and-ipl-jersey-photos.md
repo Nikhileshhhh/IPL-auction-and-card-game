@@ -41,17 +41,23 @@ Players that no source covers are listed for the player sheet.
 - When several photos are approved, the server prefers the IPL-kit one.
 
 ### 2a. Official IPL headshots under the operator's licence
-The product owner chose the official IPL player headshots (players in franchise jersey) as the photo source and states the startup holds the licence for them.
+The product owner chose the official IPL player headshots as the photo source. Each headshot shows the player in that season's franchise jersey. The product owner states the startup holds the licence.
 
 `pnpm data:headshots -- --licence "<reference>" --holder "<holder>" [--credit "<line>"]` imports them:
-- **What it fetches:**
-  - only the ten constant squad pages on `www.iplt20.com`;
-  - headshot images only from `documents.iplt20.com`, through the player-sheet path (re-encode, metadata stripped, private storage, `ipl_kit = true`, licence and audit row).
-- **Matching** is strict and one-to-one:
-  - an exact normalised full name, or initials plus surname within the same franchise;
-  - a tie or a miss is reported, never guessed.
+- **What it reads:** only the constant squad feeds on `www.iplt20.com` (`/api/bff/cms/teams/<team>?tab=squad&season=<year>`). This is the same data the squad pages render, for the ten franchises and the pack's three seasons.
+- **What it accepts:** only headshot URLs of the exact form `https://www.iplt20.com/api/team-assets?pathname=player/<n>/<n>/<n>.png`.
+- **How it stores them:** headshots are downloaded through the player-sheet path. They are re-encoded to 3:4 WebP with metadata stripped, kept in private storage, and saved with `ipl_kit = true`, the licence and an audit row.
+- **Which jersey:** the jersey matches the card. The importer prefers the latest season in which the player was in the squad of the franchise shown on his card, and otherwise uses the latest squad of any franchise.
+- **Matching** is strict and one-to-one. The stages, in order:
+  1. exact full name;
+  2. initials plus surname within the same franchise, with spelled-out first names required to agree (Harpreet is not Harnoor);
+  3. one name contained in the other, or a surname at most two letters apart, within the same franchise (Sooryavanshi/Suryavanshi);
+  4. two hand-verified aliases (Rasikh Salam = Rasikh Dar, Sumit Kumar = Sumit Beniwal).
+
+  A tie is reported, never guessed.
+- **First dry run:** all 312 players in the IPL 2024–2026 pack were matched.
+- **Country:** the IPL feed's country fills a missing country (England → GB). It never overwrites an existing value.
 - **Licence details:** the licence reference and holder are required arguments with no defaults. They are recorded on every photo, and the credit line is shown in the card detail.
-- **Players without a headshot:** players in the pack but not in a current squad (for example, retired) get no headshot. They are supplied through the player sheet or dropped at publish with "publish without incomplete cards".
 
 ### 3. Publish gate
 A data version cannot be published while any card player has a gap. The gaps and their problem codes:
