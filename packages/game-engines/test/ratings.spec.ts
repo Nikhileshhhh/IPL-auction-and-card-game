@@ -4,6 +4,7 @@ import {
   allocateRarityCounts,
   buildCatalog,
   checkPool,
+  findLegends,
   computeRatings,
   displayRating,
   isqrtRound,
@@ -157,16 +158,36 @@ describe('percentile and rescale helpers', () => {
   });
 });
 
-describe('catalog: rarity, duals and pool sufficiency (rules §3.4)', () => {
-  const cards = buildCatalog(ratings);
+describe('catalog: legends, Bronze singles and Platinum duals (ADR-020)', () => {
+  const ids = ratings.map((r) => r.playerId).sort();
+  const legends = new Set(ids.slice(0, 3));
+  const [l1, l2, l3] = [...legends] as [string, string, string];
+  const cards = buildCatalog(ratings, {
+    legends,
+    duals: [
+      [l1, l2],
+      [l2, l3],
+      [l2, l1], // the same pair again is ignored
+      [l1, 'not-in-pack'], // a missing player skips the pair
+    ],
+  });
 
-  it('one single card per player plus ~2 % dual cards', () => {
-    const singles = cards.filter((c) => c.playerIds.length === 1);
+  it('every player has one Bronze card; a legend has Normal, Silver and Gold instead', () => {
+    for (const r of ratings) {
+      const own = cards.filter((c) => c.playerIds.length === 1 && c.playerIds[0] === r.playerId);
+      expect(own.map((c) => c.rarity).sort()).toEqual(
+        legends.has(r.playerId) ? ['gold', 'normal', 'silver'] : ['bronze'],
+      );
+    }
+    expect(cards.some((c) => c.rarity === 'platinum')).toBe(false);
+    expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
+  });
+
+  it('Platinum only for the named dual pairs', () => {
     const duals = cards.filter((c) => c.rarity === 'dual_platinum');
-    expect(singles).toHaveLength(ratings.length);
-    expect(duals.length).toBeGreaterThanOrEqual(1);
-    const ids = duals.flatMap((d) => d.playerIds);
-    expect(new Set(ids).size).toBe(ids.length); // no identity in two pairs
+    expect(duals.map((d) => [...d.playerIds].sort().join('+')).sort()).toEqual(
+      [[l1, l2].sort().join('+'), [l2, l3].sort().join('+')].sort(),
+    );
   });
 
   it('dual ratings are the rounded mean of both players, capped at 950 (display ≤ 95)', () => {
@@ -180,10 +201,26 @@ describe('catalog: rarity, duals and pool sufficiency (rules §3.4)', () => {
     }
   });
 
-  it('rarity is visual only: a card shows exactly its player ratings', () => {
+  it('rarity is visual only: every version shows exactly its player ratings', () => {
     for (const c of cards.filter((x) => x.playerIds.length === 1)) {
       expect(c.ratings).toEqual(byId.get(c.playerIds[0])?.ratings);
     }
+  });
+
+  it('legends are 100+ matches for one franchise; renamed franchises count as one', () => {
+    const season = (playerId: string, year: number, teams: Record<string, number>) =>
+      ({ ...agg.seasons[0]!, playerId, season: year, teams }) as (typeof agg.seasons)[number];
+    const found = findLegends([
+      season('kohli', 2015, { 'Royal Challengers Bangalore': 60 }),
+      season('kohli', 2026, { 'Royal Challengers Bengaluru': 45 }),
+      season('journeyman', 2020, { 'Mumbai Indians': 60, 'Delhi Capitals': 50 }),
+    ]);
+    expect(found.get('kohli')).toEqual({
+      team: 'Royal Challengers Bengaluru',
+      matches: 105,
+      lastSeason: 2026,
+    });
+    expect(found.has('journeyman')).toBe(false);
   });
 
   it('allocates deal counts by largest remainder with enum-order ties', () => {
@@ -197,24 +234,34 @@ describe('catalog: rarity, duals and pool sufficiency (rules §3.4)', () => {
     ]);
   });
 
-  it('reports rare-pool insufficiency instead of duplicating cards', () => {
+  it('a deal mirrors the catalog mix and never duplicates cards', () => {
     const available = new Map([
-      ['normal', 100],
-      ['bronze', 100],
-      ['silver', 100],
-      ['gold', 100],
-      ['platinum', 100],
-      ['dual_platinum', 1],
+      ['normal', 25],
+      ['bronze', 296],
+      ['silver', 25],
+      ['gold', 25],
+      ['dual_platinum', 10],
     ] as const);
-    const result = checkPool(
-      240,
-      ['normal', 'bronze', 'silver', 'gold', 'platinum', 'dual_platinum'],
-      available,
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.shortages).toEqual([{ rarity: 'dual_platinum', needed: 5, available: 1 }]);
-    expect(checkPool(48, ['normal', 'bronze'], available).ok).toBe(true);
+    const enabled = ['normal', 'bronze', 'silver', 'gold', 'platinum', 'dual_platinum'] as const;
+    const result = checkPool(48, enabled, available);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect([...result.counts.values()].reduce((s, n) => s + n, 0)).toBe(48);
+      expect(result.counts.get('platinum')).toBe(0);
+      expect(result.counts.get('bronze')).toBeGreaterThan(result.counts.get('gold') ?? 0);
+    }
+    const small = new Map([
+      ['bronze', 3],
+      ['gold', 1],
+    ] as const);
+    // A deal that fits the pool takes each rarity in proportion, never more than exists.
+    const fits = checkPool(4, ['bronze', 'gold'], small);
+    expect(fits.ok && [...fits.counts]).toEqual([
+      ['bronze', 3],
+      ['gold', 1],
+    ]);
+    // A deal larger than the pool is POOL_INSUFFICIENT, never duplication.
+    expect(checkPool(10, ['bronze', 'gold'], small).ok).toBe(false);
   });
 });
 

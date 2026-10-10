@@ -83,10 +83,12 @@ export function CardCollection() {
     <div className="flex flex-col gap-10">
       <section aria-labelledby="showcase-heading">
         <h2 id="showcase-heading" className="text-xl font-semibold">
-          Six rarities
+          Card types
         </h2>
         <p className="mt-1 text-sm text-ink-2">
-          {showcase?.dataLabel ?? 'Loading…'} · Rarity changes the frame only, never the ratings.
+          {showcase?.dataLabel ?? 'Loading…'} · Legends (100+ matches for one franchise) come in
+          Normal, Silver and Gold; every other player has a Bronze card; Platinum is for legendary
+          pairs. Rarity changes the frame only, never the ratings.
         </p>
         <div className="-mx-[var(--gutter)] mt-4 flex snap-x gap-4 overflow-x-auto px-[var(--gutter)] pb-3">
           {showcase

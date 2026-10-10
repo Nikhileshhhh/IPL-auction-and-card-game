@@ -5,7 +5,9 @@ import { unzipSync, strFromU8 } from 'fflate';
 import {
   aggregateMatches,
   DEMO_TEAMS,
+  findLegends,
   generateDemoLeague,
+  type CatalogPlan,
   type CricsheetMatch,
 } from '@stumps/game-engines';
 import { AppError } from '../../http/app-error';
@@ -35,6 +37,23 @@ export const IPL_TEAM_COLOURS: ReadonlyMap<string, readonly [string, string]> = 
   ['Gujarat Titans', ['#1B2133', '#B09862']],
   ['Lucknow Super Giants', ['#A72056', '#FFCC00']],
 ]);
+
+/**
+ * Platinum dual cards (ADR-020, product owner's list), by Cricsheet register ID.
+ * A pair whose players are not both in the pack is skipped.
+ */
+export const IPL_DUAL_PAIRS: readonly { label: string; pair: readonly [string, string] }[] = [
+  { label: 'Ro-Ko: Rohit Sharma & Virat Kohli', pair: ['740742ef', 'ba607b88'] },
+  { label: 'Virat Kohli & MS Dhoni', pair: ['ba607b88', '4a8a2e3b'] },
+  { label: 'MS Dhoni & Ravindra Jadeja', pair: ['4a8a2e3b', 'fe93fd9d'] },
+  { label: 'Rohit Sharma & Jasprit Bumrah', pair: ['740742ef', '462411b3'] },
+  { label: 'Sunil Narine & Andre Russell', pair: ['9d430b40', 'bbd41817'] },
+  { label: 'Hardik Pandya & Suryakumar Yadav', pair: ['dbe50b21', '271f83cd'] },
+  { label: 'Virat Kohli & AB de Villiers', pair: ['ba607b88', 'c4487b84'] },
+  { label: 'MS Dhoni & Suresh Raina', pair: ['4a8a2e3b', '1dc12ab9'] },
+  { label: 'Rohit Sharma & Kieron Pollard', pair: ['740742ef', 'a757b0d8'] },
+  { label: 'Jasprit Bumrah & Lasith Malinga', pair: ['462411b3', 'a12e1d51'] },
+];
 
 /** Minimal RFC 4180 CSV parser (quoted fields, escaped quotes). */
 export function parseCsv(text: string): string[][] {
@@ -168,8 +187,26 @@ export async function cricsheetBundle(
     if (person?.cricinfo) aliases.set(s.playerId, [{ source: 'cricinfo', id: person.cricinfo }]);
   }
   const first = windowSeasons[0] ?? latest;
+  // ADR-020: legends (100+ matches for one franchise, all seasons up to the cutoff).
+  // Retired legends join the pack on their own last three seasons, shown in the
+  // franchise they are legends of.
+  const legends = findLegends(scoped.seasons);
+  const latestSeasonOf = new Map<string, number>();
+  const teamOf = new Map<string, string>();
+  for (const [id, legend] of legends) {
+    if (legend.lastSeason < first) {
+      latestSeasonOf.set(id, legend.lastSeason);
+      teamOf.set(id, legend.team);
+    }
+  }
   return {
     kind: 'factual',
+    catalogPlan: {
+      legends: new Set(legends.keys()),
+      duals: IPL_DUAL_PAIRS.map((d) => d.pair),
+    },
+    latestSeasonOf,
+    teamOf,
     label: options.label,
     competition: 'IPL',
     externalSource: 'cricsheet',
@@ -232,6 +269,24 @@ export function demoBundle(options: { label: string; seed?: number }): ImportBun
     ),
     teamColors: new Map(DEMO_TEAMS.map((t) => [t.name, t.kit])),
     fictional: true,
+    // The fictional league is too young for 100-match legends; its four strongest
+    // players stand in so every card type exists offline (ADR-020).
+    catalogPlan: demoPlan(league.players),
     kits: new Map(league.players.map((p) => [p.id, p.kit])),
+  };
+}
+
+function demoPlan(players: readonly { id: string; bat: number; bowl: number }[]): CatalogPlan {
+  const top = [...players]
+    .sort((a, b) => b.bat + b.bowl - (a.bat + a.bowl) || a.id.localeCompare(b.id))
+    .slice(0, 4)
+    .map((p) => p.id);
+  const [a, b, c, d] = top as [string, string, string, string];
+  return {
+    legends: new Set(top),
+    duals: [
+      [a, b],
+      [c, d],
+    ],
   };
 }

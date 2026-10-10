@@ -38,7 +38,7 @@ async function expectPortraitsLoaded(page: Page) {
   }
 }
 
-test('card pool shows six rarities with player photos and 0–100 Game ratings', async ({
+test('card pool shows every card type with player photos and 0–100 Game ratings', async ({
   page,
 }, testInfo) => {
   // Onboarding, every portrait load and two full-page axe scans.
@@ -47,8 +47,8 @@ test('card pool shows six rarities with player photos and 0–100 Game ratings',
   await page.goto('/play/cards');
   await page.getByRole('link', { name: 'Browse the card pool' }).click();
   await expect(page.getByRole('heading', { name: 'Card pool', level: 1 })).toBeVisible();
-  const showcase = page.getByRole('region', { name: 'Six rarities' });
-  for (const rarity of ['Normal', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Dual Platinum']) {
+  const showcase = page.getByRole('region', { name: 'Card types' });
+  for (const rarity of ['Normal', 'Bronze', 'Silver', 'Gold', 'Dual Platinum']) {
     await expect(showcase.getByText(rarity, { exact: true })).toBeVisible();
   }
   await expectPortraitsLoaded(page);

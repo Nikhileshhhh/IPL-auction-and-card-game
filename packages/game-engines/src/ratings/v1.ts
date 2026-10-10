@@ -48,6 +48,11 @@ export interface RatingsInput {
   lines: ReadonlyMap<string, readonly MatchLine[]>;
   /** The three-season window ends at this season (inclusive). */
   latestSeason: number;
+  /**
+   * Per-player window end (ADR-020): retired legends are rated on their own last
+   * three IPL seasons. Everyone else uses `latestSeason`.
+   */
+  latestSeasonOf?: ReadonlyMap<string, number>;
   /** Recent form uses the last 10 appearances on or before this date (YYYY-MM-DD). */
   cutoffDate: string;
   /** Total IPL appearances up to the cutoff (experience); defaults to window appearances. */
@@ -387,7 +392,7 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
   const plain = new Map<string, PlayerSeason[]>();
 
   for (const s of input.seasons) {
-    const w = weightFor(s.season, input.latestSeason);
+    const w = weightFor(s.season, input.latestSeasonOf?.get(s.playerId) ?? input.latestSeason);
     if (w === null || s.appearances === 0) continue;
     let acc = weighted.get(s.playerId);
     if (!acc) {

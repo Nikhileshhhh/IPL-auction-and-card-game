@@ -1,8 +1,12 @@
 import { RARITIES, type Rarity } from '@stumps/contracts';
 import { roundDiv } from './rational';
+import type { PlayerSeason } from '../cricket/aggregate';
 import { RATING_METRICS, type PlayerRatings, type RatingMetric } from './v1';
 
-/** Target pool mix in percent (rules §3.4), rarity enum order. Visual only (R19). */
+/**
+ * Default deal mix in percent (rules §3.4), rarity enum order. Visual only (R19).
+ * A deal from a real catalog follows the catalog's own mix instead (ADR-020).
+ */
 export const RARITY_WEIGHTS: Record<Rarity, number> = {
   normal: 40,
   bronze: 25,
@@ -37,14 +41,22 @@ export function allocate(total: number, weights: readonly [Rarity, number][]): M
   return out;
 }
 
-/** Counts per rarity for a deal of `total` cards with the host's enabled rarities. */
+/**
+ * Counts per rarity for a deal of `total` cards with the host's enabled rarities.
+ * With the pool's `available` counts the deal mirrors the catalog mix (ADR-020:
+ * Bronze singles, three legend versions, Platinum duals), else the default mix.
+ */
 export function allocateRarityCounts(
   total: number,
   enabled: readonly Rarity[] = RARITIES,
+  available?: ReadonlyMap<Rarity, number>,
 ): Map<Rarity, number> {
   return allocate(
     total,
-    RARITIES.filter((r) => enabled.includes(r)).map((r) => [r, RARITY_WEIGHTS[r]]),
+    RARITIES.filter((r) => enabled.includes(r)).map((r) => [
+      r,
+      available ? (available.get(r) ?? 0) : RARITY_WEIGHTS[r],
+    ]),
   );
 }
 
@@ -61,7 +73,7 @@ export function checkPool(
   enabled: readonly Rarity[],
   available: ReadonlyMap<Rarity, number>,
 ): PoolCheck {
-  const counts = allocateRarityCounts(total, enabled);
+  const counts = allocateRarityCounts(total, enabled, available);
   const shortages = [...counts]
     .filter(([rarity, needed]) => needed > (available.get(rarity) ?? 0))
     .map(([rarity, needed]) => ({ rarity, needed, available: available.get(rarity) ?? 0 }));
@@ -69,7 +81,7 @@ export function checkPool(
 }
 
 export interface CardSpec {
-  /** Stable key: `single:<playerId>` or `dual:<a>+<b>`. */
+  /** Stable key: `single:<id>`, `legend:<id>:<rarity>` or `dual:<a>+<b>`. */
   key: string;
   rarity: Rarity;
   playerIds: [string] | [string, string];
@@ -77,61 +89,48 @@ export interface CardSpec {
   stars: 1 | 2 | 3 | 4 | 5;
 }
 
-const STAR_THRESHOLDS = [200, 450, 700, 900] as const;
-const DUAL_CAP = 950;
-
-/** Rank by role strength (desc), then within-role percentile, then ID — fully deterministic. */
-function ranked(players: readonly PlayerRatings[]): PlayerRatings[] {
-  return [...players].sort(
-    (a, b) =>
-      b.roleStrength - a.roleStrength ||
-      b.roleStrengthPermille - a.roleStrengthPermille ||
-      a.playerId.localeCompare(b.playerId),
-  );
+export interface CatalogPlan {
+  /** Legends (100+ IPL matches for one franchise): Normal, Silver and Gold versions. */
+  legends: ReadonlySet<string>;
+  /** Named dual pairs (Platinum only); a pair with a missing player is skipped. */
+  duals: readonly (readonly [string, string])[];
 }
 
+const STAR_THRESHOLDS = [200, 450, 700, 900] as const;
+const DUAL_CAP = 950;
+export const LEGEND_RARITIES = ['normal', 'silver', 'gold'] as const;
+
 /**
- * Card catalog for a data version: one single card per player with a visual
- * rarity tier by role-strength rank (40/25/15/10/8, renormalized), plus dual
- * cards pairing the strongest players outside-in (rules §3.4: mean per
- * comparison, capped at 950; no identity in more than one pair).
+ * Card catalog for a data version (ADR-020, product-owner rule):
+ * - every player has one Bronze card;
+ * - a legend instead has three versions, Normal, Silver and Gold;
+ * - Platinum exists only as dual cards of the named pairs (mean per comparison,
+ *   capped at 950, rules §3.4).
+ *
+ * Rarity is visual only (R19): every version shows the player's own ratings.
  */
-export function buildCatalog(players: readonly PlayerRatings[]): CardSpec[] {
-  const order = ranked(players);
-  const tiers = allocate(
-    order.length,
-    (['platinum', 'gold', 'silver', 'bronze', 'normal'] as const).map((r) => [
-      r,
-      RARITY_WEIGHTS[r],
-    ]),
-  );
+export function buildCatalog(players: readonly PlayerRatings[], plan: CatalogPlan): CardSpec[] {
+  const byId = new Map(players.map((p) => [p.playerId, p]));
+  const order = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
   const cards: CardSpec[] = [];
-  let index = 0;
-  for (const rarity of ['platinum', 'gold', 'silver', 'bronze', 'normal'] as const) {
-    for (let n = 0; n < (tiers.get(rarity) ?? 0); n += 1) {
-      const p = order[index];
-      index += 1;
-      if (!p) break;
-      cards.push({
-        key: `single:${p.playerId}`,
-        rarity,
-        playerIds: [p.playerId],
-        ratings: { ...p.ratings },
-        stars: p.stars,
-      });
+  for (const p of order) {
+    const base = { playerIds: [p.playerId] as [string], ratings: { ...p.ratings }, stars: p.stars };
+    if (plan.legends.has(p.playerId)) {
+      for (const rarity of LEGEND_RARITIES) {
+        cards.push({ key: `legend:${p.playerId}:${rarity}`, rarity, ...base });
+      }
+    } else {
+      cards.push({ key: `single:${p.playerId}`, rarity: 'bronze', ...base });
     }
   }
 
-  // Duals: 2 % of the final catalog → D ≈ N·2/98, pairing the top 2D outside-in.
-  const dualCount = Math.min(
-    Math.floor(order.length / 2),
-    Number(roundDiv(BigInt(order.length) * 2n, 98n)),
-  );
-  const top = order.slice(0, dualCount * 2);
-  for (let i = 0; i < dualCount; i += 1) {
-    const a = top[i];
-    const b = top[top.length - 1 - i];
-    if (!a || !b || a.playerId === b.playerId) continue;
+  const paired = new Set<string>();
+  for (const [x, y] of plan.duals) {
+    const a = byId.get(x);
+    const b = byId.get(y);
+    const key = [x, y].sort().join('+');
+    if (!a || !b || x === y || paired.has(key)) continue;
+    paired.add(key);
     const [first, second] = a.playerId < b.playerId ? [a, b] : [b, a];
     const ratings = {} as Record<RatingMetric, number>;
     for (const m of RATING_METRICS) {
@@ -154,4 +153,49 @@ export function buildCatalog(players: readonly PlayerRatings[]): CardSpec[] {
     });
   }
   return cards;
+}
+
+/** Renamed franchises count as one (2008–2026 IPL history). */
+export const FRANCHISE_ALIASES: Readonly<Record<string, string>> = {
+  'Delhi Daredevils': 'Delhi Capitals',
+  'Kings XI Punjab': 'Punjab Kings',
+  'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+  'Rising Pune Supergiants': 'Rising Pune Supergiant',
+};
+
+export interface Legend {
+  /** The franchise represented in 100+ matches (the most, if several). */
+  team: string;
+  matches: number;
+  /** The player's latest IPL season (any franchise). */
+  lastSeason: number;
+}
+
+/**
+ * Legends (ADR-020): players with at least `minMatches` IPL appearances for a
+ * single franchise across all seasons in `seasons`.
+ */
+export function findLegends(
+  seasons: readonly PlayerSeason[],
+  minMatches = 100,
+): Map<string, Legend> {
+  const apps = new Map<string, Map<string, number>>();
+  const last = new Map<string, number>();
+  for (const s of seasons) {
+    last.set(s.playerId, Math.max(last.get(s.playerId) ?? 0, s.season));
+    const byTeam = apps.get(s.playerId) ?? new Map<string, number>();
+    for (const [team, n] of Object.entries(s.teams)) {
+      const t = FRANCHISE_ALIASES[team] ?? team;
+      byTeam.set(t, (byTeam.get(t) ?? 0) + n);
+    }
+    apps.set(s.playerId, byTeam);
+  }
+  const out = new Map<string, Legend>();
+  for (const [id, byTeam] of [...apps].sort(([a], [b]) => a.localeCompare(b))) {
+    const best = [...byTeam].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    if (best && best[1] >= minMatches) {
+      out.set(id, { team: best[0], matches: best[1], lastSeason: last.get(id) ?? 0 });
+    }
+  }
+  return out;
 }

@@ -2,6 +2,7 @@ import type pg from 'pg';
 import {
   buildCatalog,
   computeRatings,
+  type CatalogPlan,
   RATINGS_MODEL_VERSION,
   type Aggregate,
   type PlayerRatings,
@@ -48,6 +49,12 @@ export interface ImportBundle {
   fictional: boolean;
   /** Extra identifiers per register ID (e.g. ESPNcricinfo keys used to find photos). */
   aliases?: ReadonlyMap<string, readonly { source: string; id: string }[]>;
+  /** Legends and named Platinum duals (ADR-020); none means Bronze singles only. */
+  catalogPlan?: CatalogPlan;
+  /** Retired legends: their own last season ends their three-season window. */
+  latestSeasonOf?: ReadonlyMap<string, number>;
+  /** Franchise shown on the card when it is not the latest one (retired legends). */
+  teamOf?: ReadonlyMap<string, string>;
 }
 
 export interface ImportResult {
@@ -165,6 +172,10 @@ export async function importDataVersion(
         cutoffDate: bundle.cutoffDate,
         careerAppearances: bundle.careerAppearances,
         roleOverrides: overrides,
+        ...(bundle.latestSeasonOf ? { latestSeasonOf: bundle.latestSeasonOf } : {}),
+      }).map((r) => {
+        const team = bundle.teamOf?.get(r.playerId);
+        return team ? { ...r, primaryTeam: team } : r;
       });
       if (rated.length === 0) {
         throw new AppError('CONFIG_INVALID', 'No players appeared in the selected seasons.');
@@ -299,7 +310,14 @@ export async function importDataVersion(
 
       await insertStatistics(tx, version, source, rated, playerIds);
       await insertRatings(tx, version, rated, playerIds, bundle.kind);
-      const cards = await insertCards(tx, version, rated, playerIds, bundle.people);
+      const cards = await insertCards(
+        tx,
+        version,
+        rated,
+        playerIds,
+        bundle.people,
+        bundle.catalogPlan ?? { legends: new Set(), duals: [] },
+      );
 
       const report = await validateVersion(tx, version);
       await tx.query('UPDATE app_private.data_versions SET validation_report = $2 WHERE id = $1', [
@@ -417,8 +435,9 @@ async function insertCards(
   rated: readonly PlayerRatings[],
   playerIds: ReadonlyMap<string, string>,
   people: ImportBundle['people'],
+  plan: CatalogPlan,
 ): Promise<number> {
-  const specs = buildCatalog(rated);
+  const specs = buildCatalog(rated, plan);
   const ids = await tx.query<{ id: string; card_key: string }>(
     `INSERT INTO app_private.card_definitions (data_version_id, label, rarity, stars, stars_provisional,
        ratings, model_version, card_key, completeness_permille, estimated)

@@ -74,10 +74,11 @@ try {
     )
   ).rows[0];
   if (!version) throw new Error('No factual draft version found; run pnpm data:import first.');
-  // The pack's three seasons, then up to five earlier ones as a same-franchise fallback
-  // where the IPL has no headshot (placeholder) for a recent season.
+  // The pack's three seasons; earlier seasons are a same-franchise fallback where the IPL
+  // has no headshot (placeholder) for a recent season.
   const window = new Set([version.year, version.year - 1, version.year - 2]);
-  const seasons = Array.from({ length: 8 }, (_, i) => version.year - i);
+  // Every IPL season back to 2008: retired legends are matched within their own franchise.
+  const seasons = Array.from({ length: version.year - 2007 }, (_, i) => version.year - i);
 
   // Pack players with every known spelling (current name + Cricsheet register names).
   let register = new Map<string, { name: string; uniqueName: string }>();

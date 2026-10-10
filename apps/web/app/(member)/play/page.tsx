@@ -38,7 +38,7 @@ export default async function PlayPage() {
           tagline="Reveal your top card, pick the category, win the pot. Last collector standing takes the match."
           accent="card"
           art={<CardBattleArt />}
-          facts={['2–8 players', 'Six rarities', 'Fair committed deal']}
+          facts={['2–8 players', 'Legend cards and Platinum pairs', 'Fair committed deal']}
           {...(FEATURES.cardBattle
             ? {}
             : { status: FEATURES.rooms ? 'Lobbies open · matches soon' : 'Rooms coming soon' })}

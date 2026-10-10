@@ -169,4 +169,4 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | 03 | 2026-10-09 | Gate, BFF, Auth adapter flows, admin MFA/step-up, socket tickets, S01–S03/S32 | `docs/phase-reports/phase-03.md` |
 | 04 | 2026-10-09 | Design primitives, fonts, S04 dashboard, hubs, profile shell, connection boundary | `docs/phase-reports/phase-04.md` |
 | 05 | 2026-10-10 | Rooms, members, command receipts, durable events, deadline jobs, leases, Socket.IO realtime | `docs/phase-reports/phase-05.md` |
-| 06 | 2026-10-10 | Cricsheet pipeline, ratings v1 (0–100 Attax scale), media pipeline, card renderers, S08/S10/S34; follow-up: strict data + IPL-jersey photo gate (ADR-019) | `docs/phase-reports/phase-06.md` |
+| 06 | 2026-10-10 | Cricsheet pipeline, ratings v1 (0–100 Attax scale), media pipeline, card renderers, S08/S10/S34; follow-ups: strict data + IPL-jersey photo gate (ADR-019); legend cards and Platinum pairs (ADR-020) | `docs/phase-reports/phase-06.md` |

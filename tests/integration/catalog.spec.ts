@@ -159,9 +159,18 @@ describe('demo pack: import → validate → publish (route B portraits)', () =>
     }
     expect(Math.max(...all.map((c) => c.ratings.batting))).toBe(100);
     expect(Math.max(...all.map((c) => c.ratings.bowling))).toBe(100);
+    // ADR-020: Bronze singles, legends in Normal/Silver/Gold, Platinum only as duals.
     expect(new Set(all.map((c) => c.rarity))).toEqual(
-      new Set(['normal', 'bronze', 'silver', 'gold', 'platinum', 'dual_platinum']),
+      new Set(['normal', 'bronze', 'silver', 'gold', 'dual_platinum']),
     );
+    const versions = new Map<string, string[]>();
+    for (const c of all.filter((x) => x.players.length === 1)) {
+      const id = c.players[0]!.id;
+      versions.set(id, [...(versions.get(id) ?? []), c.rarity].sort());
+    }
+    for (const rs of versions.values()) {
+      expect([['bronze'], ['gold', 'normal', 'silver']]).toContainEqual(rs);
+    }
     const dual = all.find((c) => c.rarity === 'dual_platinum')!;
     expect(dual.players).toHaveLength(2);
     expect(Math.max(...Object.values(dual.ratings))).toBeLessThanOrEqual(95);
@@ -169,7 +178,7 @@ describe('demo pack: import → validate → publish (route B portraits)', () =>
 
   it('serves portrait bytes only to signed-in members, as re-encoded WebP', async () => {
     const show = await member.request<{ items: PublicCardDTO[] }>('GET', '/v1/catalog/showcase');
-    expect(show.body.data!.items).toHaveLength(6);
+    expect(show.body.data!.items).toHaveLength(5);
     const assetId = show.body.data!.items[0]!.players[0]!.portraitUrl.split('/')[3]!;
     const res = await api.app.inject({
       method: 'GET',
