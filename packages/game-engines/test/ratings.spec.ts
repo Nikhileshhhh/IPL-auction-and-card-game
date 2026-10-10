@@ -5,6 +5,8 @@ import {
   buildCatalog,
   checkPool,
   findLegends,
+  LEGEND_FACTORS,
+  scaleRatings,
   computeRatings,
   displayRating,
   isqrtRound,
@@ -201,10 +203,21 @@ describe('catalog: legends, Bronze singles and Platinum duals (ADR-020)', () => 
     }
   });
 
-  it('rarity is visual only: every version shows exactly its player ratings', () => {
+  it('Bronze shows the player ratings; legend versions are 92 % / 96 % / 100 % of them', () => {
+    const factor = { normal: 92, silver: 96, gold: 100, bronze: 100 } as Record<string, number>;
     for (const c of cards.filter((x) => x.playerIds.length === 1)) {
-      expect(c.ratings).toEqual(byId.get(c.playerIds[0])?.ratings);
+      const own = byId.get(c.playerIds[0])!.ratings;
+      for (const m of RATING_METRICS) {
+        expect(c.ratings[m]).toBe(Math.floor((own[m] * factor[c.rarity]! + 50) / 100));
+      }
     }
+    // Kohli-style example: a 1000-point batter shows 92 / 96 / 100.
+    const scaled = (['normal', 'silver', 'gold'] as const).map((r) =>
+      displayRating(
+        scaleRatings({ ...ratings[0]!.ratings, batting: 1000 }, LEGEND_FACTORS[r]).batting,
+      ),
+    );
+    expect(scaled).toEqual([92, 96, 100]);
   });
 
   it('legends are 100+ matches for one franchise; renamed franchises count as one', () => {

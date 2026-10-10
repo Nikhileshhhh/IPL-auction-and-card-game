@@ -101,13 +101,35 @@ const DUAL_CAP = 950;
 export const LEGEND_RARITIES = ['normal', 'silver', 'gold'] as const;
 
 /**
+ * Legend versions differ in strength (product owner, ADR-020 amendment): Gold is the
+ * computed rating, Silver 96 % of it and Normal 92 %, per stat, rounded half-up.
+ */
+export const LEGEND_FACTORS: Readonly<Record<(typeof LEGEND_RARITIES)[number], number>> = {
+  normal: 92,
+  silver: 96,
+  gold: 100,
+};
+
+export function scaleRatings(
+  ratings: Readonly<Record<RatingMetric, number>>,
+  percent: number,
+): Record<RatingMetric, number> {
+  const out = {} as Record<RatingMetric, number>;
+  for (const m of RATING_METRICS) {
+    out[m] = Number(roundDiv(BigInt(ratings[m]) * BigInt(percent), 100n));
+  }
+  return out;
+}
+
+/**
  * Card catalog for a data version (ADR-020, product-owner rule):
  * - every player has one Bronze card;
  * - a legend instead has three versions, Normal, Silver and Gold;
  * - Platinum exists only as dual cards of the named pairs (mean per comparison,
  *   capped at 950, rules §3.4).
  *
- * Rarity is visual only (R19): every version shows the player's own ratings.
+ * Bronze and dual cards show the player's own ratings; legend versions are scaled
+ * by LEGEND_FACTORS (Normal 92 %, Silver 96 %, Gold 100 %), amending R19.
  */
 export function buildCatalog(players: readonly PlayerRatings[], plan: CatalogPlan): CardSpec[] {
   const byId = new Map(players.map((p) => [p.playerId, p]));
@@ -117,7 +139,12 @@ export function buildCatalog(players: readonly PlayerRatings[], plan: CatalogPla
     const base = { playerIds: [p.playerId] as [string], ratings: { ...p.ratings }, stars: p.stars };
     if (plan.legends.has(p.playerId)) {
       for (const rarity of LEGEND_RARITIES) {
-        cards.push({ key: `legend:${p.playerId}:${rarity}`, rarity, ...base });
+        cards.push({
+          key: `legend:${p.playerId}:${rarity}`,
+          rarity,
+          ...base,
+          ratings: scaleRatings(p.ratings, LEGEND_FACTORS[rarity]),
+        });
       }
     } else {
       cards.push({ key: `single:${p.playerId}`, rarity: 'bronze', ...base });

@@ -26,7 +26,7 @@
 
   A player may appear in several pairs, which amends the "no identity in two pairs" rule. A pair whose players are not both in the pack is skipped.
 - **Single-player Platinum:** no longer produced. The enum value stays for compatibility.
-- **Rarity is still visual only (R19):** all three versions of a legend show the same ratings. A dual card is the rounded mean of the pair, capped at 950 (95 displayed).
+- **Ratings:** see the amendment below (legend versions 92 % / 96 % / 100 %). A dual card is the rounded mean of the pair, capped at 950 (95 displayed).
 
 ### Retired legends join the pack
 - **Who:** legends whose last IPL season is before the pack window. On this pack that is Pollard, Raina, de Villiers, Harbhajan, Malinga, Bravo, Rayudu, Gambhir and Yusuf Pathan.
@@ -37,9 +37,7 @@
 ### Deals
 A deal mirrors the catalog's own mix (`allocateRarityCounts(total, enabled, available)`): Bronze-heavy, a share of legend versions and a few Platinum pairs. A deal larger than the pool is `POOL_INSUFFICIENT`, never duplication.
 
-Phase 07 enforces the existing rules in a deal:
-- at most one dual per match;
-- no single card of a dual's player in the same deck.
+Phase 07 enforces at most one dual per match (see the amendment for repeats).
 
 ### Demo pack
 The fictional league is too young for 100-match legends. Its four strongest players stand in as legends, with two Platinum pairs, so every card type exists offline and in tests.
@@ -47,3 +45,8 @@ The fictional league is too young for 100-match legends. Its four strongest play
 ## Consequences
 - The real pack (IPL 2024–2026 plus the 9 retired legends) has 321 players and 381 cards: 296 Bronze, 25 each of Normal, Silver and Gold, and 10 Platinum duals.
 - The card pool page shows "Card types" instead of "Six rarities".
+
+## Amendment (10 October 2026, product owner)
+- **Legend versions differ in strength.** Gold is the legend's computed rating, Silver 96 % of it and Normal 92 %, per stat, rounded half-up on internal points (`LEGEND_FACTORS`, `scaleRatings`). For example, Kohli's batting is 100 / 96 / 92. This replaces "all three versions show the same ratings" and amends R19 for legend cards only. Bronze and dual cards keep the player's own ratings, and a dual is still the mean of both players' Gold-level ratings.
+- **Repeats are allowed in one game.** Several cards of the same player may be dealt together (e.g. Kohli's Normal and Gold), so the "unique identities" reading of rules §4 does not apply.
+- **Duals may share a game with their players' own cards.** The rule "no single card of a dual's player in the same deck" is dropped. At most one dual per game still applies.
