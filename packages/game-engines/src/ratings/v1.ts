@@ -268,6 +268,17 @@ function bowlComponents(c: BowlCounts, scale: bigint, p: BowlPriors) {
   };
 }
 
+/**
+ * Proven ability (ADR-019 §1a): a discipline index is weighted by the credibility of
+ * its sample, n/(n+K_BALLS), so a two-ball cameo cannot outrank a real record. The
+ * scaled value keeps six extra digits so ranks stay exact; rankRescale maps it back
+ * to 0–1000 (best = 1000).
+ */
+function credible(index: number, balls: bigint, scale: bigint): number {
+  // n/(n+k) with n = balls/scale  ==  balls/(balls + k·scale)
+  return Number(roundDiv(BigInt(index) * 1_000_000n * balls, balls + K_BALLS * scale));
+}
+
 function batIndexes(
   entries: readonly [string, BatCounts, bigint][],
   p: BatPriors,
@@ -282,15 +293,17 @@ function batIndexes(
   const ic = midrankPermille(
     comps.filter(([, x]) => x.ic !== null).map(([id, x]) => [id, x.ic as Rational]),
   );
+  const counts = new Map(entries.map(([id, c, scale]) => [id, [c.balls, scale] as const]));
   const out = new Map<string, number>();
   for (const [id] of comps) {
+    const [balls, scale] = counts.get(id) as readonly [bigint, bigint];
     const parts: [number, number][] = [
       [35, sr.get(id) ?? 0],
       [25, rpd.get(id) ?? 0],
       [20, bb.get(id) ?? 0],
     ];
     if (withContribution) parts.push([20, ic.get(id) ?? 0]);
-    out.set(id, combine(parts, withContribution ? 100 : 80));
+    out.set(id, credible(combine(parts, withContribution ? 100 : 80), balls, scale));
   }
   return out;
 }
@@ -300,16 +313,16 @@ function bowlIndexes(entries: readonly [string, BowlCounts, bigint][], p: BowlPr
   const wr = midrankPermille(comps.map(([id, x]) => [id, x.wr]));
   const econ = midrankPermille(comps.map(([id, x]) => [id, x.econ]));
   const dot = midrankPermille(comps.map(([id, x]) => [id, x.dot]));
+  const counts = new Map(entries.map(([id, c, scale]) => [id, [c.balls, scale] as const]));
   const out = new Map<string, number>();
   for (const [id] of comps) {
-    out.set(
-      id,
-      combine([
-        [40, wr.get(id) ?? 0],
-        [35, econ.get(id) ?? 0],
-        [25, dot.get(id) ?? 0],
-      ]),
-    );
+    const [balls, scale] = counts.get(id) as readonly [bigint, bigint];
+    const index = combine([
+      [40, wr.get(id) ?? 0],
+      [35, econ.get(id) ?? 0],
+      [25, dot.get(id) ?? 0],
+    ]);
+    out.set(id, credible(index, balls, scale));
   }
   return out;
 }
@@ -337,6 +350,18 @@ function batPriors(list: readonly BatCounts[]): BatPriors {
     bb: safe(t.boundaries, t.balls),
     ic: safe(t.contribution, t.innings),
   };
+}
+
+/**
+ * Shrinkage priors (ADR-019 §1a). Low exposure is itself evidence in T20: a player
+ * who faces few balls bats in the tail. Small samples therefore shrink toward the
+ * pooled rates of the cohort's low-exposure players (under K_BALLS effective balls),
+ * not toward the cohort mean, which top-order batters dominate. Falls back to the
+ * whole cohort when no low-exposure player exists.
+ */
+function lowExposure<C extends { balls: bigint }>(entries: readonly (readonly [C, bigint])[]) {
+  const low = entries.filter(([c, scale]) => c.balls < K_BALLS * scale).map(([c]) => c);
+  return low.some((c) => c.balls > 0n) ? low : entries.map(([c]) => c);
 }
 
 function bowlPriors(list: readonly BowlCounts[]): BowlPriors {
@@ -446,8 +471,10 @@ export function computeRatings(input: RatingsInput): PlayerRatings[] {
   const all = ids.map((id) => [id, weighted.get(id) as Weighted] as const);
 
   // Batting and bowling (priors over the whole cohort; percentiles among players with exposure).
-  const bP = batPriors(all.map(([, a]) => batOf(a)));
-  const wP = bowlPriors(all.map(([, a]) => bowlOf(a)));
+  const bP = batPriors(lowExposure(all.map(([, a]) => [batOf(a), a.w] as const)));
+  const wP = bowlPriors(
+    lowExposure(all.filter(([, a]) => a.bowlBalls > 0n).map(([, a]) => [bowlOf(a), a.w] as const)),
+  );
   const battingIdx = batIndexes(
     all.filter(([, a]) => a.batBalls > 0n).map(([id, a]) => [id, batOf(a), a.w]),
     bP,

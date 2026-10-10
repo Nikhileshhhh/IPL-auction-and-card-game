@@ -113,6 +113,12 @@ describe('Commons photo selection', () => {
     expect(choosePhoto(candidates, 'Someone Else', 'Mumbai Indians')).toBeNull();
   });
 
+  it('off-field IPL occasions (ceremonies, awards) do not count as the playing jersey', () => {
+    const base = candidates[0]!;
+    const ceremony = { ...base, title: 'File:Arjun Example at the 2015 IPL opening ceremony.jpg' };
+    expect(choosePhoto([ceremony], 'Arjun Example', 'Mumbai Indians')?.iplKit).toBe(false);
+  });
+
   it('credits author and licence', () => {
     expect(attributionFor(candidates[0]!)).toBe(
       'Photo: Cricket Fan, CC BY-SA 4.0, via Wikimedia Commons',

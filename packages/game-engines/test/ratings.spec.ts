@@ -103,6 +103,16 @@ describe('ratings v1 (ADR-018 Attax-style scale)', () => {
     expect(overridden.find((r) => r.playerId === someone.playerId)?.role).toBe('all_rounder');
   });
 
+  it('a tail-ender with a tiny batting sample rates below every established batter', () => {
+    // ADR-019 §1a: two lucky balls are not a batting record.
+    const established = ratings.filter((r) => r.raw.ballsFaced >= 300);
+    const cameo = ratings.filter((r) => r.raw.ballsFaced > 0 && r.raw.ballsFaced <= 12);
+    expect(established.length).toBeGreaterThan(10);
+    expect(cameo.length).toBeGreaterThan(0);
+    const worstEstablished = Math.min(...established.map((r) => r.ratings.batting));
+    for (const r of cameo) expect(r.ratings.batting).toBeLessThan(worstEstablished);
+  });
+
   it('every player has a definite value for every rating, even with a tiny sample', () => {
     // A cutoff two days into the data: most players have one or two appearances.
     const early = aggregateMatches(league.matches, { toDate: '2023-04-03' });

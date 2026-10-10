@@ -16,6 +16,26 @@ There is no "estimated" value, no provisional star cap and no completeness perce
   - "0.00 (did not bat)" when they did not bat.
 - **Facts are required for every card player:** country, batting style, and bowling style for anyone who bowled a legal ball. Cricsheet does not supply these, so they come from the player sheet (below) or the S34 editor.
 
+### 1a. Ratings reward proven ability (amends rules §3.2 shrinkage)
+On the real IPL 2024–2026 data, the plain §3.2 shrinkage pulled tiny samples toward the cohort mean. That mean is dominated by top-order batters, so a tail-ender who scored 0 off 2 balls (Hazlewood) rated 48–72 as a batter, ahead of genuine lower-order batters. Two changes fix this, and both are exact and deterministic:
+- **Shrinkage prior:** the prior is now the pooled rate of the cohort's low-exposure players (fewer than 120 effective balls) instead of the whole-cohort mean. Low exposure is itself evidence in T20.
+- **Credibility weight:** each discipline index is multiplied by `n/(n+120)`, where n is the player's effective balls, before the rank rescale. A cameo cannot outrank a real record, and the best player in each discipline is still exactly 100.
+
+Result on the real pack:
+- **Batting:** Kohli, Sai Sudharsan, Gill, KL Rahul and Klaasen top the list.
+- **Bowling:** Bhuvneshwar, Archer, Holder, Hazlewood and Rabada top the list.
+- **Tail-enders:** Hazlewood bats 3 and Chahal 0.
+
+A unit test locks this in: no tail-ender with 12 or fewer balls faced may outrank any batter with 300 or more.
+
+### 1b. Fact sources
+`pnpm data:facts` fills only missing facts and never overwrites existing values or reviewed names:
+- **Full name:** Wikidata, matched by ESPNcricinfo ID (P2697).
+- **Country:** the cricket nation (P1532), or else a single citizenship (P27). When several citizenships exist and none is a cricket nation, the country is left for the sheet.
+- **Batting and bowling style:** the English Wikipedia "Infobox cricketer".
+
+Players that no source covers are listed for the player sheet.
+
 ### 2. Photo of the player in IPL jersey on every card
 - `media_assets.ipl_kit` (migration 046) records that the photo shows the player in an IPL franchise jersey. A CHECK constraint forbids setting it on generated illustrations.
 - When several photos are approved, the server prefers the IPL-kit one.

@@ -105,13 +105,10 @@ for (const p of players) {
   const fullName = info?.label ?? p.name;
   const candidates: CommonsCandidate[] = [];
   try {
-    for (const q of [
-      `"${fullName}" "${p.team ?? 'Indian Premier League'}"`,
-      `"${fullName}" IPL`,
-      `"${fullName}" cricket`,
-    ]) {
+    // Only IPL-context photos qualify (ADR-019), so search for those alone.
+    for (const q of [`"${fullName}" "${p.team ?? 'Indian Premier League'}"`, `"${fullName}" IPL`]) {
       candidates.push(...parseCommonsPages(await fetchAllowed(commonsSearchUrl(q), 'json')));
-      await sleep(250);
+      await sleep(1500);
     }
     if (info?.imageFile) {
       candidates.push(
@@ -162,7 +159,7 @@ for (const p of players) {
     report.missing.push(fullName);
     report.found -= 1;
   }
-  await sleep(250);
+  await sleep(1500);
 }
 console.warn(
   `IPL jersey photos: ${report.found} imported, ${report.missing.length} still needed.` +

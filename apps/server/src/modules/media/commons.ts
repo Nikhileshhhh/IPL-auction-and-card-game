@@ -9,10 +9,13 @@ export const ALLOWED_HOSTS = new Set([
   'commons.wikimedia.org',
   'upload.wikimedia.org',
   'query.wikidata.org',
+  // Infobox facts (batting/bowling style) only; see cricket-data/facts.ts.
+  'en.wikipedia.org',
 ]);
 
+/** Wikimedia's User-Agent policy requires a contact URL; generic agents get HTTP 429. */
 export const USER_AGENT =
-  'STUMPS-catalog-photo-import/1.0 (private cricket game; contact: operator) Node.js';
+  'STUMPS-catalog-import/1.0 (https://github.com/Nikhileshhhh/IPL-auction-and-card-game) Node.js';
 
 /** Licences that allow reuse with attribution in a private game. */
 const FREE_LICENCE = /^(cc0|public domain|pd|cc[ -]by(-sa)?[ -]\d(\.\d)?|cc[ -]by(-sa)?$)/i;
@@ -134,7 +137,13 @@ export function choosePhoto(
     if (!surname || !text.includes(surname)) continue;
     let score = 10;
     score += tokens.filter((t) => text.includes(t)).length * 3;
-    const iplKit = IPL_TERMS.some((t) => (t === 'ipl' ? /\bipl\b/.test(text) : text.includes(t)));
+    // Off-field occasions (ceremonies, awards, launches) rarely show the playing jersey.
+    const offField =
+      /ceremon|award|launch|press|promot|premiere|wedding|meet|visit|event|felicitat/.test(
+        c.title.toLowerCase(),
+      );
+    const iplKit =
+      !offField && IPL_TERMS.some((t) => (t === 'ipl' ? /\bipl\b/.test(text) : text.includes(t)));
     if (iplKit) score += 20;
     if (team && text.includes(team.toLowerCase())) score += 10;
     if (c.height >= c.width) score += 4;
@@ -189,24 +198,40 @@ export function parseWikidata(json: unknown): WikidataPerson[] {
 }
 
 /** Fetch JSON/bytes from an allowlisted Wikimedia host only. */
-export async function fetchAllowed(url: string, as: 'json' | 'bytes'): Promise<unknown> {
+export async function fetchAllowed(
+  url: string,
+  as: 'json' | 'bytes',
+  options: { retries?: number; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<unknown> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.hostname)) {
     throw new Error(`host not allowed: ${parsed.hostname}`);
   }
-  const res = await fetch(parsed, {
-    headers: {
-      'user-agent': USER_AGENT,
-      accept: as === 'json' ? 'application/sparql-results+json, application/json' : 'image/*',
-    },
-    redirect: 'error',
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${parsed.hostname}`);
-  if (as === 'json') return res.json();
-  const length = Number(res.headers.get('content-length') ?? '0');
-  if (length > 8 * 1024 * 1024) throw new Error('image too large');
-  return Buffer.from(await res.arrayBuffer());
+  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  for (let attempt = 0; ; attempt += 1) {
+    const res = await fetch(parsed, {
+      headers: {
+        'user-agent': USER_AGENT,
+        accept: as === 'json' ? 'application/sparql-results+json, application/json' : 'image/*',
+      },
+      redirect: 'error',
+      signal: AbortSignal.timeout(60_000),
+    });
+    // Wikimedia rate limits: honour Retry-After (bounded), then give up.
+    if ((res.status === 429 || res.status === 503) && attempt < (options.retries ?? 4)) {
+      const after = Number(res.headers.get('retry-after'));
+      await sleep(
+        Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 0, 120_000) ||
+          15_000 * 2 ** attempt,
+      );
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${parsed.hostname}`);
+    if (as === 'json') return res.json();
+    const length = Number(res.headers.get('content-length') ?? '0');
+    if (length > 8 * 1024 * 1024) throw new Error('image too large');
+    return Buffer.from(await res.arrayBuffer());
+  }
 }
 
 export function commonsSearchUrl(query: string): string {

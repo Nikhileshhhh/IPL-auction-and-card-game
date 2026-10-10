@@ -29,6 +29,8 @@
     "ops:bootstrap-admin": "tsx --env-file-if-exists=.env scripts/bootstrap-admin/index.ts",
     "data:fetch": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/fetch-cricsheet.ts",
     "data:photos": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-photos.ts",
+    "data:import": "tsx --env-file-if-exists=.env scripts/data/import-cricsheet.ts",
+    "data:facts": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-facts.ts",
     "data:demo": "tsx --env-file-if-exists=.env scripts/data/seed-demo.ts",
     "data:profiles": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-profiles.ts"
   },
