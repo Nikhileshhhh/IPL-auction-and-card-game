@@ -76,10 +76,13 @@ const CARD_SELECT = `
 
 function creditOf(p: CardRow['players'][number]): PhotoCredit | null {
   if (!p.portrait || p.basis === 'original-generated') return null;
+  // An operator's licence reference is confidential (ADR-019 §2a): players see only the
+  // credit line; the reference stays in admin views.
+  const operatorLicence = p.basis === 'licensed';
   return {
     author: p.author ?? 'Unknown',
-    licence: p.licence ?? 'Licensed',
-    licenceUrl: p.licence_url,
+    licence: operatorLicence ? 'Licensed' : (p.licence ?? 'Licensed'),
+    licenceUrl: operatorLicence ? null : p.licence_url,
     sourceUrl: p.source_url,
     attribution: p.attribution ?? '',
   };

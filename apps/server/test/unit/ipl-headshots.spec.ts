@@ -45,7 +45,7 @@ const feed = {
 describe('IPL squad feed', () => {
   const squad = parseSquadFeed(feed, 'Chennai Super Kings', 2026);
 
-  it('reads name, season headshot and country (England → GB, West Indies → none)', () => {
+  it('reads name, season headshot and cricket nation (England → GB, West Indies → WI)', () => {
     expect(squad).toEqual([
       {
         team: 'Chennai Super Kings',
@@ -67,7 +67,7 @@ describe('IPL squad feed', () => {
         season: 2026,
         name: 'Akeal Hosein',
         headshotUrl: 'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F2.png',
-        country: null,
+        country: 'WI',
       },
     ]);
   });

@@ -364,6 +364,8 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
     );
     expect(page.body.data!.dataLabel).toMatch(/^IPL 2023–2025, as of/);
     expect(page.body.data!.items.length).toBeGreaterThanOrEqual(1);
+    // The operator's licence reference never reaches a player's browser.
+    expect(JSON.stringify(page.body)).not.toContain('Image licence agreement #1');
     for (const card of page.body.data!.items) {
       expect(card.dataKind).toBe('factual');
       expect(card).not.toHaveProperty('estimated');
@@ -372,7 +374,8 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
       for (const p of card.players) {
         expect(p.country).toBe('IN');
         expect(p.battingStyle).toBe('right_hand');
-        expect(p.photoCredit?.licence).toBe('Image licence agreement #1');
+        expect(p.photoCredit?.licence).toBe('Licensed');
+        expect(p.photoCredit?.attribution).toBeTruthy();
         expect(p.portraitAlt).toMatch(/in IPL jersey/);
       }
     }

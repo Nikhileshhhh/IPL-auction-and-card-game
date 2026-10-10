@@ -1,6 +1,7 @@
 /**
  * pnpm data:headshots -- --licence "<reference>" --holder "<licence holder>"
  *                        [--credit "<credit line>"] [--version <id>] [--dry-run]
+ * pnpm data:headshots -- --countries   (cricket nation from the IPL squads only, no photos)
  *
  * Imports the official IPL player headshots (each player in his franchise
  * jersey) for the players of a draft data version, under the operator's licence
@@ -42,11 +43,13 @@ const { values } = parseArgs({
     credit: { type: 'string' },
     version: { type: 'string' },
     'dry-run': { type: 'boolean', default: false },
+    countries: { type: 'boolean', default: false },
   },
 });
-const licence = values.licence?.trim();
-const holder = values.holder?.trim();
-if (!licence || !holder) {
+const countriesOnly = values.countries ?? false;
+const licence = values.licence?.trim() ?? '';
+const holder = values.holder?.trim() ?? '';
+if (!countriesOnly && (!licence || !holder)) {
   console.error('Both --licence "<reference>" and --holder "<licence holder>" are required.');
   process.exit(1);
 }
@@ -150,21 +153,25 @@ try {
       line: i + 1,
       playerKey: m.player.id,
       fullName: null,
-      // The IPL's own record fills a missing country; existing values are kept.
-      country: byId.get(m.player.id)?.country ? null : m.entry.country,
+      // The IPL's own record is the cricket nation (England → GB, West Indies → WI).
+      country: m.entry.country,
       battingStyle: null,
       bowlingStyle: undefined,
-      photo: m.entry.headshotUrl,
-      licence: licence.slice(0, 80),
-      licenceHolder: holder.slice(0, 200),
-      attribution: credit,
+      photo: countriesOnly ? null : m.entry.headshotUrl,
+      licence: countriesOnly ? null : licence.slice(0, 80),
+      licenceHolder: countriesOnly ? null : holder.slice(0, 200),
+      attribution: countriesOnly ? null : credit,
       sourceUrl: squadPageUrl(slugOf.get(m.entry.team) ?? ''),
     }));
     const report = await applyManifest(pool, storage, manifest, {
       allowedHosts: [...HEADSHOT_HOSTS, ...env.PHOTO_IMPORT_HOSTS],
       actorId: null,
     });
-    console.warn(`Imported ${report.photos} IPL jersey headshots.`);
+    console.warn(
+      countriesOnly
+        ? `Updated the cricket nation of ${report.updatedFacts} players.`
+        : `Imported ${report.photos} IPL jersey headshots.`,
+    );
     for (const i of report.issues) {
       console.warn(
         `  could not import ${byId.get(i.playerKey)?.name ?? i.playerKey}: ${i.message}`,

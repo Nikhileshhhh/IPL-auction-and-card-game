@@ -57,7 +57,7 @@ The product owner chose the official IPL player headshots as the photo source. E
   A tie is reported, never guessed.
 - **First dry run:** all 312 players in the IPL 2024–2026 pack were matched.
 - **Country:** the IPL feed's country fills a missing country (England → GB). It never overwrites an existing value.
-- **Licence details:** the licence reference and holder are required arguments with no defaults. They are recorded on every photo, and the credit line is shown in the card detail.
+- **Licence details:** the licence reference and holder are required arguments with no defaults. They are recorded on every photo for the administrators. The reference is confidential: it never appears in what players receive (the public card DTO says only "Licensed"), and it is never written to the repository. Players see only the credit line (default "Photo: IPL, used under licence by <holder>").
 
 ### 3. Publish gate
 A data version cannot be published while any card player has a gap. The gaps and their problem codes:

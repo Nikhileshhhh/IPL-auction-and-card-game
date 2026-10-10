@@ -50,6 +50,7 @@ const COUNTRY_NAMES: Record<string, string> = {
   nepal: 'NP',
   'united states': 'US',
   usa: 'US',
+  'west indies': 'WI',
   jamaica: 'JM',
   'trinidad and tobago': 'TT',
   barbados: 'BB',

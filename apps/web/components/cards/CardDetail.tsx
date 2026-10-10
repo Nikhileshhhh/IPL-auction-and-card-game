@@ -97,7 +97,9 @@ const regionNames = (() => {
     return null;
   }
 })();
-const countryName = (code: string) => regionNames?.of(code) ?? code;
+/** Cards show the cricket nation: GB is England, WI the West Indies team (ADR-019 §1b). */
+const CRICKET_NATIONS: Record<string, string> = { GB: 'England', WI: 'West Indies' };
+const countryName = (code: string) => CRICKET_NATIONS[code] ?? regionNames?.of(code) ?? code;
 
 const memberDetailPath = (id: string) => `/catalog/cards/${id}`;
 

@@ -39,7 +39,7 @@ export interface SquadEntry {
   season: number;
   name: string;
   headshotUrl: string;
-  /** ISO 3166-1 alpha-2 when the feed gives one (England → GB; West Indies has none). */
+  /** Cricket nation: ISO 3166-1 alpha-2, England → GB, West Indies → WI (ADR-019 §1b). */
   country: string | null;
 }
 
@@ -71,7 +71,7 @@ function isoCountry(code: unknown): string | null {
   if (typeof code !== 'string') return null;
   const c = code.trim().toLowerCase();
   if (c.startsWith('gb-')) return 'GB';
-  return /^[a-z]{2}$/.test(c) && c !== 'wi' ? c.toUpperCase() : null;
+  return /^[a-z]{2}$/.test(c) ? c.toUpperCase() : null;
 }
 
 /** Squad feed JSON → players with their headshot for that season. */
