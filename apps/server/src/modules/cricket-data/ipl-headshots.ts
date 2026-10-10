@@ -41,6 +41,8 @@ export interface SquadEntry {
   headshotUrl: string;
   /** Cricket nation: ISO 3166-1 alpha-2, England → GB, West Indies → WI (ADR-019 §1b). */
   country: string | null;
+  /** The IPL's own player ID: the same person in every season and franchise. */
+  iplPlayerId: number | null;
 }
 
 const HEADSHOT_PATH = /^player\/\d{1,8}\/\d{1,8}\/\d{1,10}\.png$/;
@@ -74,6 +76,16 @@ function isoCountry(code: unknown): string | null {
   return /^[a-z]{2}$/.test(c) ? c.toUpperCase() : null;
 }
 
+/** Feed `externalId`, else the last number of the headshot path (player/<s>/<team>/<id>.png). */
+export function playerIdOf(externalId: unknown, headshot: string): number | null {
+  if (typeof externalId === 'number' && Number.isSafeInteger(externalId) && externalId > 0)
+    return externalId;
+  const m = /player\/\d+\/\d+\/(\d+)\.png$/.exec(
+    new URL(headshot).searchParams.get('pathname') ?? '',
+  );
+  return m?.[1] ? Number(m[1]) : null;
+}
+
 /** Squad feed JSON → players with their headshot for that season. */
 export function parseSquadFeed(json: unknown, team: string, season: number): SquadEntry[] {
   const players = (json as { data?: { squad?: { players?: unknown } } }).data?.squad?.players;
@@ -85,7 +97,14 @@ export function parseSquadFeed(json: unknown, team: string, season: number): Squ
     if (!name || name.length > 60 || !url) continue;
     const key = normName(name);
     if (!key || out.has(key)) continue;
-    out.set(key, { team, season, name, headshotUrl: url, country: isoCountry(p.countryCode) });
+    out.set(key, {
+      team,
+      season,
+      name,
+      headshotUrl: url,
+      country: isoCountry(p.countryCode),
+      iplPlayerId: playerIdOf(p.externalId, url),
+    });
   }
   return [...out.values()];
 }
@@ -310,6 +329,26 @@ export function matchBySeason(
   }
   total.unmatchedEntries = entries.filter((e) => !used.has(e));
   return total;
+}
+
+/**
+ * Archive fallback (ADR-019 §2a): earlier-season headshots of the *same IPL player
+ * ID*, any franchise, newest first; the card's franchise wins within a season.
+ * Identity rests on the IPL's own ID, never on a name.
+ */
+export function archiveCandidates(
+  entries: readonly SquadEntry[],
+  playerIds: ReadonlySet<number>,
+  cardTeam: string | null,
+): SquadEntry[] {
+  return entries
+    .filter((e) => e.iplPlayerId !== null && playerIds.has(e.iplPlayerId))
+    .sort(
+      (a, b) =>
+        b.season - a.season ||
+        Number(b.team === cardTeam) - Number(a.team === cardTeam) ||
+        a.team.localeCompare(b.team),
+    );
 }
 
 /** Fetch one constant squad feed politely (contact UA, 429 backoff, same host only). */

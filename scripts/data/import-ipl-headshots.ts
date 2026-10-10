@@ -17,6 +17,7 @@ import { parseArgs } from 'node:util';
 import { loadEnv } from '../../apps/server/src/config/env';
 import { createPool } from '../../apps/server/src/db/pool';
 import {
+  archiveCandidates,
   fetchSquadFeed,
   HEADSHOT_HOSTS,
   IPL_TEAM_SLUGS,
@@ -114,28 +115,33 @@ try {
     };
   });
 
-  const entries: SquadEntry[] = [];
-  for (const season of seasons) {
-    for (const [team, slug] of IPL_TEAM_SLUGS) {
-      try {
-        const found = parseSquadFeed(
-          await fetchSquadFeed(squadFeedUrl(slug, season)),
-          team,
-          season,
-        );
-        console.warn(`${season} ${team}: ${found.length} players with a headshot`);
-        entries.push(...found);
-      } catch (error) {
-        const message = (error as Error).message;
-        console.error(`${season} ${team}: could not read the squad (${message})`);
-        if (message.includes('fetch failed')) {
-          console.error('Allow www.iplt20.com in the network settings.');
-          process.exit(1);
+  const fetchSeasons = async (list: readonly number[], quiet = false) => {
+    const found: SquadEntry[] = [];
+    for (const season of list) {
+      for (const [team, slug] of IPL_TEAM_SLUGS) {
+        try {
+          const squad = parseSquadFeed(
+            await fetchSquadFeed(squadFeedUrl(slug, season)),
+            team,
+            season,
+          );
+          if (!quiet) console.warn(`${season} ${team}: ${squad.length} players with a headshot`);
+          found.push(...squad);
+        } catch (error) {
+          const message = (error as Error).message;
+          // Franchises that did not exist yet answer HTTP 400; that is expected.
+          if (!quiet) console.error(`${season} ${team}: could not read the squad (${message})`);
+          if (message.includes('fetch failed')) {
+            console.error('Allow www.iplt20.com in the network settings.');
+            process.exit(1);
+          }
         }
+        await sleep(1000);
       }
-      await sleep(1000);
     }
-  }
+    return found;
+  };
+  const entries = await fetchSeasons(seasons);
 
   const storage =
     env.MEDIA_STORAGE === 'supabase'
@@ -212,6 +218,77 @@ try {
       players,
       { anyTeamSeasons: window },
     );
+  }
+  // Archive fallback (ADR-019 §2a): players still without a headshot get the newest
+  // real one of their own IPL player ID from any earlier season and franchise. The ID
+  // comes from the strict name match inside the pack window, so identity never rests
+  // on a name alone.
+  if (!values['dry-run'] && !countriesOnly) {
+    const done = await hasHeadshot();
+    const waiting = players.filter((p) => !done.has(p.id));
+    if (waiting.length > 0) {
+      const inWindow = matchBySeason(
+        entries.filter((e) => window.has(e.season)),
+        players,
+      );
+      const idOf = new Map<string, Set<number>>();
+      for (const m of inWindow.matches) {
+        if (m.entry.iplPlayerId === null) continue;
+        idOf.set(m.player.id, new Set([...(idOf.get(m.player.id) ?? []), m.entry.iplPlayerId]));
+      }
+      const firstSeason = 2008;
+      const older = Array.from(
+        { length: Math.max(0, Math.min(...seasons) - firstSeason) },
+        (_, i) => Math.min(...seasons) - 1 - i,
+      );
+      console.warn(
+        `Archive: reading ${older.length} earlier seasons for ${waiting.length} players…`,
+      );
+      const archive = [...entries, ...(await fetchSeasons(older, true))];
+      let imported = 0;
+      for (const p of waiting) {
+        const ids = idOf.get(p.id);
+        if (!ids) continue;
+        for (const c of archiveCandidates(archive, ids, p.team)) {
+          if (excluded.has(c)) continue;
+          const report = await applyManifest(
+            pool,
+            storage,
+            [
+              {
+                line: 1,
+                playerKey: p.id,
+                fullName: null,
+                country: null,
+                battingStyle: null,
+                bowlingStyle: undefined,
+                photo: c.headshotUrl,
+                licence: licence.slice(0, 80),
+                licenceHolder: holder.slice(0, 200),
+                attribution: credit,
+                sourceUrl: squadPageUrl(slugOf.get(c.team) ?? ''),
+              },
+            ],
+            { allowedHosts: [...HEADSHOT_HOSTS, ...env.PHOTO_IMPORT_HOSTS], actorId: null },
+          );
+          await sleep(500);
+          if (report.photos > 0) {
+            imported += 1;
+            failed.delete(p.id);
+            console.warn(`  ${byId.get(p.id)?.name} ← ${c.name} (${c.season} ${c.team}, archive)`);
+            break;
+          }
+        }
+      }
+      console.warn(`Archive: imported ${imported} more IPL jersey headshots.`);
+      const after = await hasHeadshot();
+      const still = players.filter((p) => !after.has(p.id));
+      if (still.length) {
+        console.warn(
+          `Still without a real IPL headshot: ${still.map((p) => byId.get(p.id)?.name).join(', ')}`,
+        );
+      }
+    }
   }
   for (const [id, message] of failed) {
     console.warn(`  no usable headshot for ${byId.get(id)?.name ?? id}: ${message}`);

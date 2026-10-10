@@ -5,8 +5,10 @@ import {
   IPL_TEAM_SLUGS,
   matchBySeason,
   matchHeadshots,
+  archiveCandidates,
   nearName,
   normName,
+  playerIdOf,
   preferredName,
   parseSquadFeed,
   sameInitialSurname,
@@ -55,6 +57,7 @@ describe('IPL squad feed', () => {
         headshotUrl:
           'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F64377.png',
         country: 'IN',
+        iplPlayerId: 64377,
       },
       {
         team: 'Chennai Super Kings',
@@ -62,6 +65,7 @@ describe('IPL squad feed', () => {
         name: 'Jamie Overton',
         headshotUrl: 'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F1.png',
         country: 'GB',
+        iplPlayerId: 1,
       },
       {
         team: 'Chennai Super Kings',
@@ -69,6 +73,7 @@ describe('IPL squad feed', () => {
         name: 'Akeal Hosein',
         headshotUrl: 'https://www.iplt20.com/api/team-assets?pathname=player%2F8903%2F1622%2F2.png',
         country: 'WI',
+        iplPlayerId: 2,
       },
     ]);
   });
@@ -105,6 +110,7 @@ describe('strict headshot matching', () => {
     name,
     headshotUrl: `https://www.iplt20.com/api/team-assets?pathname=player%2F${season}%2F1%2F${normName(name).length}.png`,
     country: null,
+    iplPlayerId: null,
   });
   const p = (
     id: string,
@@ -176,5 +182,35 @@ describe('strict headshot matching', () => {
     expect(preferredName('DS Rathi', 'Digvesh Singh Rathi')).toBe('Digvesh Singh Rathi');
     expect(preferredName('MS Dhoni', 'Mahendra Singh Dhoni')).toBeNull();
     expect(preferredName('Virat Kohli', 'Virat Kohli')).toBeNull();
+  });
+
+  it('archive fallback follows the IPL player ID only: newest first, card franchise first', () => {
+    const at = (team: string, season: number, id: number): SquadEntry => ({
+      ...e('Faf du Plessis', team, season),
+      iplPlayerId: id,
+    });
+    const archive = [
+      at('Chennai Super Kings', 2021, 14151),
+      at('Royal Challengers Bengaluru', 2022, 14151),
+      at('Delhi Capitals', 2022, 14151),
+      at('Royal Challengers Bengaluru', 2023, 99999), // a different person
+    ];
+    expect(
+      archiveCandidates(archive, new Set([14151]), 'Delhi Capitals').map((x) => [x.season, x.team]),
+    ).toEqual([
+      [2022, 'Delhi Capitals'],
+      [2022, 'Royal Challengers Bengaluru'],
+      [2021, 'Chennai Super Kings'],
+    ]);
+    expect(archiveCandidates(archive, new Set([1]), null)).toEqual([]);
+  });
+
+  it('player ID from the feed, else from the headshot path', () => {
+    const url = 'https://www.iplt20.com/api/team-assets?pathname=player%2F7156%2F2138%2F14151.png';
+    expect(playerIdOf(14151, url)).toBe(14151);
+    expect(playerIdOf(undefined, url)).toBe(14151);
+    expect(
+      playerIdOf('x', 'https://www.iplt20.com/api/team-assets?pathname=static%2Fa.svg'),
+    ).toBeNull();
   });
 });
