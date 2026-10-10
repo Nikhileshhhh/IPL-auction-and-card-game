@@ -12,6 +12,7 @@ import { parseArgs } from 'node:util';
 import { loadEnv } from '../../apps/server/src/config/env';
 import { createPool } from '../../apps/server/src/db/pool';
 import {
+  citesCricinfo,
   factsQuery,
   parseFacts,
   parseInfoboxStyles,
@@ -98,11 +99,57 @@ try {
     await sleep(1500);
   }
 
+  // 3. Players whose Wikidata item has no article link (or no styles there): look the
+  //    article up by name, accepted only when it cites the player's own ESPNcricinfo ID.
+  const linkedStyles = (p: (typeof players)[number]) => {
+    const f = p.cricinfo ? wd.get(p.cricinfo) : undefined;
+    return f?.enwiki ? parseInfoboxStyles(wikitext.get(f.enwiki) ?? '') : null;
+  };
+  const byName = new Map<string, ReturnType<typeof parseInfoboxStyles>>();
+  const lookups = players.filter((p) => {
+    if (!p.cricinfo || wikipediaError) return false;
+    const st = linkedStyles(p);
+    return (!p.batting && !st?.battingStyle) || (p.bowled && !p.bowling && !st?.bowlingStyle);
+  });
+  const titleOwner = new Map<string, (typeof players)[number]>();
+  for (const p of lookups) {
+    const label = (p.cricinfo ? wd.get(p.cricinfo)?.label : null) ?? p.name;
+    const words = label.split(/\s+/);
+    const short = words.length > 2 ? `${words[0]} ${words[words.length - 1]}` : null;
+    for (const t of [
+      label,
+      `${label} (cricketer)`,
+      ...(short ? [short, `${short} (cricketer)`] : []),
+    ])
+      if (!titleOwner.has(t)) titleOwner.set(t, p);
+  }
+  const lookupTitles = [...titleOwner.keys()];
+  for (let i = 0; i < lookupTitles.length; i += 50) {
+    try {
+      for (const [t, text] of parseWikipediaContent(
+        await fetchAllowed(wikipediaContentUrl(lookupTitles.slice(i, i + 50)), 'json'),
+      )) {
+        const owner = titleOwner.get(t);
+        if (!owner?.cricinfo || byName.has(owner.id) || !citesCricinfo(text, owner.cricinfo))
+          continue;
+        byName.set(owner.id, parseInfoboxStyles(text));
+      }
+    } catch (error) {
+      wikipediaError ??= (error as Error).message;
+    }
+    await sleep(1500);
+  }
+
   const report = { names: 0, countries: 0, batting: 0, bowling: 0 };
   const missing: { name: string; gaps: string[] }[] = [];
   for (const p of players) {
     const f = p.cricinfo ? wd.get(p.cricinfo) : undefined;
-    const styles = f?.enwiki ? parseInfoboxStyles(wikitext.get(f.enwiki) ?? '') : null;
+    const linked = linkedStyles(p);
+    const found = byName.get(p.id);
+    const styles = {
+      battingStyle: linked?.battingStyle ?? found?.battingStyle ?? null,
+      bowlingStyle: linked?.bowlingStyle ?? found?.bowlingStyle ?? null,
+    };
     const name = !p.reviewed && f?.label ? f.label.slice(0, 80) : null;
     const country = p.country ? null : (f?.country ?? null);
     const batting = p.batting ? null : (styles?.battingStyle ?? null);

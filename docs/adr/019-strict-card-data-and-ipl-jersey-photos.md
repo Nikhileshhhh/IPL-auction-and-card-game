@@ -31,6 +31,8 @@ A unit test locks this in: no tail-ender with 12 or fewer balls faced may outran
 ### 1b. Fact sources
 `pnpm data:facts` fills only missing facts and never overwrites existing values or reviewed names:
 - **Full name:** Wikidata, matched by ESPNcricinfo ID (P2697).
+- **Placeholders and older seasons:** where a season has no headshot, the IPL serves a silhouette placeholder (SVG), which the media pipeline refuses. That entry is then excluded and matching re-runs over all players. Seasons up to five years before the pack window (2019–2023 for this pack) are used only for the franchise on the player's card, never across franchises, to avoid same-name mix-ups. First real run: 283 of 312 players have a genuine IPL-jersey headshot, and a visual spot check of 44 photos found the correct player in franchise kit in every one.
+- **Names:** Cricsheet initials ("DS Rathi") are replaced by the IPL's full name ("Digvesh Singh Rathi"), except for players known by their initials (MS Dhoni, KL Rahul).
 - **Country:** the cricket nation (P1532), or else a single citizenship (P27). When several citizenships exist and none is a cricket nation, the country is left for the sheet.
 - **Batting and bowling style:** the English Wikipedia "Infobox cricketer".
 
@@ -56,7 +58,7 @@ The product owner chose the official IPL player headshots as the photo source. E
 
   A tie is reported, never guessed.
 - **First dry run:** all 312 players in the IPL 2024–2026 pack were matched.
-- **Country:** the IPL feed's country fills a missing country (England → GB). It never overwrites an existing value.
+- **Country:** the IPL feed's country is the cricket nation (England → GB, shown as "England"; West Indies → WI, shown as "West Indies"). `--countries` applies it without touching photos.
 - **Licence details:** the licence reference and holder are required arguments with no defaults. They are recorded on every photo for the administrators. The reference is confidential: it never appears in what players receive (the public card DTO says only "Licensed"), and it is never written to the repository. Players see only the credit line (default "Photo: IPL, used under licence by <holder>").
 
 ### 3. Publish gate

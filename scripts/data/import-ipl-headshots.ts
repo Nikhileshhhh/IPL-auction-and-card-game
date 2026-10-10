@@ -22,6 +22,7 @@ import {
   IPL_TEAM_SLUGS,
   matchBySeason,
   parseSquadFeed,
+  preferredName,
   squadFeedUrl,
   squadPageUrl,
   type PackPlayer,
@@ -72,7 +73,10 @@ try {
     )
   ).rows[0];
   if (!version) throw new Error('No factual draft version found; run pnpm data:import first.');
-  const seasons = [version.year, version.year - 1, version.year - 2];
+  // The pack's three seasons, then up to five earlier ones as a same-franchise fallback
+  // where the IPL has no headshot (placeholder) for a recent season.
+  const window = new Set([version.year, version.year - 1, version.year - 2]);
+  const seasons = Array.from({ length: 8 }, (_, i) => version.year - i);
 
   // Pack players with every known spelling (current name + Cricsheet register names).
   let register = new Map<string, { name: string; uniqueName: string }>();
@@ -133,26 +137,49 @@ try {
     }
   }
 
-  const result = matchBySeason(entries, players);
+  const storage =
+    env.MEDIA_STORAGE === 'supabase'
+      ? new SupabaseStorage(
+          env.SUPABASE_URL ?? '',
+          env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+          env.MEDIA_BUCKET,
+        )
+      : new LocalDiskStorage(env.MEDIA_DIR);
+  const slugOf = new Map(IPL_TEAM_SLUGS);
+  const hasHeadshot = async () =>
+    new Set(
+      (
+        await pool.query<{ id: string }>(
+          `SELECT ps.player_id AS id FROM app_private.player_seasons ps
+             JOIN app_private.media_assets a ON a.id = ps.portrait_asset_id
+            WHERE ps.data_version_id = $1 AND a.ipl_kit AND a.rights_basis = 'licensed'
+              AND a.rights_status = 'approved'`,
+          [version.id],
+        )
+      ).rows.map((r) => r.id),
+    );
+
+  // The IPL serves a silhouette placeholder (SVG) where a season has no headshot; the
+  // media pipeline refuses it. Such entries are excluded and matching re-runs over all
+  // players (so uniqueness still compares everyone) until no new photo arrives.
+  const excluded = new Set<SquadEntry>();
+  let result = matchBySeason(entries, players, { anyTeamSeasons: window });
   for (const m of result.matches) {
     console.warn(
       `  ${byId.get(m.player.id)?.name} ← ${m.entry.name} (${m.entry.season} ${m.entry.team}, ${m.how})`,
     );
   }
-  if (!values['dry-run'] && result.matches.length > 0) {
-    const storage =
-      env.MEDIA_STORAGE === 'supabase'
-        ? new SupabaseStorage(
-            env.SUPABASE_URL ?? '',
-            env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-            env.MEDIA_BUCKET,
-          )
-        : new LocalDiskStorage(env.MEDIA_DIR);
-    const slugOf = new Map(IPL_TEAM_SLUGS);
-    const manifest: ManifestRow[] = result.matches.map((m, i) => ({
+  let failed = new Map<string, string>();
+  for (let round = 0; round < 12 && !values['dry-run']; round += 1) {
+    const done = countriesOnly ? new Set<string>() : await hasHeadshot();
+    const todo = result.matches.filter((m) => !done.has(m.player.id));
+    if (todo.length === 0) break;
+    const manifest: ManifestRow[] = todo.map((m, i) => ({
       line: i + 1,
       playerKey: m.player.id,
-      fullName: null,
+      fullName: countriesOnly
+        ? preferredName(byId.get(m.player.id)?.name ?? '', m.entry.name)
+        : null,
       // The IPL's own record is the cricket nation (England → GB, West Indies → WI).
       country: m.entry.country,
       battingStyle: null,
@@ -170,13 +197,24 @@ try {
     console.warn(
       countriesOnly
         ? `Updated the cricket nation of ${report.updatedFacts} players.`
-        : `Imported ${report.photos} IPL jersey headshots.`,
+        : `Round ${round + 1}: imported ${report.photos} IPL jersey headshots.`,
     );
-    for (const i of report.issues) {
-      console.warn(
-        `  could not import ${byId.get(i.playerKey)?.name ?? i.playerKey}: ${i.message}`,
-      );
+    if (countriesOnly || report.issues.length === 0) {
+      failed = new Map();
+      break;
     }
+    failed = new Map(report.issues.map((i) => [i.playerKey, i.message]));
+    const before = excluded.size;
+    for (const m of todo) if (failed.has(m.player.id)) excluded.add(m.entry);
+    if (excluded.size === before) break;
+    result = matchBySeason(
+      entries.filter((e) => !excluded.has(e)),
+      players,
+      { anyTeamSeasons: window },
+    );
+  }
+  for (const [id, message] of failed) {
+    console.warn(`  no usable headshot for ${byId.get(id)?.name ?? id}: ${message}`);
   }
   console.warn(
     `${values['dry-run'] ? '[dry run] ' : ''}Matched ${result.matches.length} of ${players.length} ` +

@@ -7,6 +7,7 @@ import {
   matchHeadshots,
   nearName,
   normName,
+  preferredName,
   parseSquadFeed,
   sameInitialSurname,
   squadFeedUrl,
@@ -169,5 +170,11 @@ describe('strict headshot matching', () => {
     expect(normName('Mohsin Khan (2)')).toBe('mohsin khan');
     expect(normName('William O’Rourke')).toBe('william o rourke');
     expect(normName('Dewald Brévis')).toBe('dewald brevis');
+  });
+
+  it('expands Cricsheet initials to the IPL full name, but keeps names players are known by', () => {
+    expect(preferredName('DS Rathi', 'Digvesh Singh Rathi')).toBe('Digvesh Singh Rathi');
+    expect(preferredName('MS Dhoni', 'Mahendra Singh Dhoni')).toBeNull();
+    expect(preferredName('Virat Kohli', 'Virat Kohli')).toBeNull();
   });
 });

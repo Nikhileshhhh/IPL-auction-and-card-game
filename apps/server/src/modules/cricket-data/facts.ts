@@ -65,17 +65,29 @@ export function parseFacts(json: unknown): WikidataFacts[] {
 
 /** Strip wiki markup from one infobox value. */
 export function wikiPlain(value: string): string {
-  return value
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<ref[^>]*\/>/gi, '')
-    .replace(/<ref[\s\S]*?<\/ref>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\{\{[^{}]*\}\}/g, '')
-    .replace(/\[\[(?:[^|\]]*\|)?([^\]]*)\]\]/g, '$1')
-    .replace(/'{2,}/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    value
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<ref[^>]*\/>/gi, '')
+      .replace(/<ref[\s\S]*?<\/ref>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\[\[(?:[^|\]]*\|)?([^\]]*)\]\]/g, '$1')
+      // List templates keep their items: {{ubl|A|B}} → "A / B".
+      .replace(
+        /\{\{\s*(?:ubl|unbulleted list|plainlist|plain list|hlist|flatlist)\s*\|([^{}]*)\}\}/gi,
+        (_m, items: string) =>
+          items
+            .split('|')
+            .map((x) => x.trim())
+            .filter((x) => x && !x.includes('='))
+            .join(' / '),
+      )
+      .replace(/\{\{[^{}]*\}\}/g, '')
+      .replace(/'{2,}/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 function infoboxField(wikitext: string, field: string): string | null {
@@ -86,6 +98,21 @@ function infoboxField(wikitext: string, field: string): string | null {
 }
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Whole styles that fit the 40-character field, primary (first-listed) first. */
+function fitStyle(text: string): string | null {
+  const parts = text
+    .split(/\s*(?:\/|,|;| and )\s*/i)
+    .map((x) => capitalise(x.trim()))
+    .filter(Boolean);
+  let out = '';
+  for (const p of parts) {
+    const next = out ? `${out} / ${p}` : p;
+    if (next.length > 40) break;
+    out = next;
+  }
+  return out || (parts[0]?.slice(0, 40) ?? null);
+}
 
 /** Batting and bowling style from an "Infobox cricketer". */
 export function parseInfoboxStyles(wikitext: string): {
@@ -100,7 +127,7 @@ export function parseInfoboxStyles(wikitext: string): {
     : null;
   const bowlingStyle =
     bowl && /arm|spin|break|orthodox|pace|fast|medium|chinaman|wrist/i.test(bowl)
-      ? capitalise(bowl.replace(/\s*\(.*?\)\s*/g, ' ').trim()).slice(0, 40)
+      ? fitStyle(bowl.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\.\s/g, ' '))
       : null;
   return { battingStyle, bowlingStyle };
 }
@@ -145,4 +172,12 @@ export function parseWikipediaContent(json: unknown): Map<string, string> {
     if (text && !out.has(hop.from)) out.set(hop.from, text);
   }
   return out;
+}
+
+/** True when an article cites this ESPNcricinfo player ID (guards a by-name lookup). */
+export function citesCricinfo(wikitext: string, cricinfoId: string): boolean {
+  if (!/^\d{1,10}$/.test(cricinfoId)) return false;
+  return new RegExp(`(?:cricinfo|espncricinfo)[^\\n]{0,120}?\\b${cricinfoId}\\b`, 'i').test(
+    wikitext,
+  );
 }

@@ -177,6 +177,15 @@ export const IPL_NAME_ALIASES: ReadonlyMap<string, string> = new Map([
   ['sumit kumar', 'sumit beniwal'], // Sumit Kumar Beniwal
 ]);
 
+/** Players best known by their initials; never expanded to the IPL's long form. */
+export const KNOWN_BY_INITIALS: ReadonlySet<string> = new Set(['MS Dhoni', 'KL Rahul']);
+
+/** Cricsheet initials ("DS Rathi") give way to the IPL's full name, except known short names. */
+export function preferredName(current: string, ipl: string): string | null {
+  if (KNOWN_BY_INITIALS.has(current) || !/^[A-Z]{1,3} /.test(current)) return null;
+  return ipl.slice(0, 80);
+}
+
 const aliasOf = (a: string, b: string) => IPL_NAME_ALIASES.get(normName(b)) === normName(a);
 
 export interface PackPlayer {
@@ -274,6 +283,7 @@ export function matchHeadshots(
 export function matchBySeason(
   entries: readonly SquadEntry[],
   players: readonly PackPlayer[],
+  options: { anyTeamSeasons?: ReadonlySet<number> } = {},
 ): MatchResult {
   const seasons = [...new Set(entries.map((e) => e.season))].sort((a, b) => b - a);
   const total: MatchResult = {
@@ -285,6 +295,8 @@ export function matchBySeason(
   const used = new Set<SquadEntry>();
   for (const requireTeam of [true, false]) {
     for (const season of seasons) {
+      // Older fallback seasons are trusted only for the franchise on the card.
+      if (!requireTeam && options.anyTeamSeasons && !options.anyTeamSeasons.has(season)) continue;
       const r = matchHeadshots(
         entries.filter((e) => e.season === season && !used.has(e)),
         total.unmatchedPlayers,
