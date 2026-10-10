@@ -99,26 +99,42 @@ export function PremiumCricketCard({
         <div className="relative h-[55%] w-full overflow-hidden bg-[#14263B]">
           {dual && second ? (
             <>
-              <div className="absolute inset-0 [clip-path:polygon(0_0,100%_0,0_100%)]">
+              {/* Side by side with a slanted seam: each half centres its own face
+                  (headshots keep the face top-centre, so a corner-to-corner split hid it). */}
+              <div className="absolute inset-y-0 left-0 w-[58%] [clip-path:polygon(0_0,100%_0,72.4%_100%,0_100%)]">
                 <PortraitImage
                   src={first.portraitUrl}
                   alt={first.portraitAlt}
                   sizes={s.sizes}
                   priority={priority}
+                  className="object-cover object-[center_15%]"
                 />
               </div>
-              <div className="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
+              <div className="absolute inset-y-0 right-0 w-[58%] [clip-path:polygon(27.6%_0,100%_0,100%_100%,0_100%)]">
                 <PortraitImage
                   src={second.portraitUrl}
                   alt={second.portraitAlt}
                   sizes={s.sizes}
                   priority={priority}
+                  className="object-cover object-[center_15%]"
                 />
               </div>
-              <div
+              <svg
                 aria-hidden="true"
-                className="absolute inset-0 bg-[linear-gradient(to_top_left,transparent_calc(50%-1px),var(--rarity-dual)_50%,transparent_calc(50%+1px))]"
-              />
+                className="absolute inset-0 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                <line
+                  x1="58"
+                  y1="0"
+                  x2="42"
+                  y2="100"
+                  stroke="var(--rarity-dual)"
+                  strokeWidth="1.2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
             </>
           ) : (
             <PortraitImage

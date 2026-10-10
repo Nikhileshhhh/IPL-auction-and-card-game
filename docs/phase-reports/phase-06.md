@@ -129,5 +129,41 @@ Product-owner requirements added this phase (ADR-018):
 - **Real IPL pack.** It needs cricsheet.org to be allowed by the network policy, and the operator's licensed IPL-jersey photos supplied through the player sheet. `PHOTO_IMPORT_HOSTS` must name their photo host for URL rows.
 - **Demo pack.** Until those are in place, only the demo pack is publishable.
 
+## Real IPL pack published (ADR-019, ADR-020)
+
+**Published version:** "IPL 2024–2026, as of 31 May 2026", content hash `791946e3…cc7b`.
+
+**Players:** 321, made up of the IPL 2024–2026 players plus 9 retired legends rated on their own last three seasons.
+
+**Cards:** 348 in total.
+
+| Card type | Count |
+| --- | --- |
+| Bronze | 263 |
+| Normal (legends) | 25 |
+| Silver (legends) | 25 |
+| Gold (legends) | 25 |
+| Platinum duals | 10 |
+
+The duals are Ro-Ko, Kohli & Dhoni, Dhoni & Jadeja, Rohit & Bumrah, Narine & Russell, Hardik & Suryakumar, Kohli & de Villiers, Dhoni & Raina, Rohit & Pollard, and Bumrah & Malinga.
+
+**Sources:**
+- Statistics: Cricsheet (1,243 IPL matches, ODC-By).
+- Photos: the official IPL squad headshots, imported under the operator's licence. The reference is stored only for administrators, and every photo is verified as the player in IPL jersey.
+- Countries: the IPL squad records.
+- Full names: Wikidata.
+- Batting and bowling styles: the Wikipedia cricketer infobox, accepted only when the page cites the player's own ESPNcricinfo ID.
+
+**Checks:**
+- Every published card has a photo, and none sends the licence reference to players.
+- The card pool was screenshotted in the running app with the real pack.
+- That screenshot exposed a bug: the dual card's diagonal split hid the second player's face. Dual cards now split side by side with a slanted seam.
+
+**Left out (33 Bronze cards, `--prune`):** these can be added in a later version.
+- 10 players for whom the IPL never published a headshot in any season: Viyaskanth, Maharaj, Hope, Raza, Atal, Shanaka, Kusal Mendis, Sumit Kumar, Naib and Kaverappa.
+- 23 uncapped players with no source stating their batting or bowling style. ESPNcricinfo refuses automated access (HTTP 403 from its own bot protection), and this was not circumvented.
+
+To add them later, supply the photos and styles through the player sheet or the admin upload, then import and publish a new version.
+
 ## Next phase
 Phase 07 — card engine (RNG, fair deal, round reducer, invariants) and the card arena.
