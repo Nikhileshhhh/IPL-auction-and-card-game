@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 const OriginList = z
@@ -141,5 +143,27 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
       .join('; ');
     throw new Error(`Invalid server environment: ${problems}`);
   }
-  return result.data;
+  const root = workspaceRoot(process.cwd());
+  return {
+    ...result.data,
+    MEDIA_DIR: fromRoot(root, result.data.MEDIA_DIR),
+    CRICSHEET_DIR: fromRoot(root, result.data.CRICSHEET_DIR),
+  };
 }
+
+/**
+ * Nearest directory at or above `start` holding pnpm-workspace.yaml (else `start`).
+ * The dev API runs from apps/server while data scripts run from the repo root;
+ * relative data paths resolve against the workspace root so both share one folder.
+ */
+export function workspaceRoot(start: string): string {
+  let dir = resolve(start);
+  for (;;) {
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(start);
+    dir = parent;
+  }
+}
+
+const fromRoot = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path));

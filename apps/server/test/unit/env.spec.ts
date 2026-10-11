@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from '../../src/config/env';
+import { join } from 'node:path';
+import { loadEnv, workspaceRoot } from '../../src/config/env';
 
 describe('loadEnv', () => {
   it('applies safe development defaults', () => {
@@ -53,5 +54,13 @@ describe('loadEnv', () => {
 
   it('bounds the pool size', () => {
     expect(() => loadEnv({ DATABASE_POOL_MAX: '500' })).toThrow(/DATABASE_POOL_MAX/);
+  });
+
+  it('resolves relative data paths against the workspace root, whatever the cwd', () => {
+    const root = workspaceRoot(join(__dirname, '..'));
+    expect(workspaceRoot(join(root, 'apps', 'server'))).toBe(root);
+    const env = loadEnv({ MEDIA_DIR: '.local/media', CRICSHEET_DIR: '/abs/cricsheet' });
+    expect(env.MEDIA_DIR).toBe(join(workspaceRoot(process.cwd()), '.local/media'));
+    expect(env.CRICSHEET_DIR).toBe('/abs/cricsheet');
   });
 });

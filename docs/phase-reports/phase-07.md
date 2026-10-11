@@ -88,7 +88,14 @@
 ## Gaps and notes
 - **Phase 08:** the S11 tie screen, the exhaustion and fallback edge cases end to end, full restoration and ranking paths, and vote-based endings.
 - **Phases 14–15:** medals (`medalStatus: 'deferred'`) and the results TTL (`resultsExpiresAt: null`). Rooms stay in `FINALIZING` until then.
-- **Local data incident:** running `pnpm db:reset` without `STUMPS_DB_NAME` recreated the local `stumps` database, which removed my local copy of the published IPL pack. Nothing committed was affected, and the pack was rebuilt with the same pipeline. Checks now use `STUMPS_DB_NAME=stumps_check`.
+- **Local data incident:** running `pnpm db:reset` without `STUMPS_DB_NAME` recreated the local `stumps` database, which removed my local copy of the published IPL pack. Nothing committed was affected. The pack was rebuilt with the same pipeline:
+  - Cricsheet import, facts, then the licensed IPL headshots: 311 of 321 players, the same 10 without an IPL photo as before.
+  - Published with prune: 344 cards (259 Bronze, 25 each of Normal, Silver and Gold, 10 Platinum duals).
+  - That is 4 Bronze cards fewer than the earlier 348: this run's facts fetch filled slightly fewer batting and bowling styles.
+  - Kohli still reads 92/96/100.
+
+  Checks now use `STUMPS_DB_NAME=stumps_check`.
+- **Media path fix (found while taking the real-pack arena screenshot):** the dev API runs from `apps/server`, so the relative `MEDIA_DIR` pointed at a different folder from the one the data scripts write to, and photos returned 404. `loadEnv` now resolves relative `MEDIA_DIR` and `CRICSHEET_DIR` against the workspace root (unit test in `apps/server/test/unit/env.spec.ts`).
 
 ## Next phase
 Phase 08: ties, exhaustion, fallback, cycle and time endings, ranking, restoration, and the S11 tie arena.
