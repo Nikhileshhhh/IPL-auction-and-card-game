@@ -263,49 +263,57 @@ export function PremiumCricketCard({
           )}
           <span
             className={cx(
-              'stumps-crest rounded-full font-bold tracking-[0.12em] uppercase backdrop-blur-sm',
+              'stumps-crest shrink-0 rounded-full font-bold tracking-[0.12em] whitespace-nowrap uppercase backdrop-blur-sm',
               mini ? 'px-1 py-0 text-[6px]' : 'px-2 py-0.5',
               !mini && s.team,
             )}
           >
-            {RARITY_NAMES[card.rarity]}
+            {card.rarity === 'dual_platinum' ? 'Platinum' : RARITY_NAMES[card.rarity]}
           </span>
         </div>
 
         {/* Stats: Bowling, Runs + stars, Batting */}
-        <dl className="stumps-stat-panel absolute inset-x-0 bottom-0 grid h-[27%] grid-cols-3 items-center px-[4%]">
-          {STAT_ORDER.map((m) => {
-            const isRuns = m === 'runs';
-            return (
-              <div
-                key={m}
-                data-highlight={highlight === m ? 'true' : 'false'}
-                className="stumps-stat flex flex-col items-center justify-center gap-0.5"
-              >
-                <dt
+        <div className="stumps-stat-panel absolute inset-x-0 bottom-0 h-[27%]">
+          <dl className="grid h-full grid-cols-3 items-center px-[4%]">
+            {STAT_ORDER.map((m) => {
+              const isRuns = m === 'runs';
+              return (
+                <div
+                  key={m}
+                  data-highlight={highlight === m ? 'true' : 'false'}
                   className={cx(
-                    'order-2 font-display font-bold tracking-widest text-white uppercase',
-                    s.label,
+                    'stumps-stat flex flex-col items-center justify-center gap-0.5',
+                    isRuns && !mini && '-translate-y-[18%]',
                   )}
                 >
-                  {METRIC_LABELS[m]}
-                </dt>
-                <dd
-                  className={cx(
-                    'order-1 grid place-items-center rounded-full border-2 border-white/90 font-display leading-none font-bold text-white tabular-nums shadow-[0_3px_10px_rgba(0,0,0,0.6)]',
-                    STAT_STYLE[m],
-                    isRuns ? cx(s.runs, s.runsNum) : cx(s.circle, s.num),
-                  )}
-                >
-                  {card.ratings[m]}
-                </dd>
-                {isRuns && !mini ? (
-                  <Stars count={card.stars} className={cx('order-3', s.label)} />
-                ) : null}
-              </div>
-            );
-          })}
-        </dl>
+                  <dt
+                    className={cx(
+                      'order-2 font-display font-bold tracking-widest text-white uppercase',
+                      s.label,
+                    )}
+                  >
+                    {METRIC_LABELS[m]}
+                  </dt>
+                  <dd
+                    className={cx(
+                      'order-1 grid place-items-center rounded-full border-2 border-white/90 font-display leading-none font-bold text-white tabular-nums shadow-[0_3px_10px_rgba(0,0,0,0.6)]',
+                      STAT_STYLE[m],
+                      isRuns ? cx(s.runs, s.runsNum) : cx(s.circle, s.num),
+                    )}
+                  >
+                    {card.ratings[m]}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+          {mini ? null : (
+            <Stars
+              count={card.stars}
+              className={cx('absolute bottom-[7%] left-1/2 -translate-x-1/2', s.label)}
+            />
+          )}
+        </div>
       </div>
       {shines ? <div aria-hidden="true" className="stumps-card-shine" /> : null}
       {card.rarity === 'gold' && !mini

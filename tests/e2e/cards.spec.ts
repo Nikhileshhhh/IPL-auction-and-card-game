@@ -48,7 +48,7 @@ test('card pool shows every card type with player photos and 0–100 Game rating
   await page.getByRole('link', { name: 'Browse the card pool' }).click();
   await expect(page.getByRole('heading', { name: 'Card pool', level: 1 })).toBeVisible();
   const showcase = page.getByRole('region', { name: 'Card types' });
-  for (const rarity of ['Normal', 'Bronze', 'Silver', 'Gold', 'Dual Platinum']) {
+  for (const rarity of ['Normal', 'Bronze', 'Silver', 'Gold', 'Platinum']) {
     await expect(showcase.getByText(rarity, { exact: true })).toBeVisible();
   }
   await expectPortraitsLoaded(page);

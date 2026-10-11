@@ -123,6 +123,11 @@
 - **Extra legends:** Sachin Tendulkar and Chris Gayle.
 - **Categories and cards:** the game's categories are Batting, Bowling and Runs. The card face follows the Attax layout (vertical name and role ribbons, three stat circles and stars).
 - **Migration** `051_attax_card_stats`.
+- **Published pack:** "IPL career pack", 351 cards (263 Bronze; 26 legends × Normal/Silver/Gold, Gayle included; 10 Platinum pairs). The previous six-stat pack is archived.
+  - Bronze max 89. Every Gold main skill is 90 or more; Platinum is 95 or more.
+  - Kohli batting 100/96/92 on Gold/Silver/Normal.
+- **Sachin Tendulkar:** his cards are rated, but they were pruned at publish. The IPL feed only has a placeholder silhouette for him in every season (2008–2013), and there is no other licensed IPL-jersey photo. Supplying one through the admin catalog or the player sheet and republishing adds his Normal, Silver and Gold cards.
+- **Checks:** lint, typecheck, contracts, unit (154), integration (82), security (43), concurrency (9), build and E2E (37) pass. Axe caught stars inside the stats `<dl>`; fixed.
 
 ## Next phase
 Phase 08: ties, exhaustion, fallback, cycle and time endings, ranking, restoration, and the S11 tie arena.
