@@ -6,9 +6,10 @@
 export const FEATURES = {
   accessGate: true,
   dashboard: true,
-  /** Room create/join/lobby works end to end; starting a match still needs an engine. */
+  /** Room create/join/lobby works end to end. */
   rooms: true,
-  cardBattle: false,
+  /** Phase 07: authoritative card matches from lobby to final standings. */
+  cardBattle: true,
   megaAuction: false,
   teams: false,
   social: false,

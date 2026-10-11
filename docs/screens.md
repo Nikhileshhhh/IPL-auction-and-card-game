@@ -29,11 +29,11 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S05 | Card room creation | `/play/cards/create` | (member) | `RoomCreationForm > Capacity/DeckConfig/RarityPicker/Timing/Password + RulesSummary` | settings schema, catalog capacity | → /rooms/:id/lobby | 5 |
 | S06 | Card room joining | `/play/cards/join` | (member) | `RoomJoinForm > GeneratedCodeInput/PasswordInput/JoinStatus` | RoomLobbyDTO | → /rooms/:id/lobby | 5 |
 | S07 | Card lobby | `/rooms/:id/lobby` | (room) | `MultiplayerLobby > RoomHeader/InviteControl/PlayerRoster/RulesSummary/LobbyActions` | RoomLobbyDTO | → /rooms/:id/preparing | 5 |
-| S08 | Card preparation | `/rooms/:id/preparing` | (room) | `PreparationView > FairnessSummary/DealingProgress/SeatOrder` | game.started | → /rooms/:id/cards | 7 |
-| S09 | Card arena | `/rooms/:id/cards` | (room) | `CardArena > TurnIndicator/VisibleCards/CardTiePot/DeckCounts/CategoryControls/ChatToggle` | PermittedCardSnapshot | → results | 7 |
-| S10 | Card comparison/detail | `/rooms/:id/cards?view=comparison` | (room) | `ComparisonSheet > StatTable/RatingExplanation/SourceLabel` | PublicCardDTO | close → S09 | 6 |
+| S08 | Card preparation | `/rooms/:id/preparing` | (room) | `PreparationView > FairnessSummary/DealingProgress/SeatOrder` | PermittedCardSnapshot (commitment, seats) | → /rooms/:id/cards | 7 (built) |
+| S09 | Card arena | `/rooms/:id/cards` | (room) | `CardArena > TurnIndicator/VisibleCards/CardTiePot/DeckCounts/CategoryControls/ChatToggle` | PermittedCardSnapshot | → results | 7 (built; chat in 13) |
+| S10 | Card comparison/detail | dialog in `/rooms/:id/cards` (ADR-021) | (room) | `ComparisonSheet > StatTable/RatingExplanation/SourceLabel` | PermittedCardSnapshot, PublicCardDTO | close → S09 | 6–7 (built) |
 | S11 | Tie-break arena | `/rooms/:id/cards?phase=tie` | (room) | `TieArena > EligibilityBanner/CardTiePot/EligibleCards/SelectorControls` | PermittedCardSnapshot (tie fields) | → S09/S12 | 8 |
-| S12 | Card round victory reveal | `/rooms/:id/cards#round-result` | (room) | `RoundWinnerReveal > WinnerLabel/ComparisonResult/CardCountDelta` | card.comparisonResolved | nonmodal | 7 |
+| S12 | Card round victory reveal | `/rooms/:id/cards#round-result` | (room) | `RoundWinnerReveal > WinnerLabel/ComparisonResult/CardCountDelta` | lastComparison (keyed by comparison ID) | nonmodal | 7 (built) |
 | S13 | Card final results | `/rooms/:id/results` | (room) | `VictoryPodium > ResultSummary/RankingTable/QualificationStatus/AuditDrawer` | ResultDTO | → /play, /players/:u | 14 |
 | S14 | Auction room creation | `/play/auction/create` | (member) | `AuctionCreationForm > RulesetPicker/FormatSelector/PoolPicker/TimerFields/RuleSummary` | rulesets, data versions | → /rooms/:id/franchises | 9 |
 | S15 | Auction room joining | `/play/auction/join` | (member) | `AuctionJoin > RoomJoinForm/NextStepHint` | RoomLobbyDTO | → /rooms/:id/franchises | 5 |

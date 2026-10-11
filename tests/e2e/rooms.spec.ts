@@ -72,10 +72,8 @@ test('two browser contexts share one authoritative lobby; start is gated by read
   await guest.getByRole('button', { name: "I'm ready" }).click();
   await host.getByRole('button', { name: "I'm ready" }).click();
   await expect(host.getByText('2 of 4 joined · 2 ready')).toBeVisible();
-  await host.getByRole('button', { name: 'Start game' }).click();
-  // No engine yet: the server refuses honestly and the lobby stays open.
-  await expect(host.getByText('Match engine not available yet')).toBeVisible();
-  await expect(host.getByText('Lobby', { exact: true })).toBeVisible();
+  await expect(host.getByRole('button', { name: 'Start game' })).toBeEnabled();
+  // Starting and playing a match is covered by card-match.spec.ts.
 
   // The lobby survives a reload (state is in PostgreSQL, not the socket).
   await guest.reload();

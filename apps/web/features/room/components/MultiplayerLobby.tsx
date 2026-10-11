@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Badge, Button, Dialog, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import type { ApiError, RoomLobbyDTO, RoomMemberSummary } from '@stumps/contracts';
 import { useRoom } from '../useRoom';
@@ -141,6 +141,14 @@ export function MultiplayerLobby({ roomId, children }: { roomId: string; childre
     { kind: 'leave' } | { kind: 'remove' | 'host'; member: RoomMemberSummary } | null
   >(null);
   const [copied, setCopied] = useState(false);
+  const started = room?.snapshot.room.lifecycle;
+  const gameType = room?.snapshot.room.gameType;
+  // A started card match lives on its own pages (S08 → S09).
+  useEffect(() => {
+    if (gameType === 'card' && started && started !== 'LOBBY') {
+      router.replace(`/rooms/${roomId}/preparing`);
+    }
+  }, [gameType, started, roomId, router]);
 
   if (status === 'unavailable') {
     return (
