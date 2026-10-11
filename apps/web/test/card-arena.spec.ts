@@ -62,6 +62,7 @@ function game(overrides: Partial<CardGame> = {}): CardGame {
     ],
     potCount: 0,
     contributions: [],
+    myDeck: [],
     allowedMetrics: ['batting', 'bowling', 'fielding', 'form', 'experience', 'versatility'],
     metric: null,
     deadline: '2026-10-11T10:00:20.000Z',

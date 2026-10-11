@@ -5,33 +5,39 @@ import { cx } from '@stumps/ui';
 import { metricRows, type ArenaView } from './model';
 
 /**
- * Category buttons (S09 `CategoryControls`). Rows keep enum order between
- * rounds; values are the viewer's own revealed card. Only the selector's
- * buttons are enabled, and they freeze while a choice is pending.
+ * Category buttons (S09 `CategoryControls`): the stats of the viewer's card in
+ * play, in fixed enum order. Only the selector's tiles are enabled and they
+ * freeze while a choice is pending. Hovering or focusing a tile previews it
+ * on the card; choosing is a separate, explicit click.
  */
 export function CategoryControls({
   view,
   pending,
   chosen,
   onChoose,
+  onPreview,
   waitingLabel,
 }: {
   view: ArenaView;
   pending: boolean;
   chosen: CardMetric | null;
   onChoose: (metric: CardMetric) => void;
+  onPreview: (metric: CardMetric | null) => void;
   waitingLabel: string;
 }) {
   const enabled = view.canSelect && !pending;
   return (
-    <section aria-labelledby="categories-heading" className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="categories-heading" className="text-sm font-semibold text-ink">
-          {view.canSelect ? 'Choose a category' : 'Categories'}
+    <section aria-labelledby="categories-heading" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2
+          id="categories-heading"
+          className="font-display text-lg font-bold tracking-wide text-ink uppercase"
+        >
+          {view.canSelect ? 'Pick a stat from your card' : 'Your card in play'}
         </h2>
-        {!view.canSelect ? <p className="text-xs text-ink-2">{waitingLabel}</p> : null}
+        {!view.canSelect ? <p className="text-sm text-ink-2">{waitingLabel}</p> : null}
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" onMouseLeave={() => onPreview(null)}>
         {metricRows(view.myCard).map(({ metric, value }) => (
           <button
             key={metric}
@@ -39,19 +45,32 @@ export function CategoryControls({
             disabled={!enabled}
             aria-pressed={chosen === metric}
             onClick={() => onChoose(metric)}
+            onMouseEnter={() => onPreview(metric)}
+            onFocus={() => onPreview(metric)}
+            onBlur={() => onPreview(null)}
             className={cx(
-              'flex min-h-12 items-center justify-between rounded-lg border px-3 text-left text-sm',
+              'group relative flex min-h-14 flex-col justify-center overflow-hidden rounded-xl border px-3 py-2 text-left',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
               enabled
-                ? 'border-card/60 bg-raised text-ink hover:bg-overlay'
-                : 'cursor-not-allowed border-line bg-raised/40 text-ink-2 opacity-70',
-              chosen === metric && 'border-card bg-card/15',
+                ? 'arena-pick border-card/60 bg-[#0f2236] text-ink hover:bg-[#143049]'
+                : 'cursor-not-allowed border-white/10 bg-black/25 text-ink-2',
+              chosen === metric && 'border-card bg-card/20',
             )}
           >
-            <span>{METRIC_LABELS[metric]}</span>
-            <span className="font-semibold tabular-nums text-ink">
-              {value === null ? <span className="sr-only">no card</span> : value}
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium">{METRIC_LABELS[metric]}</span>
+              <span className="font-display text-2xl leading-none font-bold text-ink tabular-nums">
+                {value === null ? <span className="sr-only">no card</span> : value}
+              </span>
             </span>
+            {value !== null ? (
+              <span aria-hidden="true" className="mt-1.5 block h-1 rounded-full bg-white/10">
+                <span
+                  className={cx('block h-full rounded-full', enabled ? 'bg-card' : 'bg-white/35')}
+                  style={{ width: `${value}%` }}
+                />
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

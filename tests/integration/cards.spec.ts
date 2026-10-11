@@ -40,9 +40,11 @@ describe('card match start (rules §4, DB spec §10)', () => {
       'card.selectCategory',
     );
 
-    // Neither the snapshot nor any event exposes undealt deck cards or the seed.
-    const decks = await api.admin.query<{ id: string }>(
-      `SELECT id FROM app_private.card_instances WHERE room_id = $1 AND location = 'DECK'`,
+    // Each player sees only their own deck, in play order (ADR-021 §5a);
+    // no event and no other player's snapshot exposes it, nor the seed.
+    const decks = await api.admin.query<{ id: string; owner: string }>(
+      `SELECT id, owner_member_id AS owner FROM app_private.card_instances
+        WHERE room_id = $1 AND location = 'DECK' ORDER BY owner_member_id, ordinal`,
       [roomId],
     );
     expect(decks.rowCount).toBe(6);
@@ -54,9 +56,18 @@ describe('card match start (rules §4, DB spec §10)', () => {
       sealed.rows[0]!.seed_ciphertext.toString('utf8'),
       `card-seed:${roomId}`,
     );
-    const visible = JSON.stringify([snap, await publicEvents(roomId)]);
-    for (const { id } of decks.rows) expect(visible).not.toContain(id);
-    expect(visible).not.toContain(seedHex);
+    const eventText = JSON.stringify(await publicEvents(roomId));
+    for (const { id } of decks.rows) expect(eventText).not.toContain(id);
+    for (const p of players) {
+      const view = await snapshot(p.client, roomId);
+      const own = decks.rows.filter((d) => d.owner === p.memberId).map((d) => d.id);
+      const others = decks.rows.filter((d) => d.owner !== p.memberId).map((d) => d.id);
+      expect(view.game!.myDeck.map((c) => c.instanceId)).toEqual(own);
+      for (const c of view.game!.myDeck) expect(c.players[0]!.portraitUrl).toBeTruthy();
+      const text = JSON.stringify(view);
+      for (const id of others) expect(text).not.toContain(id);
+      expect(text).not.toContain(seedHex);
+    }
 
     const events = (await publicEvents(roomId)).filter((e) => !e.type.startsWith('room.'));
     expect(events.map((e) => e.type)).toEqual(['game.started', 'card.roundOpened']);
@@ -141,6 +152,38 @@ describe('card commands (DB/realtime §8.2)', () => {
       { type: 'card.revealAcknowledged' },
     );
     expect(ack.status).toBe(200);
+  });
+
+  it('decks are queues: the front card plays, won cards join the back in order', async () => {
+    const { roomId, players } = await startedMatch('cs_queue');
+    const game = (await snapshot(players[0]!.client, roomId)).game!;
+    const selector = selectorOf(players, game);
+    const before = new Map(
+      await Promise.all(
+        players.map(async (p) => [p.memberId, (await snapshot(p.client, roomId)).game!] as const),
+      ),
+    );
+    const res = await command(selector.client, roomId, {
+      comparisonId: game.comparisonId,
+      metric: 'batting',
+    });
+    expect(res.status).toBe(200);
+    const after = (await snapshot(selector.client, roomId)).game!;
+    const last = after.lastComparison!;
+    if (!last.winnerId) return; // a tie keeps the pot; covered by the engine tests
+    const winner = players.find((p) => p.memberId === last.winnerId)!;
+    const was = before.get(winner.memberId)!;
+    const now = (await snapshot(winner.client, roomId)).game!;
+    const played = game.visibleCards.map((v) => v.card.instanceId); // seat order
+    // The rest of the old queue moves up; the revealed card is now in play;
+    // the won cards (both revealed cards, in seat order) are at the back.
+    const ids = [
+      ...now.visibleCards
+        .filter((v) => v.memberId === winner.memberId)
+        .map((v) => v.card.instanceId),
+      ...now.myDeck.map((c) => c.instanceId),
+    ];
+    expect(ids).toEqual([...was.myDeck.map((c) => c.instanceId), ...played]);
   });
 
   it('plays to the end; the seed is disclosed and matches the commitment', async () => {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { RoomMemberSummary } from '@stumps/contracts';
-import { Surface } from '@stumps/ui';
+import { Surface, cx } from '@stumps/ui';
 import { FINISH_LABELS, seatName, type CardGame } from './model';
 
 const PLACES = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'];
@@ -21,9 +21,12 @@ export function MatchResult({
 }) {
   const won = result.standings[0] === me;
   return (
-    <Surface className="flex flex-col gap-4 p-5">
-      <div>
-        <h2 className="font-display text-2xl text-ink">
+    <Surface className="relative z-10 flex flex-col gap-4 border-[#ffd36b]/40 bg-black/45 p-5 backdrop-blur-sm">
+      <div className="text-center">
+        <span aria-hidden="true" className="text-5xl drop-shadow-[0_0_18px_rgba(255,200,80,0.7)]">
+          🏆
+        </span>
+        <h2 className="font-display text-3xl font-bold tracking-wide text-ink uppercase">
           {won ? 'You won the match!' : 'Match complete'}
         </h2>
         <p className="text-sm text-ink-2">{FINISH_LABELS[result.reason]}</p>
@@ -34,7 +37,12 @@ export function MatchResult({
           return (
             <li
               key={id}
-              className="flex items-center justify-between rounded-lg border border-line bg-raised px-3 py-2"
+              className={cx(
+                'flex items-center justify-between rounded-xl border px-3 py-2',
+                i === 0
+                  ? 'border-[#ffd36b]/70 bg-[#ffd36b]/10 shadow-[0_0_24px_rgba(255,200,80,0.25)]'
+                  : 'border-white/10 bg-black/30',
+              )}
             >
               <span className="text-ink">
                 <span className="mr-2 font-semibold">{PLACES[i]}</span>

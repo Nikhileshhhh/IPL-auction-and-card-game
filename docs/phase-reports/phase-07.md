@@ -97,5 +97,21 @@
   Checks now use `STUMPS_DB_NAME=stumps_check`.
 - **Media path fix (found while taking the real-pack arena screenshot):** the dev API runs from `apps/server`, so the relative `MEDIA_DIR` pointed at a different folder from the one the data scripts write to, and photos returned 404. `loadEnv` now resolves relative `MEDIA_DIR` and `CRICSHEET_DIR` against the workspace root (unit test in `apps/server/test/unit/env.spec.ts`).
 
+## Follow-up (same day): card and arena redesign, deck queue
+- **Cards** (`components/cards/PremiumCricketCard.tsx`, `teams.ts`, `globals.css`):
+  - Team-coloured spotlight behind the photo, a rarity crest and stars, a name plate, and stat bars.
+  - Gold, Silver and Platinum shine and glow; Platinum frames are holographic; Bronze and Normal are matte. Reduced motion has a static fallback.
+  - A new `mini` size for the deck queue.
+- **Arena** (`features/cards/arena/*`):
+  - A stadium-style stage, with a HUD showing the pot and the comparison sheet.
+  - A turn banner with a circular timer.
+  - A battle zone: player plates with deck stacks, your card against the others, a deal-in animation and a glowing selector.
+  - Stat tiles that preview the chosen stat on every revealed card.
+  - A round banner showing every player's value.
+  - A trophy result screen.
+  - Your deck as a queue: "In play", then "Next 1…n".
+- **Server:** the snapshot carries `myDeck` for its owner only (ADR-021 §5a). The contracts, the catalog and `contracts:check` are updated.
+- **Tests:** integration covers deck privacy for every seat and queue order after a win. The E2E test checks the deck queue.
+
 ## Next phase
 Phase 08: ties, exhaustion, fallback, cycle and time endings, ranking, restoration, and the S11 tie arena.

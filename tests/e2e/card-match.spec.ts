@@ -74,7 +74,11 @@ test('two players play an 8-card match to the end; photos on every revealed card
   await expect(
     guest.getByTestId('revealed-card').locator('img[data-portrait]').first(),
   ).toBeVisible();
-  await expect(host.getByLabel('Players and deck counts')).toContainText('in deck');
+  await expect(host.getByText(/\d+ in deck/).first()).toBeVisible();
+  // The viewer's own deck is a queue: the card in play first, then the rest in order.
+  const queue = host.getByRole('list', { name: 'Your deck in play order' });
+  await expect(queue.getByRole('listitem')).toHaveCount(4);
+  await expect(queue.getByText('In play')).toBeVisible();
 
   await expectNoSeriousA11yViolations(host);
   await expectNoSeriousA11yViolations(guest);

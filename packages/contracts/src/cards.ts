@@ -50,8 +50,9 @@ export const LastComparisonSchema = z
   .strict();
 
 /**
- * Per-viewer card snapshot. Never contains deck order, undealt identities or
- * the seed (until `auditSeed` after completion).
+ * Per-viewer card snapshot. Other players' deck order and the seed (until
+ * `auditSeed` after completion) are never included; the viewer's own deck is
+ * (product owner, ADR-021 §5a).
  */
 export const PermittedCardSnapshotSchema = z
   .object({
@@ -69,6 +70,11 @@ export const PermittedCardSnapshotSchema = z
     visibleCards: z.array(RevealedCardSchema),
     potCount: z.number().int().min(0),
     contributions: z.array(RevealedCardSchema),
+    /**
+     * The viewer's own deck in play order (front first; won cards join the
+     * back). Only the owner ever receives it; everyone else sees counts.
+     */
+    myDeck: z.array(ArenaCardSchema),
     allowedMetrics: z.array(CardMetricSchema),
     /** Category of the most recently decided comparison. */
     metric: CardMetricSchema.nullable(),

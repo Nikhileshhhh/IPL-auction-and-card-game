@@ -4,51 +4,28 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { METRIC_LABELS, type CardMetric } from '@stumps/contracts';
-import { Badge, Button, Skeleton, StatusMessage } from '@stumps/ui';
+import { Button, Skeleton, StatusMessage, cx } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
-import { DeckCounts, VisibleCards } from './ArenaTable';
+import { TimerRing } from './ArenaParts';
+import { BattleZone } from './BattleZone';
 import { CategoryControls } from './CategoryControls';
 import { ComparisonSheet } from './ComparisonSheet';
+import { DeckQueue } from './DeckQueue';
 import { MatchResult } from './MatchResult';
-import { arenaView, seatName, secondsLeft, type CardGame } from './model';
+import { arenaView, seatName, type CardGame } from './model';
 import { RoundWinnerReveal } from './RoundWinnerReveal';
-import { useServerNow } from './useServerClock';
-
-/** Screen readers hear the countdown only at milestones, never every second. */
-function milestone(left: number | null): string {
-  if (left === null || left > 10) return '';
-  return left > 5 ? '10 seconds left' : '5 seconds left';
-}
-
-function Countdown({ deadline, serverNow }: { deadline: string | null; serverNow: string }) {
-  const now = useServerNow(serverNow);
-  const left = secondsLeft(deadline, now);
-  const announce = milestone(left);
-  if (left === null) return null;
-  return (
-    <span className="flex items-center gap-2">
-      <span
-        aria-hidden="true"
-        className={`font-semibold tabular-nums ${left <= 5 ? 'text-warn' : 'text-ink'}`}
-      >
-        0:{String(left).padStart(2, '0')}
-      </span>
-      <span className="sr-only" aria-live="polite">
-        {announce}
-      </span>
-    </span>
-  );
-}
 
 /**
  * S09 card arena. Everything shown is the last confirmed server snapshot:
- * the selector, revealed cards, pot and deck counts. A category choice is a
- * command; the arena only changes when the server's next snapshot arrives.
+ * the selector, revealed cards, pot, deck counts and the viewer's own deck
+ * queue. A category choice is a command; the arena only changes when the
+ * server's next snapshot arrives.
  */
 export function CardArena({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { status, room, connection } = useRoom(roomId);
   const [pending, setPending] = useState<CardMetric | null>(null);
+  const [preview, setPreview] = useState<CardMetric | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const comparisonRef = useRef<string | null>(null);
@@ -65,6 +42,7 @@ export function CardArena({ roomId }: { roomId: string }) {
     if (comparisonRef.current !== id) {
       comparisonRef.current = id;
       setPending(null);
+      setPreview(null);
       setError(null);
     }
   }, [game?.comparisonId]);
@@ -82,9 +60,9 @@ export function CardArena({ roomId }: { roomId: string }) {
   if (!room || !game) {
     return (
       <div aria-busy="true" aria-label="Loading match" className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-[340px] w-full" />
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-[420px] w-full" />
+        <Skeleton className="h-28 w-full" />
       </div>
     );
   }
@@ -96,6 +74,7 @@ export function CardArena({ roomId }: { roomId: string }) {
   const view = arenaView(game, me, canAct);
   const selectorName = seatName(members, game.selectorSeat);
   const offline = status !== 'live';
+  const selectionSeconds = Number(snap.room.settings.selectionSeconds ?? 20);
 
   const choose = async (metric: CardMetric) => {
     if (!game.comparisonId || pending) return;
@@ -123,19 +102,29 @@ export function CardArena({ roomId }: { roomId: string }) {
     ? 'You are out of cards. You can keep watching.'
     : view.waitingForTie
       ? 'Waiting until the tie ends.'
-      : `${selectorName} is choosing.`;
+      : `${selectorName} is choosing a stat.`;
+  const highlight = pending ?? preview ?? undefined;
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink">{snap.room.name}</h1>
+    <div className="arena-stage flex flex-col gap-5 p-4 sm:p-6">
+      {/* HUD */}
+      <header className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold tracking-wide text-ink uppercase sm:text-3xl">
+            {snap.room.name}
+          </h1>
           <p className="text-sm text-ink-2">
             {game.totalCards} cards · contest {game.completedContests + (game.comparisonId ? 1 : 0)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge tone="card">Pot {game.potCount}</Badge>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="flex items-center gap-2 rounded-full border border-card/50 bg-black/40 px-3 py-1.5 text-sm text-ink">
+            <span
+              aria-hidden="true"
+              className="stumps-card-back inline-block h-5 w-4 rounded-[4px]"
+            />
+            Pot <span className="font-display text-lg leading-none font-bold">{game.potCount}</span>
+          </span>
           <Button size="touch" variant="secondary" onClick={() => setSheetOpen(true)}>
             Comparison
           </Button>
@@ -155,7 +144,7 @@ export function CardArena({ roomId }: { roomId: string }) {
         </StatusMessage>
       ) : null}
 
-      <RoundWinnerReveal game={game} members={members} />
+      <RoundWinnerReveal game={game} members={members} me={me} />
 
       {game.result ? (
         <MatchResult game={game} result={game.result} members={members} me={me} />
@@ -163,35 +152,56 @@ export function CardArena({ roomId }: { roomId: string }) {
         <>
           <section
             aria-label="Turn"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-raised px-4 py-3"
+            className={cx(
+              'relative z-10 flex items-center justify-between gap-3 rounded-2xl border px-4 py-2',
+              view.isSelector ? 'border-card/70 bg-card/15' : 'border-white/10 bg-black/35',
+            )}
           >
-            <p className="text-base font-semibold text-ink">
-              {view.isSelector ? 'Your choice' : `${selectorName} chooses`}
-              {game.isTie ? (
-                <span className="ml-2 text-sm font-normal text-ink-2">
-                  Tie round · {game.tiedSeats.map((id) => seatName(members, id)).join(', ')} reveal
-                  again
-                </span>
-              ) : null}
-            </p>
-            <Countdown deadline={game.deadline} serverNow={snap.serverNow} />
+            <div>
+              <p
+                className={cx(
+                  'font-display text-xl font-bold tracking-wide uppercase',
+                  view.isSelector ? 'text-card' : 'text-ink',
+                )}
+              >
+                {view.isSelector ? 'Your turn' : `${selectorName} chooses`}
+              </p>
+              <p className="text-sm text-ink-2">
+                {game.isTie
+                  ? `Tie round: ${game.tiedSeats.map((id) => seatName(members, id)).join(', ')} reveal again. The pot holds ${game.potCount} cards.`
+                  : view.isSelector
+                    ? 'Pick the stat on your card most likely to beat the others.'
+                    : 'The highest value of the chosen stat wins every card on the table.'}
+              </p>
+            </div>
+            <TimerRing
+              deadline={game.deadline}
+              serverNow={snap.serverNow}
+              total={selectionSeconds}
+            />
           </section>
 
-          {game.isTie ? (
-            <p className="text-sm text-ink-2">
-              The pot holds {game.potCount} cards and grows until one player wins a comparison.
-            </p>
-          ) : null}
-
-          <VisibleCards view={view} members={members} me={me} highlight={pending ?? undefined} />
-
-          <CategoryControls
+          <BattleZone
             view={view}
-            pending={pending !== null}
-            chosen={pending}
-            onChoose={(m) => void choose(m)}
-            waitingLabel={waitingLabel}
+            members={members}
+            me={me}
+            selector={game.selectorSeat}
+            tie={game.isTie}
+            highlight={highlight}
           />
+
+          {view.myCard ? (
+            <CategoryControls
+              view={view}
+              pending={pending !== null}
+              chosen={pending}
+              onChoose={(m) => void choose(m)}
+              onPreview={setPreview}
+              waitingLabel={waitingLabel}
+            />
+          ) : (
+            <p className="text-sm text-ink-2">{waitingLabel}</p>
+          )}
           {pending ? (
             <p role="status" className="text-sm text-ink-2">
               {METRIC_LABELS[pending]} chosen. Waiting for the server…
@@ -201,7 +211,7 @@ export function CardArena({ roomId }: { roomId: string }) {
         </>
       )}
 
-      <DeckCounts view={view} members={members} me={me} selector={game.selectorSeat} />
+      <DeckQueue inPlay={game.result ? null : view.myCard} deck={game.myDeck} />
 
       <ComparisonSheet open={sheetOpen} onOpenChange={setSheetOpen} game={game} members={members} />
     </div>

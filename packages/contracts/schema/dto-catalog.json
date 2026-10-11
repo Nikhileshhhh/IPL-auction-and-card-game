@@ -81,6 +81,7 @@
       "visibleCards",
       "potCount",
       "contributions",
+      "myDeck",
       "allowedMetrics",
       "metric?",
       "deadline?",

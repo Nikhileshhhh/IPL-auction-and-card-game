@@ -63,6 +63,20 @@
 - **Display values:** ratings on the wire are whole numbers from 0 to 100 (display = round(points/10)). Comparisons use the internal points.
 - **Catalogs:** events and acks follow the catalog names (`submittedValues`, `contributions`, `publicResult`, `accepted`). Fields the implementation adds are recorded in `schema/*.json`. `pnpm contracts:check` now compares every card event, command and snapshot schema with the catalog, field by field.
 
+### 5a. Own deck visible as a queue (product owner, 11 October 2026)
+- **What the player sees:** each player sees their own deck in play order (`myDeck`, front first) as a queue.
+  - The card in play is always the front card, and its stat must be chosen. Players can look at their cards but never pick one out of order.
+  - Cards won join the back of the winner's deck in pot order: comparison, then seat.
+- **Privacy:** only the owner receives their deck. Other players and spectators see deck counts only, and no event carries deck contents.
+- **Tests:** the integration tests check privacy for both seats, and that after a win the old queue moves up and the won cards sit at the back.
+- **Spec change:** this amends DB spec §10's "no deck order" rule, which now applies to everyone except the deck's owner.
+
+### 5b. Card visuals (product owner, 11 October 2026)
+- **Shining tiers:** Gold, Silver, Platinum and Dual Platinum cards shine (a light sweep) and glow (a soft halo). Gold adds sparkles, and Platinum frames are holographic.
+- **Matte tiers:** Bronze and Normal are matte, with no shine and no glow.
+- **Reduced motion:** with reduced motion turned on, every animation is removed and a static glow remains.
+- **Ratings unaffected:** rarity changes only the look, never the ratings (R19 and the ADR-020 version factors are unchanged).
+
 ### 6. Terminal state
 - **When a match ends:** the room moves to `FINALIZING` with phase `FINISHED`, and `game.completed` carries:
   - `publicResult` (reason and standings);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { METRIC_LABELS, type CardMetric, type RoomMemberSummary } from '@stumps/contracts';
-import { Button } from '@stumps/ui';
+import { Button, cx } from '@stumps/ui';
 import { PortraitImage } from '@/components/cards/PortraitImage';
 import { seatName, type CardGame } from './model';
 
@@ -12,23 +12,26 @@ interface Reveal {
   metric: CardMetric;
   byTimeout: boolean;
   cards: number;
+  values: { memberId: string; value: number }[];
   portrait: { src: string; alt: string } | null;
 }
 
-const SHOW_MS = 4_000;
+const SHOW_MS = 5_000;
 
 /**
- * S12 round result: a non-modal banner keyed by the decided comparison.
- * The first snapshot after mount (or reconnect) is history and never
- * celebrated; a repeated comparison ID produces no second banner, and the
- * next decision replaces the current one. Nothing waits for it.
+ * S12 round result: a non-modal banner keyed by the decided comparison, with
+ * the chosen stat and every player's value. The first snapshot after mount
+ * (or reconnect) is history and never celebrated; a repeated comparison ID
+ * produces no second banner, and the next decision replaces the current one.
  */
 export function RoundWinnerReveal({
   game,
   members,
+  me,
 }: {
   game: CardGame;
   members: readonly RoomMemberSummary[];
+  me: string;
 }) {
   const seen = useRef<string | null | undefined>(undefined);
   const previous = useRef<CardGame>(game);
@@ -52,6 +55,7 @@ export function RoundWinnerReveal({
       metric: last.metric,
       byTimeout: last.byTimeout,
       cards: before.potCount + before.visibleCards.length,
+      values: last.submittedValues,
       portrait: player ? { src: player.portraitUrl, alt: player.portraitAlt } : null,
     });
   }, [game]);
@@ -62,25 +66,49 @@ export function RoundWinnerReveal({
     return () => clearTimeout(id);
   }, [reveal]);
 
-  const text = reveal
+  const won = reveal?.winnerId === me;
+  const headline = reveal
     ? reveal.winnerId
-      ? `${seatName(members, reveal.winnerId)} wins ${reveal.cards} cards on ${METRIC_LABELS[reveal.metric]}${reveal.byTimeout ? ' (time ran out)' : ''}.`
+      ? `${won ? 'You win' : `${seatName(members, reveal.winnerId)} wins`} ${reveal.cards} cards on ${METRIC_LABELS[reveal.metric]}${reveal.byTimeout ? ' (time ran out)' : ''}.`
       : `Tie on ${METRIC_LABELS[reveal.metric]}. The pot carries over.`
     : '';
 
   return (
-    <div id="round-result" aria-live="polite" className="min-h-0">
+    <div id="round-result" aria-live="polite">
       {reveal ? (
         <div
           key={reveal.comparisonId}
-          className="flex items-center gap-3 rounded-xl border border-card/60 bg-card/10 p-3"
+          className={cx(
+            'arena-banner-in flex flex-wrap items-center gap-3 rounded-2xl border p-3 backdrop-blur-sm',
+            won ? 'border-[#ffd36b]/70 bg-[#ffd36b]/10' : 'border-card/60 bg-card/10',
+          )}
         >
           {reveal.portrait ? (
-            <div className="relative h-14 w-11 shrink-0 overflow-hidden rounded-md bg-overlay">
+            <div className="relative h-14 w-11 shrink-0 overflow-hidden rounded-lg bg-overlay">
               <PortraitImage src={reveal.portrait.src} alt={reveal.portrait.alt} sizes="44px" />
             </div>
           ) : null}
-          <p className="flex-1 text-sm font-medium text-ink">{text}</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg leading-tight font-bold text-ink uppercase">
+              {headline}
+            </p>
+            <ul className="mt-1 flex flex-wrap gap-2 text-sm" aria-label="Values compared">
+              {reveal.values.map((v) => (
+                <li
+                  key={v.memberId}
+                  className={cx(
+                    'rounded-full border px-2.5 py-0.5',
+                    v.memberId === reveal.winnerId
+                      ? 'border-card bg-card/20 text-ink'
+                      : 'border-white/15 text-ink-2',
+                  )}
+                >
+                  {seatName(members, v.memberId)}{' '}
+                  <span className="font-semibold text-ink tabular-nums">{v.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
           <Button size="touch" variant="tertiary" onClick={() => setReveal(null)}>
             Dismiss
           </Button>

@@ -50,80 +50,243 @@ body {
 }
 
 /* ------------------------------------------------------------------ cards
-   Original STUMPS frames (UI spec §2 card art): effects sit on the frame only
-   and never cover numbers; reduced motion removes the spectral shimmer. */
+   Original STUMPS card frames. Rarity is visual only (R19):
+   - Gold, Silver, Platinum and Dual Platinum shine (a light sweep across the
+     card) and glow (a soft halo behind it). Platinum frames are holographic.
+   - Bronze and Normal are matte: no shine, no glow.
+   Reduced motion keeps a static glow and removes every animation. */
+
+@property --holo-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .stumps-card {
-  --frame: var(--rarity-normal);
-  --frame-2: #5d7187;
-  background: linear-gradient(145deg, var(--frame), var(--frame-2) 55%, var(--frame));
-  clip-path: polygon(
-    14px 0,
-    calc(100% - 14px) 0,
-    100% 14px,
-    100% calc(100% - 14px),
-    calc(100% - 14px) 100%,
-    14px 100%,
-    0 calc(100% - 14px),
-    0 14px
+  --frame-a: #2c3a4b;
+  --frame-b: #a9bccf;
+  --frame-c: #4a5b6e;
+  --accent: #c9d6e3;
+  --glow: transparent;
+  --shine: rgba(255, 255, 255, 0.7);
+  --panel: #0a1424;
+  position: relative;
+  isolation: isolate;
+  border-radius: 18px;
+  padding: 4px;
+  background: linear-gradient(
+    145deg,
+    var(--frame-a),
+    var(--frame-b) 42%,
+    var(--frame-c) 68%,
+    var(--frame-b) 100%
+  );
+  box-shadow:
+    0 18px 36px -16px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Halo behind the card (glowing rarities only). */
+.stumps-card::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 26px;
+  background: var(--glow);
+  filter: blur(18px);
+  opacity: 0;
+  pointer-events: none;
+}
+.stumps-card[data-shine='true']::before {
+  opacity: 0.6;
+  animation: stumps-glow 2.8s ease-in-out infinite;
+}
+
+.stumps-card-inner {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%), var(--panel);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.stumps-stats {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 12%, transparent)
   );
 }
+.stumps-name-rule {
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+/* Light sweep across the whole card. */
+.stumps-card-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.stumps-card-shine::after {
+  content: '';
+  position: absolute;
+  top: -25%;
+  bottom: -25%;
+  left: -70%;
+  width: 42%;
+  background: linear-gradient(100deg, transparent 0%, var(--shine) 50%, transparent 100%);
+  mix-blend-mode: screen;
+  transform: skewX(-18deg) translateX(0);
+  animation: stumps-shine 3.8s ease-in-out infinite;
+}
+
+/* Holographic sheen over Platinum portraits. */
+.stumps-card-holo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: color-dodge;
+  opacity: 0.22;
+  background: linear-gradient(
+    125deg,
+    #7ff3ff 0%,
+    #c59bff 25%,
+    #ff9fd8 50%,
+    #fff1a8 75%,
+    #7ff3ff 100%
+  );
+  background-size: 300% 300%;
+  animation: stumps-holo-sheen 7s ease-in-out infinite alternate;
+}
+
+/* Gold sparkles. */
+.stumps-card-sparkle {
+  position: absolute;
+  z-index: 5;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff9e0 0 18%, rgba(255, 220, 120, 0.9) 30%, transparent 65%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  opacity: 0;
+  animation: stumps-twinkle 2.6s ease-in-out infinite;
+}
+
+/* ---- rarity themes */
+.stumps-card[data-rarity='normal'] {
+  --frame-a: #273444;
+  --frame-b: #9fb3c8;
+  --frame-c: #3d4e62;
+  --accent: #c3d2e1;
+}
 .stumps-card[data-rarity='bronze'] {
-  --frame: var(--rarity-bronze);
-  --frame-2: #7a4a27;
+  --frame-a: #4a2a14;
+  --frame-b: #d9965e;
+  --frame-c: #7a4a27;
+  --accent: #e3a676;
+  --panel: #120f12;
 }
 .stumps-card[data-rarity='silver'] {
-  --frame: var(--rarity-silver);
-  --frame-2: #7f93a8;
+  --frame-a: #6d7a88;
+  --frame-b: #ffffff;
+  --frame-c: #a4b1bf;
+  --accent: #e8f0f8;
+  --glow: radial-gradient(closest-side, rgba(225, 236, 248, 0.95), rgba(160, 185, 210, 0.4));
+  --shine: rgba(255, 255, 255, 0.75);
+  --panel: #0d1726;
 }
 .stumps-card[data-rarity='gold'] {
-  --frame: var(--rarity-gold);
-  --frame-2: #9a7428;
-}
-.stumps-card[data-rarity='platinum'] {
-  --frame: var(--rarity-platinum);
-  --frame-2: #6aa6bd;
-}
-.stumps-card[data-rarity='dual_platinum'] {
-  --frame: var(--rarity-dual);
-  --frame-2: #6aa6bd;
+  --frame-a: #7a5512;
+  --frame-b: #ffe58f;
+  --frame-c: #c08a2a;
+  --accent: #ffd36b;
+  --glow: radial-gradient(closest-side, rgba(255, 205, 80, 0.95), rgba(255, 150, 20, 0.45));
+  --shine: rgba(255, 244, 196, 0.85);
+  --panel: #14110a;
 }
 .stumps-card[data-rarity='platinum'],
 .stumps-card[data-rarity='dual_platinum'] {
+  --accent: #d6ecff;
+  --glow: linear-gradient(135deg, #8fe9ff, #c9a8ff, #ffb8e6);
+  --shine: rgba(255, 255, 255, 0.85);
+  --panel: #0c1222;
+  background: conic-gradient(
+    from var(--holo-angle),
+    #9eeaff,
+    #d6c2ff,
+    #ffc9ec,
+    #fff6c9,
+    #b5ffe6,
+    #9eeaff
+  );
+  animation: stumps-holo-spin 6s linear infinite;
+}
+.stumps-card[data-rarity='gold'] .stumps-card-shine::after {
+  animation-duration: 3.2s;
+}
+
+/* Crest, stats and highlight */
+.stumps-crest {
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: rgba(0, 0, 0, 0.55);
+}
+.stumps-stat-bar {
   background: linear-gradient(
-    120deg,
-    var(--frame),
-    var(--frame-2),
-    #f3e9ff,
-    var(--frame),
-    var(--frame-2)
-  );
-  background-size: 300% 300%;
-  animation: stumps-spectral 9s ease-in-out infinite alternate;
-}
-.stumps-card[data-rarity='gold'] .stumps-card-foil {
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 235, 170, 0.22) 45%,
-    transparent 60%
+    90deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    var(--accent)
   );
 }
-.stumps-card[data-rarity='silver'] .stumps-card-foil {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 40%);
+.stumps-stat[data-highlight='true'] {
+  background: color-mix(in srgb, var(--accent) 22%, #0a1424);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
-.stumps-card-inner {
-  clip-path: polygon(
-    11px 0,
-    calc(100% - 11px) 0,
-    100% 11px,
-    100% calc(100% - 11px),
-    calc(100% - 11px) 100%,
-    11px 100%,
-    0 calc(100% - 11px),
-    0 11px
-  );
+
+/* Card back (deck stacks; undealt identities are never shown). */
+.stumps-card-back {
+  border-radius: 12px;
+  border: 2px solid #2f4a6b;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(110, 231, 183, 0.25), transparent 45%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 6px, transparent 6px 12px),
+    linear-gradient(160deg, #10233c, #081325);
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.8);
 }
-@keyframes stumps-spectral {
+
+@keyframes stumps-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.03);
+  }
+}
+@keyframes stumps-shine {
+  0% {
+    transform: skewX(-18deg) translateX(0);
+  }
+  60%,
+  100% {
+    transform: skewX(-18deg) translateX(480%);
+  }
+}
+@keyframes stumps-holo-spin {
+  to {
+    --holo-angle: 360deg;
+  }
+}
+@keyframes stumps-holo-sheen {
   from {
     background-position: 0% 50%;
   }
@@ -131,9 +294,131 @@ body {
     background-position: 100% 50%;
   }
 }
+@keyframes stumps-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+/* ------------------------------------------------------------------ arena */
+.arena-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
+  background:
+    radial-gradient(55% 35% at 12% -5%, rgba(140, 200, 255, 0.22), transparent 70%),
+    radial-gradient(55% 35% at 88% -5%, rgba(140, 200, 255, 0.22), transparent 70%),
+    radial-gradient(80% 45% at 50% 115%, rgba(46, 170, 100, 0.38), transparent 70%),
+    linear-gradient(180deg, #0c1a33 0%, #07101f 100%);
+}
+.arena-stage::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 40%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.025) 0 48px,
+    transparent 48px 96px
+  );
+  mask-image: linear-gradient(to top, black, transparent);
+}
+
+.arena-vs {
+  background: radial-gradient(circle, #1d3352 0%, #0b1628 70%);
+  border: 2px solid rgba(110, 231, 183, 0.5);
+  box-shadow: 0 0 24px rgba(110, 231, 183, 0.35);
+}
+
+.arena-selector {
+  box-shadow:
+    0 0 0 2px var(--accent-card),
+    0 0 28px rgba(110, 231, 183, 0.45);
+  animation: arena-pulse 1.8s ease-in-out infinite;
+}
+
+.arena-deal-in {
+  animation: arena-deal 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.arena-pick {
+  animation: arena-pick-glow 2s ease-in-out infinite;
+}
+
+.arena-banner-in {
+  animation: arena-banner 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes arena-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--accent-card),
+      0 0 14px rgba(110, 231, 183, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--accent-card),
+      0 0 34px rgba(110, 231, 183, 0.6);
+  }
+}
+@keyframes arena-deal {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateY(80deg) translateY(16px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes arena-pick-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(110, 231, 183, 0.9),
+      0 0 18px rgba(110, 231, 183, 0.35);
+  }
+}
+@keyframes arena-banner {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .stumps-card[data-rarity='platinum'],
-  .stumps-card[data-rarity='dual_platinum'] {
-    animation: none;
+  .stumps-card,
+  .stumps-card::before,
+  .stumps-card-shine::after,
+  .stumps-card-holo,
+  .stumps-card-sparkle,
+  .arena-selector,
+  .arena-deal-in,
+  .arena-pick,
+  .arena-banner-in {
+    animation: none !important;
+  }
+  .stumps-card-shine,
+  .stumps-card-sparkle {
+    display: none;
+  }
+  .stumps-card[data-shine='true']::before {
+    opacity: 0.55;
   }
 }

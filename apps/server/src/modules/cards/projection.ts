@@ -7,8 +7,9 @@ import { lastResolved, loadMatch } from './store';
 
 /**
  * Per-viewer card snapshot (DB spec §10). Built from the authoritative rows,
- * it carries deck counts but never deck order, undealt identities or the seed;
- * the seed is disclosed as `auditSeed` only once the match has a result.
+ * it carries every seat's deck count, the viewer's own deck in play order, and
+ * never another player's deck or the seed; the seed is disclosed as
+ * `auditSeed` only once the match has a result.
  */
 export function cardProjector(secrets: Secrets): GameProjector {
   return async (tx, room, member): Promise<PermittedCardSnapshotDTO | null> => {
@@ -23,7 +24,10 @@ export function cardProjector(secrets: Secrets): GameProjector {
       )
     ).rows[0];
     const open = state.comparison;
+    // The viewer's own deck, front first (ADR-021 §5a). Never anyone else's.
+    const myDeckIds = state.seats.find((s) => s.memberId === member.id)?.deck ?? [];
     const visibleIds = [
+      ...myDeckIds,
       ...(open?.active ?? []).map((a) => a.instanceId),
       ...state.pot.map((p) => p.instanceId),
     ];
@@ -59,6 +63,7 @@ export function cardProjector(secrets: Secrets): GameProjector {
         card: card(a.instanceId),
       })),
       potCount: state.pot.length,
+      myDeck: myDeckIds.map((id) => card(id)),
       contributions: state.pot.map((p) => ({ memberId: p.memberId, card: card(p.instanceId) })),
       allowedMetrics: open ? [...CARD_METRICS] : [],
       metric: last?.metric ?? null,
