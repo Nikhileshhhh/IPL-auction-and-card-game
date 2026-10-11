@@ -17,3 +17,4 @@ export * from './ratings/rational';
 export * from './ratings/v1';
 export * from './ratings/catalog';
 export * from './demo/league';
+export * from './card';

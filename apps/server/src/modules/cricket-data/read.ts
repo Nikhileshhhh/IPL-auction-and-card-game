@@ -155,6 +155,35 @@ export async function listCards(
   };
 }
 
+/** Anything with `query` (a pool or a transaction client). */
+type Queryable = Pick<pg.Pool, 'query'>;
+
+/**
+ * Card match deal pool: every card of a published version with its internal
+ * points (0–1000) for comparisons. Read inside the room start transaction.
+ */
+export async function dealPool(db: Queryable, versionId: string) {
+  const res = await db.query<{ id: string; rarity: Rarity; ratings: Record<string, number> }>(
+    `SELECT d.id, d.rarity, d.ratings FROM app_private.card_definitions d
+       JOIN app_private.data_versions v ON v.id = d.data_version_id AND v.status = 'published'
+      WHERE d.data_version_id = $1 ORDER BY d.id`,
+    [versionId],
+  );
+  return res.rows;
+}
+
+/** Public card DTOs for specific definitions (visible cards in a match). */
+export async function cardsByDefinition(
+  db: Queryable,
+  definitionIds: readonly string[],
+): Promise<Map<string, PublicCardDTO>> {
+  if (definitionIds.length === 0) return new Map();
+  const res = await db.query<CardRow>(`${CARD_SELECT} WHERE d.id = ANY($1::uuid[])`, [
+    [...new Set(definitionIds)],
+  ]);
+  return new Map(res.rows.map((r) => [r.id, toCardDTO(r)] as const));
+}
+
 /** Showcase: the strongest card of each rarity (S08 preview, dashboard). */
 export async function showcase(pool: pg.Pool, versionId: string) {
   const res = await pool.query<CardRow>(

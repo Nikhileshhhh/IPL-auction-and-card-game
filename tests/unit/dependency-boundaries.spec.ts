@@ -79,10 +79,12 @@ describe('dependency boundaries (ADR-004)', () => {
     expect([...used].filter((name) => !allowed.has(name))).toEqual([]);
   });
 
-  it('pure engines do not read wall-clock time or Math.random', () => {
+  it('pure engines do not read wall-clock time or draw their own randomness', () => {
     const files = walk(join(ROOT, 'packages', 'game-engines', 'src'));
     const offenders = files.filter((file) =>
-      /Date\.now\(|Math\.random\(|new Date\(\)/.test(readFileSync(file, 'utf8')),
+      /Date\.now\(|Math\.random\(|new Date\(\)|randomBytes|randomUUID|randomInt|getRandomValues/.test(
+        readFileSync(file, 'utf8'),
+      ),
     );
     expect(offenders).toEqual([]);
   });
