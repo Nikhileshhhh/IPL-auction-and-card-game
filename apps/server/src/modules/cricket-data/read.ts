@@ -14,6 +14,14 @@ import { displayRating } from '@stumps/game-engines';
 import { AppError } from '../../http/app-error';
 import { portraitPath } from '../media/service';
 
+/** A pool or an open transaction. */
+type Queryable = {
+  query<R extends pg.QueryResultRow = pg.QueryResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<pg.QueryResult<R>>;
+};
+
 const RARITY_ORDER: Rarity[] = ['dual_platinum', 'platinum', 'gold', 'silver', 'bronze', 'normal'];
 
 function toDisplay(points: Record<string, number>): CardRatings {
@@ -115,8 +123,8 @@ export function toCardDTO(row: CardRow): PublicCardDTO {
 }
 
 /** Newest published version (factual preferred over demo). */
-export async function currentVersion(pool: pg.Pool): Promise<{ id: string; label: string } | null> {
-  const res = await pool.query<{ id: string; label: string }>(
+export async function currentVersion(db: Queryable): Promise<{ id: string; label: string } | null> {
+  const res = await db.query<{ id: string; label: string }>(
     `SELECT id, coalesce(window_label, label) AS label FROM app_private.data_versions
       WHERE status = 'published' ORDER BY (kind = 'factual') DESC, published_at DESC LIMIT 1`,
   );
@@ -154,9 +162,6 @@ export async function listCards(
     nextCursor: res.rows.length > limit && last ? last.card_key : null,
   };
 }
-
-/** Anything with `query` (a pool or a transaction client). */
-type Queryable = Pick<pg.Pool, 'query'>;
 
 /**
  * Card match deal pool: every card of a published version with its internal

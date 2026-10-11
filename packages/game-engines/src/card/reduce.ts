@@ -280,7 +280,7 @@ function resolve(ctx: Ctx, metric: CardMetric, byTimeout: boolean) {
     points: (s.instances[a.instanceId] as CardInstance).ratings[metric],
   }));
   // ACTIVE → POT in seat order, tagged with this comparison's index.
-  s.pot.push(...c.active.map((a) => ({ ...a, comparisonIndex: c.index })));
+  s.pot.push(...c.active.map((a) => ({ ...a, comparisonId: c.id, comparisonIndex: c.index })));
   s.lastComparisonIndex = c.index;
   s.comparison = null;
 

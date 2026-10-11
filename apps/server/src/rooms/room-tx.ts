@@ -136,13 +136,16 @@ export async function runRoomCommand<T>(
       return receipt.response;
     }
     const now = await dbNow(tx);
+    let dueEvents: EventDraft[] = [];
     if (options.settleDue) {
       const due = await options.settleDue(tx, room, now);
-      if (due.events.length > 0) await appendEvents(tx, room.id, room.state_version, due.events);
+      dueEvents = due.events;
       after.push(...due.afterCommit);
     }
-    // Re-read in case a due transition changed the room.
+    // Re-read in case a due transition changed the room; due events carry the
+    // state version their transition produced.
     const current = await lockRoom(tx, input.roomId);
+    if (dueEvents.length > 0) await appendEvents(tx, room.id, current.state_version, dueEvents);
     const outcome = await handler({ tx, room: current, now });
     if (outcome.roomDeleted) {
       after.push(...(outcome.afterCommit ?? []));

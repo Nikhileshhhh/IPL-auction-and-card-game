@@ -40,7 +40,9 @@ export const LastComparisonSchema = z
     comparisonId: Uuid,
     metric: CardMetricSchema,
     byTimeout: z.boolean(),
-    values: z.array(z.object({ memberId: Uuid, value: z.number().int().min(0).max(100) }).strict()),
+    submittedValues: z.array(
+      z.object({ memberId: Uuid, value: z.number().int().min(0).max(100) }).strict(),
+    ),
     winnerId: Uuid.nullable(),
     tiedSeats: z.array(Uuid),
     reason: z.string(),
@@ -55,6 +57,8 @@ export const PermittedCardSnapshotSchema = z
   .object({
     totalCards: z.number().int().min(8).max(240),
     seats: z.array(CardSeatSchema).min(2).max(8),
+    /** Spec name (DB §10); the same counts as `seats[].deckCount`. */
+    deckCountsBySeat: z.record(Uuid, z.number().int().min(0)),
     comparisonId: Uuid.nullable(),
     comparisonIndex: z.number().int().min(-1),
     chainIndex: z.number().int().min(-1),
@@ -64,8 +68,10 @@ export const PermittedCardSnapshotSchema = z
     isTie: z.boolean(),
     visibleCards: z.array(RevealedCardSchema),
     potCount: z.number().int().min(0),
-    potCards: z.array(RevealedCardSchema),
+    contributions: z.array(RevealedCardSchema),
     allowedMetrics: z.array(CardMetricSchema),
+    /** Category of the most recently decided comparison. */
+    metric: CardMetricSchema.nullable(),
     deadline: IsoTimestamp.nullable(),
     myAllowedActions: z.array(z.enum(['card.selectCategory', 'card.revealAcknowledged'])),
     seedCommitment: z.string().regex(/^[0-9a-f]{64}$/),
@@ -113,7 +119,7 @@ export const ComparisonResolvedPayload = LastComparisonSchema;
 export const PotChangedPayload = z
   .object({
     potCount: z.number().int().min(0),
-    awardedTo: Uuid.nullable(),
+    awardedTo: Uuid.nullable().optional(),
     awardedCount: z.number().int().min(0),
     deckCounts: z.record(z.string(), z.number().int().min(0)),
   })
@@ -127,10 +133,28 @@ export const PlayerEliminatedPayload = z
   })
   .strict();
 
+/** Medals and the results TTL arrive with phases 14–15; until then they are `deferred`/null. */
 export const GameCompletedPayload = z
   .object({
-    result: CardResultSchema,
-    auditSeed: z.string(),
+    publicResult: CardResultSchema,
+    medalStatus: z.enum(['deferred', 'pending', 'awarded', 'none']),
+    resultsExpiresAt: IsoTimestamp.nullable(),
+    auditSeed: z.string().regex(/^[0-9a-f]{64}$/),
     rngVersion: z.string(),
   })
   .strict();
+
+export const SelectCategoryAck = z
+  .object({ comparisonId: Uuid, stateVersion: z.string() })
+  .strict();
+export const RevealAcknowledgedAck = z.object({ accepted: z.literal(true) }).strict();
+
+/** Card event payload schemas by event type (checked against events.json). */
+export const CARD_EVENT_PAYLOADS = {
+  'game.started': GameStartedPayload,
+  'card.roundOpened': RoundOpenedPayload,
+  'card.comparisonResolved': ComparisonResolvedPayload,
+  'card.potChanged': PotChangedPayload,
+  'card.playerEliminated': PlayerEliminatedPayload,
+  'game.completed': GameCompletedPayload,
+} as const;

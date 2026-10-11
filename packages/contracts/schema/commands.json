@@ -4,7 +4,7 @@
   "envelope": ["type", "commandId", "roomId", "expectedVersion", "controlEpoch", "payload"],
   "commands": {
     "room.host.accept":         { "rights": "M(target)", "payload": ["handoverId"], "ack": ["hostId"], "versionCheck": "none", "errors": ["NOT_FOUND", "STATE_CONFLICT"], "events": ["room.hostTransferred"], "phase": 5 },
-    "card.selectCategory":      { "rights": "M(selector)", "payload": ["comparisonId", "metric"], "ack": ["comparisonId", "stateVersion"], "versionCheck": "phase", "errors": ["SELECTOR_ONLY", "STALE_COMPARISON", "GAME_PAUSED", "STATE_CONFLICT"], "events": ["card.comparisonResolved", "card.potChanged", "card.roundOpened", "card.playerEliminated", "game.finalizing"], "phase": 7 },
+    "card.selectCategory":      { "rights": "M(selector)", "payload": ["comparisonId", "metric"], "ack": ["comparisonId", "stateVersion"], "versionCheck": "phase", "errors": ["SELECTOR_ONLY", "STALE_COMPARISON", "VERSION_CONFLICT", "GAME_PAUSED", "STATE_CONFLICT"], "events": ["card.comparisonResolved", "card.potChanged", "card.roundOpened", "card.playerEliminated", "game.finalizing"], "phase": 7 },
     "card.revealAcknowledged":  { "rights": "M", "payload": ["comparisonId"], "ack": ["accepted"], "versionCheck": "none", "errors": [], "events": [], "phase": 7 },
     "auction.claimFranchise":   { "rights": "M", "payload": ["franchiseDefinitionId"], "ack": ["franchiseId"], "versionCheck": "config", "errors": ["FRANCHISE_TAKEN", "GAME_STARTED"], "events": ["team.created"], "phase": 9 },
     "team.requestJoin":         { "rights": "M", "payload": ["franchiseCode"], "ack": ["requestId", "pending"], "versionCheck": "none", "errors": ["NOT_FOUND", "TEAM_FULL"], "events": ["team.joinRequested"], "phase": 9 },

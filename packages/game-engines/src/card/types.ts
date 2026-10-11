@@ -38,6 +38,7 @@ export interface ActiveCard {
 export interface PotCard {
   memberId: string;
   instanceId: string;
+  comparisonId: string;
   comparisonIndex: number;
 }
 

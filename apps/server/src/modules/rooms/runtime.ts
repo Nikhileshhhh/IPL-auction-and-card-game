@@ -4,6 +4,7 @@ import { DeadlineRegistry, dueSettler } from '../../jobs/deadlines';
 import { registerRoomDeadlines } from '../../rooms/deadline-handlers';
 import { StarterRegistry } from '../../rooms/starters';
 import type { GameProjector } from '../../rooms/projection';
+import { registerCardModule } from '../cards';
 import { CommandDispatcher } from '../commands/dispatcher';
 import type { RoomDeps } from './service';
 
@@ -43,12 +44,14 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
     onRoomClosed: (roomId) => onRoomClosed(roomId),
   };
   registerRoomDeadlines(deadlines, { onRoomClosed: (roomId) => onRoomClosed(roomId) });
+  const gameProjector = registerCardModule({ starters, deadlines, commands }, secrets);
 
   return {
     deps,
     deadlines,
     starters,
     commands,
+    gameProjector,
     bind(hooks) {
       if (hooks.wake) wake = hooks.wake;
       if (hooks.onMemberRemoved) onMemberRemoved = hooks.onMemberRemoved;

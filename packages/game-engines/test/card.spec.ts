@@ -398,8 +398,8 @@ describe('ties and settlement (rules §6)', () => {
   it('identical cards fall back to the committed seat permutation', () => {
     const s = match({ A: [card('a1', 900)], B: [card('b1', 900)] }, 'A').state;
     s.pot = [
-      { memberId: 'A', instanceId: 'a1', comparisonIndex: 0 },
-      { memberId: 'B', instanceId: 'b1', comparisonIndex: 0 },
+      { memberId: 'A', instanceId: 'a1', comparisonId: 'c0', comparisonIndex: 0 },
+      { memberId: 'B', instanceId: 'b1', comparisonId: 'c0', comparisonIndex: 0 },
     ];
     s.fallbackOrder = ['B', 'A'];
     s.chainIndex = 0;

@@ -207,7 +207,7 @@ describe('lobby readiness, settings and start gates', () => {
     expect(stale.body.error!.code).toBe('STALE_CONFIG');
   });
 
-  it('start requires two ready players, an even deal and an available engine', async () => {
+  it('start requires two ready players, an even deal and a published card pack', async () => {
     const host = await onboardMember(api, 'host_start');
     const guest = await onboardMember(api, 'guest_start');
     const { lobby, roomCode } = await createCard(host.client, cardRoom({ totalCards: 50 }));
@@ -263,12 +263,10 @@ describe('lobby readiness, settings and start gates', () => {
         configVersion: current.configVersion,
       });
     }
-    const noEngine = await start();
-    expect(noEngine.status).toBe(422);
-    expect(noEngine.body.error).toMatchObject({
-      code: 'RULE_VIOLATION',
-      details: { reason: 'ENGINE_UNAVAILABLE' },
-    });
+    // No published card pack in this database: the deal is refused before anything is written.
+    const noPack = await start();
+    expect(noPack.status).toBe(422);
+    expect(noPack.body.error).toMatchObject({ code: 'POOL_INSUFFICIENT' });
     const after = await snapshot(host.client, lobby.roomId);
     expect(after.body.data!.room.lifecycle).toBe('LOBBY');
   });
