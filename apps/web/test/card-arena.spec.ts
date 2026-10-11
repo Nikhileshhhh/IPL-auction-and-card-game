@@ -31,7 +31,7 @@ const card = (batting: number): PublicCardDTO & { instanceId: string } => ({
       photoCredit: null,
     },
   ],
-  ratings: { batting, bowling: 10, fielding: 20, form: 30, experience: 40, versatility: 50 },
+  ratings: { batting, bowling: 10, runs: 30 },
   dataLabel: 'IPL 2024–2026',
   dataKind: 'factual',
   modelVersion: 'v1',
@@ -63,7 +63,7 @@ function game(overrides: Partial<CardGame> = {}): CardGame {
     potCount: 0,
     contributions: [],
     myDeck: [],
-    allowedMetrics: ['batting', 'bowling', 'fielding', 'form', 'experience', 'versatility'],
+    allowedMetrics: ['batting', 'bowling', 'runs'],
     metric: null,
     deadline: '2026-10-11T10:00:20.000Z',
     myAllowedActions: ['card.selectCategory', 'card.revealAcknowledged'],
@@ -100,14 +100,7 @@ describe('card arena view model', () => {
 
   it('category rows keep enum order and show the viewer’s own values', () => {
     const rows = metricRows(arenaView(game(), B, true).myCard);
-    expect(rows.map((r) => r.metric)).toEqual([
-      'batting',
-      'bowling',
-      'fielding',
-      'form',
-      'experience',
-      'versatility',
-    ]);
+    expect(rows.map((r) => r.metric)).toEqual(['batting', 'bowling', 'runs']);
     expect(rows[0]).toEqual({ metric: 'batting', value: 80 });
     expect(metricRows(null).every((r) => r.value === null)).toBe(true);
   });

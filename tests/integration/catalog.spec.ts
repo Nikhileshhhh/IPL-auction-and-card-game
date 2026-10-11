@@ -133,7 +133,7 @@ describe('demo pack: import → validate → publish (route B portraits)', () =>
     ).rejects.toThrow(/immutable/);
   });
 
-  it('every published card carries a portrait and Attax-style 0–100 ratings with a 100 top', async () => {
+  it('every published card carries a portrait and Attax tiers: Bronze ≤ 89, legends 90–100', async () => {
     const all: PublicCardDTO[] = [];
     let cursor: string | null = null;
     do {
@@ -157,8 +157,16 @@ describe('demo pack: import → validate → publish (route B portraits)', () =>
         expect(v).toBeLessThanOrEqual(100);
       }
     }
-    expect(Math.max(...all.map((c) => c.ratings.batting))).toBe(100);
-    expect(Math.max(...all.map((c) => c.ratings.bowling))).toBe(100);
+    // ADR-022 tiers: Bronze never above 89; the best legend's Gold main skill is 100.
+    for (const c of all.filter((x) => x.rarity === 'bronze')) {
+      expect(c.ratings.batting).toBeLessThanOrEqual(89);
+      expect(c.ratings.bowling).toBeLessThanOrEqual(89);
+    }
+    const gold = all.filter((c) => c.rarity === 'gold');
+    expect(Math.max(...gold.map((c) => Math.max(c.ratings.batting, c.ratings.bowling)))).toBe(100);
+    for (const c of gold) {
+      expect(Math.max(c.ratings.batting, c.ratings.bowling)).toBeGreaterThanOrEqual(90);
+    }
     // ADR-020: Bronze singles, legends in Normal/Silver/Gold, Platinum only as duals.
     expect(new Set(all.map((c) => c.rarity))).toEqual(
       new Set(['normal', 'bronze', 'silver', 'gold', 'dual_platinum']),
@@ -371,7 +379,7 @@ describe('factual pack (Cricsheet format): photos gate publication', () => {
       'GET',
       '/v1/catalog/cards',
     );
-    expect(page.body.data!.dataLabel).toMatch(/^IPL 2023–2025, as of/);
+    expect(page.body.data!.dataLabel).toMatch(/^IPL careers 2023–2025, as of/);
     expect(page.body.data!.items.length).toBeGreaterThanOrEqual(1);
     // The operator's licence reference never reaches a player's browser.
     expect(JSON.stringify(page.body)).not.toContain('Image licence agreement #1');

@@ -50,3 +50,12 @@ The fictional league is too young for 100-match legends. Its four strongest play
 - **Legend versions differ in strength.** Gold is the legend's computed rating, Silver 96 % of it and Normal 92 %, per stat, rounded half-up on internal points (`LEGEND_FACTORS`, `scaleRatings`). For example, Kohli's batting is 100 / 96 / 92. This replaces "all three versions show the same ratings" and amends R19 for legend cards only. Bronze and dual cards keep the player's own ratings, and a dual is still the mean of both players' Gold-level ratings.
 - **Repeats are allowed in one game.** Several cards of the same player may be dealt together (e.g. Kohli's Normal and Gold), so the "unique identities" reading of rules §4 does not apply.
 - **Duals may share a game with their players' own cards.** The rule "no single card of a dual's player in the same deck" is dropped. At most one dual per game still applies.
+
+## Amendment (11 October 2026, product owner): ADR-022
+- **Extra legends:** Sachin Tendulkar and Chris Gayle are legends although neither played 100 matches for one franchise. Each is shown in the franchise they played most for.
+- **Ratings:** these now come from whole IPL careers with tier bands:
+  - Bronze is capped at 89.
+  - A legend's main skill on Gold is 90–100.
+  - Silver and Normal are 96 % and 92 % of Gold.
+- **Platinum pairs:** they take the better of the two Gold cards per stat, replacing the mean capped at 950.
+

@@ -193,9 +193,7 @@ describe('card commands (DB/realtime §8.2)', () => {
       const selector = selectorOf(players, game);
       const res = await command(selector.client, roomId, {
         comparisonId: game.comparisonId,
-        metric: (['batting', 'bowling', 'fielding', 'form', 'experience', 'versatility'] as const)[
-          i % 6
-        ],
+        metric: (['batting', 'bowling', 'runs'] as const)[i % 3],
       });
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       game = (await snapshot(players[0]!.client, roomId)).game!;

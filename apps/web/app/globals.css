@@ -114,16 +114,6 @@ body {
     radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%), var(--panel);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
-.stumps-stats {
-  background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--accent) 12%, transparent)
-  );
-}
-.stumps-name-rule {
-  background: linear-gradient(90deg, var(--accent), transparent);
-}
 
 /* Light sweep across the whole card. */
 .stumps-card-shine {
@@ -238,16 +228,36 @@ body {
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   background: rgba(0, 0, 0, 0.55);
 }
-.stumps-stat-bar {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 55%, transparent),
-    var(--accent)
-  );
+
+/* Attax-style ribbons and stat circles */
+.stumps-ribbon {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 10px rgba(0, 0, 0, 0.45);
 }
-.stumps-stat[data-highlight='true'] {
-  background: color-mix(in srgb, var(--accent) 22%, #0a1424);
-  box-shadow: inset 0 0 0 2px var(--accent);
+.stumps-ribbon-role {
+  background: linear-gradient(180deg, #16803c, #0b5b2a);
+}
+.stumps-stat-panel {
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 30%, rgba(0, 0, 0, 0.85) 100%),
+    color-mix(in srgb, var(--accent) 18%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.stumps-stat-bowling {
+  background: radial-gradient(circle at 35% 30%, #4f8df5, #1d4ed8 60%, #12318f);
+}
+.stumps-stat-batting {
+  background: radial-gradient(circle at 35% 30%, #3fbf6a, #15803d 60%, #0c5227);
+}
+.stumps-stat-runs {
+  background: radial-gradient(circle at 35% 30%, #c2512a, #7c2d12 60%, #4d1a09);
+}
+.stumps-stat[data-highlight='true'] dd {
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 18px var(--accent);
+  transform: scale(1.08);
 }
 
 /* Card back (deck stacks; undealt identities are never shown). */

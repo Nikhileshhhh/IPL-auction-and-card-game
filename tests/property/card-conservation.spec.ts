@@ -51,7 +51,7 @@ function play(seed: Uint8Array, seats: string[], perSeat: number, choices: numbe
     const c = state.comparison as NonNullable<MatchState['comparison']>;
     const choice = choices[steps % choices.length] ?? 0;
     state =
-      choice === 6
+      choice === CARD_METRICS.length
         ? timeoutSelection(state, { comparisonId: c.id }, newId).state
         : selectCategory(
             state,
@@ -72,7 +72,8 @@ describe('card conservation property', () => {
         fc.uint8Array({ minLength: 32, maxLength: 32 }),
         fc.integer({ min: 2, max: 8 }),
         fc.integer({ min: 4, max: 8 }),
-        fc.array(fc.integer({ min: 0, max: 6 }), { minLength: 1, maxLength: 12 }),
+        // One index per category, plus one more meaning "let the selection time out".
+        fc.array(fc.integer({ min: 0, max: CARD_METRICS.length }), { minLength: 1, maxLength: 12 }),
         (seed, n, perSeat, choices) => {
           const seats = Array.from({ length: n }, (_, i) => `seat-${i}`);
           const a = play(seed, seats, perSeat, choices);

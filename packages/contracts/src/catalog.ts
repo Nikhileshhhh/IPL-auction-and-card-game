@@ -3,28 +3,19 @@ import { IsoTimestamp, Uuid } from './primitives';
 import { RaritySchema } from './rooms';
 
 /**
- * Catalog DTOs (phase 06, ADR-017/ADR-018). Ratings on the wire are the
- * Attax-style display scale: whole numbers 0–100 ("Game rating"); the best
- * batter in the published cohort is 100 batting, the best bowler 100 bowling.
+ * Catalog DTOs (phase 06, ADR-017/ADR-018/ADR-022). Cards carry the three
+ * Attax stats: Batting and Bowling ratings (whole numbers 0–100 from IPL
+ * careers; Bronze ≤ 89, legends' Gold skill 90–100) and Runs (career runs per
+ * innings, a real figure). These are also the game's categories.
  */
-export const CARD_METRICS = [
-  'batting',
-  'bowling',
-  'fielding',
-  'form',
-  'experience',
-  'versatility',
-] as const;
+export const CARD_METRICS = ['batting', 'bowling', 'runs'] as const;
 export const CardMetricSchema = z.enum(CARD_METRICS);
 export type CardMetric = z.infer<typeof CardMetricSchema>;
 
 export const METRIC_LABELS: Record<CardMetric, string> = {
   batting: 'Batting',
   bowling: 'Bowling',
-  fielding: 'Fielding',
-  form: 'Form',
-  experience: 'Experience',
-  versatility: 'Versatility',
+  runs: 'Runs',
 };
 
 export const PlayerRoleSchema = z.enum(['batter', 'bowler', 'all_rounder', 'wicketkeeper']);
@@ -42,10 +33,8 @@ export const CardRatingsSchema = z
   .object({
     batting: Rating,
     bowling: Rating,
-    fielding: Rating,
-    form: Rating,
-    experience: Rating,
-    versatility: Rating,
+    /** Career runs per innings (whole runs). */
+    runs: Rating,
   })
   .strict();
 export type CardRatings = z.infer<typeof CardRatingsSchema>;

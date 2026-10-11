@@ -1,7 +1,7 @@
-import { RARITIES, type Rarity } from '@stumps/contracts';
+import { CARD_METRICS, RARITIES, type CardMetric, type Rarity } from '@stumps/contracts';
 import { roundDiv } from './rational';
 import type { PlayerSeason } from '../cricket/aggregate';
-import { RATING_METRICS, type PlayerRatings, type RatingMetric } from './v1';
+import type { Role } from './v1';
 
 /**
  * Default deal mix in percent (rules §3.4), rarity enum order. Visual only (R19).
@@ -80,29 +80,42 @@ export function checkPool(
   return shortages.length ? { ok: false, shortages } : { ok: true, counts };
 }
 
+export type CardStatPoints = Record<CardMetric, number>;
+
 export interface CardSpec {
   /** Stable key: `single:<id>`, `legend:<id>:<rarity>` or `dual:<a>+<b>`. */
   key: string;
   rarity: Rarity;
   playerIds: [string] | [string, string];
-  ratings: Record<RatingMetric, number>;
+  /** Batting and bowling 0–1000; runs = career runs per innings × 10. */
+  ratings: CardStatPoints;
   stars: 1 | 2 | 3 | 4 | 5;
 }
 
 export interface CatalogPlan {
-  /** Legends (100+ IPL matches for one franchise): Normal, Silver and Gold versions. */
+  /** Legends: Normal, Silver and Gold versions. */
   legends: ReadonlySet<string>;
   /** Named dual pairs (Platinum only); a pair with a missing player is skipped. */
   duals: readonly (readonly [string, string])[];
 }
 
-const STAR_THRESHOLDS = [200, 450, 700, 900] as const;
-const DUAL_CAP = 950;
+/** One rated player (career model, ADR-022). */
+export interface CatalogPlayer {
+  playerId: string;
+  role: Role;
+  /** Relative career batting and bowling, 0–1000. */
+  batting: number;
+  bowling: number;
+  /** Career runs per innings × 10. */
+  runs: number;
+}
+
 export const LEGEND_RARITIES = ['normal', 'silver', 'gold'] as const;
 
 /**
- * Legend versions differ in strength (product owner, ADR-020 amendment): Gold is the
- * computed rating, Silver 96 % of it and Normal 92 %, per stat, rounded half-up.
+ * Legend versions differ in strength (product owner, ADR-020 amendment): Gold
+ * is the legend rating, Silver 96 % of it and Normal 92 %, for Batting and
+ * Bowling, rounded half-up. Runs is a real career figure and never scaled.
  */
 export const LEGEND_FACTORS: Readonly<Record<(typeof LEGEND_RARITIES)[number], number>> = {
   normal: 92,
@@ -110,44 +123,109 @@ export const LEGEND_FACTORS: Readonly<Record<(typeof LEGEND_RARITIES)[number], n
   gold: 100,
 };
 
-export function scaleRatings(
-  ratings: Readonly<Record<RatingMetric, number>>,
-  percent: number,
-): Record<RatingMetric, number> {
-  const out = {} as Record<RatingMetric, number>;
-  for (const m of RATING_METRICS) {
-    out[m] = Number(roundDiv(BigInt(ratings[m]) * BigInt(percent), 100n));
-  }
-  return out;
+/** Tier bands (product owner, ADR-022): Bronze tops out at 89, legends' Gold skill is 90–100. */
+export const BRONZE_MAX = 890;
+export const LEGEND_MIN = 900;
+const STAR_THRESHOLDS = [450, 650, 800, 900] as const;
+
+export function scaleRatings(ratings: Readonly<CardStatPoints>, percent: number): CardStatPoints {
+  return {
+    batting: Number(roundDiv(BigInt(ratings.batting) * BigInt(percent), 100n)),
+    bowling: Number(roundDiv(BigInt(ratings.bowling) * BigInt(percent), 100n)),
+    runs: ratings.runs,
+  };
+}
+
+/** Stars from the card's best skill: 90+ five, 80+ four, 65+ three, 45+ two. */
+export function starsOf(r: Readonly<CardStatPoints>): 1 | 2 | 3 | 4 | 5 {
+  const best = Math.max(r.batting, r.bowling);
+  let stars = 1;
+  for (const t of STAR_THRESHOLDS) if (best >= t) stars += 1;
+  return stars as 1 | 2 | 3 | 4 | 5;
+}
+
+/** A legend's main skill: batters and keepers bat, bowlers bowl, all-rounders their better one. */
+export function primarySkill(p: CatalogPlayer): 'batting' | 'bowling' {
+  if (p.role === 'bowler') return 'bowling';
+  if (p.role === 'all_rounder') return p.bowling > p.batting ? 'bowling' : 'batting';
+  return 'batting';
 }
 
 /**
- * Card catalog for a data version (ADR-020, product-owner rule):
- * - every player has one Bronze card;
- * - a legend instead has three versions, Normal, Silver and Gold;
- * - Platinum exists only as dual cards of the named pairs (mean per comparison,
- *   capped at 950, rules §3.4).
- *
- * Bronze and dual cards show the player's own ratings; legend versions are scaled
- * by LEGEND_FACTORS (Normal 92 %, Silver 96 %, Gold 100 %), amending R19.
+ * Card catalog for a data version (ADR-020, ADR-022):
+ * - every non-legend has one Bronze card, scaled so the best Bronze batter and
+ *   bowler show 89 (never more);
+ * - a legend has Normal, Silver and Gold. On Gold, the main skill spreads the
+ *   legends over 90–100 by career rating (the best legend is 100); the other
+ *   skill uses the Bronze scale. Silver is 96 % and Normal 92 % of Gold;
+ * - Platinum is only for the named dual pairs and takes the better of the two
+ *   players' Gold cards for each stat.
  */
-export function buildCatalog(players: readonly PlayerRatings[], plan: CatalogPlan): CardSpec[] {
+export function buildCatalog(players: readonly CatalogPlayer[], plan: CatalogPlan): CardSpec[] {
   const byId = new Map(players.map((p) => [p.playerId, p]));
   const order = [...players].sort((a, b) => a.playerId.localeCompare(b.playerId));
+  const isLegend = (p: CatalogPlayer) => plan.legends.has(p.playerId);
+  const bronze = order.filter((p) => !isLegend(p));
+  const maxOf = (list: readonly CatalogPlayer[], s: 'batting' | 'bowling') =>
+    Math.max(0, ...list.map((p) => p[s]));
+  const bronzeMax = { batting: maxOf(bronze, 'batting'), bowling: maxOf(bronze, 'bowling') };
+  const onBronzeScale = (v: number, s: 'batting' | 'bowling') =>
+    bronzeMax[s] > 0
+      ? Math.min(BRONZE_MAX, Number(roundDiv(BigInt(BRONZE_MAX * v), BigInt(bronzeMax[s]))))
+      : 0;
+
+  const legendBand = { batting: [Infinity, -Infinity], bowling: [Infinity, -Infinity] };
+  for (const p of order.filter(isLegend)) {
+    const s = primarySkill(p);
+    legendBand[s] = [Math.min(legendBand[s][0] ?? 0, p[s]), Math.max(legendBand[s][1] ?? 0, p[s])];
+  }
+  const onLegendScale = (v: number, s: 'batting' | 'bowling') => {
+    const [lo = v, hi = v] = legendBand[s];
+    if (hi <= lo) return 1000;
+    return LEGEND_MIN + Number(roundDiv(BigInt((1000 - LEGEND_MIN) * (v - lo)), BigInt(hi - lo)));
+  };
+
+  const goldOf = new Map<string, CardStatPoints>();
   const cards: CardSpec[] = [];
   for (const p of order) {
-    const base = { playerIds: [p.playerId] as [string], ratings: { ...p.ratings }, stars: p.stars };
-    if (plan.legends.has(p.playerId)) {
+    if (isLegend(p)) {
+      const main = primarySkill(p);
+      const gold: CardStatPoints = {
+        batting:
+          main === 'batting'
+            ? onLegendScale(p.batting, 'batting')
+            : onBronzeScale(p.batting, 'batting'),
+        bowling:
+          main === 'bowling'
+            ? onLegendScale(p.bowling, 'bowling')
+            : onBronzeScale(p.bowling, 'bowling'),
+        runs: p.runs,
+      };
+      goldOf.set(p.playerId, gold);
       for (const rarity of LEGEND_RARITIES) {
+        const ratings = scaleRatings(gold, LEGEND_FACTORS[rarity]);
         cards.push({
           key: `legend:${p.playerId}:${rarity}`,
           rarity,
-          ...base,
-          ratings: scaleRatings(p.ratings, LEGEND_FACTORS[rarity]),
+          playerIds: [p.playerId],
+          ratings,
+          stars: starsOf(ratings),
         });
       }
     } else {
-      cards.push({ key: `single:${p.playerId}`, rarity: 'bronze', ...base });
+      const ratings: CardStatPoints = {
+        batting: onBronzeScale(p.batting, 'batting'),
+        bowling: onBronzeScale(p.bowling, 'bowling'),
+        runs: p.runs,
+      };
+      goldOf.set(p.playerId, ratings);
+      cards.push({
+        key: `single:${p.playerId}`,
+        rarity: 'bronze',
+        playerIds: [p.playerId],
+        ratings,
+        stars: starsOf(ratings),
+      });
     }
   }
 
@@ -159,24 +237,17 @@ export function buildCatalog(players: readonly PlayerRatings[], plan: CatalogPla
     if (!a || !b || x === y || paired.has(key)) continue;
     paired.add(key);
     const [first, second] = a.playerId < b.playerId ? [a, b] : [b, a];
-    const ratings = {} as Record<RatingMetric, number>;
-    for (const m of RATING_METRICS) {
-      ratings[m] = Math.min(
-        DUAL_CAP,
-        Number(roundDiv(BigInt(first.ratings[m] + second.ratings[m]), 2n)),
-      );
-    }
-    const pct = Number(
-      roundDiv(BigInt(first.roleStrengthPermille + second.roleStrengthPermille), 2n),
-    );
-    let stars = 1;
-    for (const t of STAR_THRESHOLDS) if (pct >= t) stars += 1;
+    const ga = goldOf.get(first.playerId) as CardStatPoints;
+    const gb = goldOf.get(second.playerId) as CardStatPoints;
+    const ratings = Object.fromEntries(
+      CARD_METRICS.map((m) => [m, Math.max(ga[m], gb[m])] as const),
+    ) as CardStatPoints;
     cards.push({
       key: `dual:${first.playerId}+${second.playerId}`,
       rarity: 'dual_platinum',
       playerIds: [first.playerId, second.playerId],
       ratings,
-      stars: stars as 1 | 2 | 3 | 4 | 5,
+      stars: starsOf(ratings),
     });
   }
   return cards;

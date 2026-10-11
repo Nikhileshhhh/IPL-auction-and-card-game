@@ -86,9 +86,11 @@ export function CardCollection() {
           Card types
         </h2>
         <p className="mt-1 text-sm text-ink-2">
-          {showcase?.dataLabel ?? 'Loading…'} · Legends (100+ matches for one franchise) come in
-          Normal, Silver and Gold; every other player has a Bronze card; Platinum is for legendary
-          pairs. Rarity changes the frame only, never the ratings.
+          {showcase?.dataLabel ?? 'Loading…'} · Batting and Bowling come from each player&apos;s
+          whole IPL career; Runs is career runs per innings. Legends (100+ matches for one
+          franchise, plus Sachin Tendulkar and Chris Gayle) come in Normal, Silver and Gold with
+          their best skill rated 90–100; every other player has a Bronze card rated up to 89;
+          Platinum is for legendary pairs.
         </p>
         <div className="-mx-[var(--gutter)] mt-4 flex snap-x gap-4 overflow-x-auto px-[var(--gutter)] pb-3">
           {showcase

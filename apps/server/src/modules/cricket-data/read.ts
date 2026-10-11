@@ -28,10 +28,8 @@ function toDisplay(points: Record<string, number>): CardRatings {
   return {
     batting: displayRating(points.batting ?? 0),
     bowling: displayRating(points.bowling ?? 0),
-    fielding: displayRating(points.fielding ?? 0),
-    form: displayRating(points.form ?? 0),
-    experience: displayRating(points.experience ?? 0),
-    versatility: displayRating(points.versatility ?? 0),
+    // Runs per innings × 10 (career-model cards); earlier packs carried no runs.
+    runs: displayRating(points.runs ?? 0),
   };
 }
 

@@ -37,7 +37,7 @@
 ### 3. Deal
 - **Per-rarity counts:** they follow the catalog's own mix among the enabled rarities, with at most one dual card per match (ADR-020).
 - **Repeats:** a definition is dealt at most once, but Normal, Silver and Gold of the same legend are distinct definitions and may meet in one match. Duals may share a match with their players' single cards (ADR-020 amendment).
-- **Stratified mode (default):** cards are banded by the sum of their six ratings into four bands of whole rounds. Each band is shuffled and dealt round-robin from a random start seat, so every seat gets the same number of cards from every band. Each deck is then shuffled. Random mode deals one shuffled pile.
+- **Stratified mode (default):** cards are banded by the sum of their ratings into four bands of whole rounds. Each band is shuffled and dealt round-robin from a random start seat, so every seat gets the same number of cards from every band. Each deck is then shuffled. Random mode deals one shuffled pile.
 - **Selector and fallback:** the initial selector comes from the `seats` stream and the fallback permutation from the `fallback` stream.
 - **Seat order:** lobby seat, then join time, then member ID.
 
@@ -89,3 +89,9 @@
 - **S10:** the comparison sheet is a dialog opened from the arena. The `?view=comparison` query route is not used, so closing the dialog cannot change the URL or lose arena state.
 - **S08:** dealing is part of the atomic start transaction. The preparation page therefore reports completed stages, then forwards to the arena after 1.2 s. It has no progress bar.
 - **Contest numbering:** the snapshot's `comparisonIndex` is global across the match, as the engine counts it.
+
+## Amendment (11 October 2026): three categories (ADR-022)
+- **Categories:** the game's categories are Batting, Bowling and Runs (`CARD_METRICS`).
+- **Timeout policy:** the policy, the fallback sum and stratification work over these three.
+- **Comparisons:** migration 051 limits new comparisons to these metrics.
+

@@ -37,7 +37,7 @@ describe('card transitions under the room lock (rules §7)', () => {
         controlEpoch: mine.me.controlEpoch,
         payload: { comparisonId: mine.game!.comparisonId, metric },
       });
-    const results = await Promise.all([send('batting'), send('bowling'), send('form')]);
+    const results = await Promise.all([send('batting'), send('bowling'), send('runs')]);
     const ok = results.filter((r) => r.status === 200);
     expect(ok).toHaveLength(1);
     for (const r of results.filter((x) => x.status !== 200)) {

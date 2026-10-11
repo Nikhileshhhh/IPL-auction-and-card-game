@@ -1,13 +1,14 @@
 import {
   CARD_METRICS,
   METRIC_LABELS,
-  ROLE_LABELS,
+  type CardMetric,
+  type PlayerRole,
   type PublicCardDTO,
   type Rarity,
 } from '@stumps/contracts';
 import { cx } from '@stumps/ui';
 import { PortraitImage } from './PortraitImage';
-import { teamBackdrop } from './teams';
+import { teamBurst, teamColours } from './teams';
 
 export const RARITY_NAMES: Record<Rarity, string> = {
   normal: 'Normal',
@@ -18,54 +19,74 @@ export const RARITY_NAMES: Record<Rarity, string> = {
   dual_platinum: 'Dual Platinum',
 };
 
+/** Card role ribbon, Attax style. */
+const ROLE_RIBBON: Record<PlayerRole, string> = {
+  batter: 'Batsman',
+  bowler: 'Bowler',
+  all_rounder: 'All-rounder',
+  wicketkeeper: 'Wicket-keeper',
+};
+
 export type CardSize = 'mini' | 'compact' | 'standard' | 'detail';
 
 const SIZES: Record<
   CardSize,
-  { box: string; name: string; num: string; label: string; meta: string; sizes: string }
+  {
+    box: string;
+    ribbon: string;
+    circle: string;
+    runs: string;
+    num: string;
+    runsNum: string;
+    label: string;
+    team: string;
+    sizes: string;
+  }
 > = {
   mini: {
     box: 'w-[132px]',
-    name: 'text-[11px]',
+    ribbon: 'text-[8px]',
+    circle: 'h-8 w-8',
+    runs: 'h-6 w-6',
     num: 'text-sm',
-    label: 'text-[8px]',
-    meta: 'text-[8px]',
+    runsNum: 'text-[11px]',
+    label: 'text-[6px]',
+    team: 'text-[6px]',
     sizes: '132px',
   },
   compact: {
     box: 'w-[240px]',
-    name: 'text-[15px]',
-    num: 'text-xl',
+    ribbon: 'text-xs',
+    circle: 'h-14 w-14',
+    runs: 'h-10 w-10',
+    num: 'text-2xl',
+    runsNum: 'text-base',
     label: 'text-[9px]',
-    meta: 'text-[10px]',
+    team: 'text-[9px]',
     sizes: '240px',
   },
   standard: {
     box: 'w-[300px]',
-    name: 'text-lg',
-    num: 'text-2xl',
+    ribbon: 'text-sm',
+    circle: 'h-[68px] w-[68px]',
+    runs: 'h-12 w-12',
+    num: 'text-3xl',
+    runsNum: 'text-lg',
     label: 'text-[10px]',
-    meta: 'text-[11px]',
+    team: 'text-[10px]',
     sizes: '300px',
   },
   detail: {
-    box: 'w-[min(460px,100%)]',
-    name: 'text-2xl',
-    num: 'text-3xl',
+    box: 'w-[min(420px,100%)]',
+    ribbon: 'text-base',
+    circle: 'h-24 w-24',
+    runs: 'h-16 w-16',
+    num: 'text-5xl',
+    runsNum: 'text-2xl',
     label: 'text-xs',
-    meta: 'text-xs',
-    sizes: '460px',
+    team: 'text-xs',
+    sizes: '420px',
   },
-};
-
-/** Short labels for the card face (full names stay in the accessible label). */
-const SHORT_LABELS: Record<(typeof CARD_METRICS)[number], string> = {
-  batting: 'BAT',
-  bowling: 'BOWL',
-  fielding: 'FIELD',
-  form: 'FORM',
-  experience: 'EXP',
-  versatility: 'VERS',
 };
 
 /** Rarities that shine and glow; Bronze and Normal stay matte (product owner). */
@@ -76,36 +97,45 @@ export const SHINING: ReadonlySet<Rarity> = new Set([
   'dual_platinum',
 ]);
 
+const SPARKLES = [
+  { top: '9%', left: '74%', delay: '0s' },
+  { top: '34%', left: '16%', delay: '0.9s' },
+  { top: '52%', left: '80%', delay: '1.7s' },
+];
+
+/** Bowling left (blue), Runs centre (maroon, with stars), Batting right (green). */
+const STAT_STYLE: Record<CardMetric, string> = {
+  bowling: 'stumps-stat-bowling',
+  runs: 'stumps-stat-runs',
+  batting: 'stumps-stat-batting',
+};
+const STAT_ORDER: readonly CardMetric[] = ['bowling', 'runs', 'batting'];
+
 function Stars({ count, className }: { count: number; className?: string }) {
   return (
     <span
-      className={cx('flex items-center', className)}
+      className={cx('flex justify-center', className)}
       role="img"
       aria-label={`${count} of 5 stars`}
     >
       <span
         aria-hidden="true"
-        className="tracking-tight text-[#ffd76a] drop-shadow-[0_0_4px_rgba(255,200,80,0.6)]"
+        className="tracking-tight text-[#ffd76a] drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
       >
         {'★'.repeat(count)}
-        <span className="text-white/25">{'★'.repeat(5 - count)}</span>
+        <span className="text-white/30">{'★'.repeat(5 - count)}</span>
       </span>
     </span>
   );
 }
 
-const SPARKLES = [
-  { top: '9%', left: '78%', delay: '0s' },
-  { top: '36%', left: '12%', delay: '0.9s' },
-  { top: '58%', left: '86%', delay: '1.7s' },
-];
-
 /**
- * Card art (UI spec §2): rarity crest and stars, a team-coloured spotlight
- * behind the player photo (both photos side by side on a dual card), the
- * name plate, and six Game ratings (0–100) with bars in a stable 3×2 grid.
- * Rarity changes only the look (R19): Gold, Silver and Platinum shine and
- * glow; Platinum frames are holographic; Bronze and Normal are matte.
+ * Attax-style card art (product owner's sample, original artwork): the player
+ * photo on a team-coloured sunburst, the name up the left edge and the role
+ * down the right, and the three stats along the bottom — Bowling, Runs (with
+ * the star rating) and Batting. Rarity changes only the frame and effects
+ * (R19): Gold, Silver and Platinum shine and glow, Platinum frames are
+ * holographic, Bronze and Normal are matte.
  */
 export function PremiumCricketCard({
   card,
@@ -117,7 +147,7 @@ export function PremiumCricketCard({
   card: PublicCardDTO;
   size?: CardSize;
   priority?: boolean;
-  highlight?: (typeof CARD_METRICS)[number];
+  highlight?: CardMetric;
   className?: string;
 }) {
   const s = SIZES[size];
@@ -126,42 +156,32 @@ export function PremiumCricketCard({
   if (!first) return null;
   const names = card.players.map((p) => p.name).join(' & ');
   const teams = [...new Set(card.players.map((p) => p.team).filter(Boolean))].join(' / ');
-  const roles = [...new Set(card.players.map((p) => ROLE_LABELS[p.role]))].join(' / ');
+  const roles = [...new Set(card.players.map((p) => ROLE_RIBBON[p.role]))].join(' / ');
   const shines = SHINING.has(card.rarity);
   const holo = card.rarity === 'platinum' || card.rarity === 'dual_platinum';
   const mini = size === 'mini';
+  const [teamA, teamB] = teamColours(first.team);
   return (
     <article
       aria-label={`${RARITY_NAMES[card.rarity]} card: ${names}. ${CARD_METRICS.map(
         (m) => `${METRIC_LABELS[m]} ${card.ratings[m]}`,
-      ).join(', ')}.`}
+      ).join(', ')}. ${card.stars} of 5 stars.`}
       data-rarity={card.rarity}
       data-shine={shines ? 'true' : 'false'}
       className={cx('stumps-card aspect-[5/7] shrink-0', s.box, className)}
     >
-      <div className="stumps-card-inner">
-        {/* Portrait with a team-coloured spotlight */}
-        <div
-          className={cx('relative w-full shrink-0 overflow-hidden', mini ? 'h-[50%]' : 'h-[54%]')}
-          style={{ background: teamBackdrop(first.team) }}
-        >
+      <div className="stumps-card-inner" style={{ background: teamBurst(first.team) }}>
+        {/* Photo between the ribbons */}
+        <div className="absolute inset-x-[11%] top-[5%] bottom-[25%] overflow-hidden">
           {dual && second ? (
             <>
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: teamBackdrop(second.team),
-                  clipPath: 'polygon(58% 0,100% 0,100% 100%,42% 100%)',
-                }}
-              />
-              {/* Side by side with a slanted seam so both faces stay visible. */}
               <div className="absolute inset-y-0 left-0 w-[58%] [clip-path:polygon(0_0,100%_0,72.4%_100%,0_100%)]">
                 <PortraitImage
                   src={first.portraitUrl}
                   alt={first.portraitAlt}
                   sizes={s.sizes}
                   priority={priority}
-                  className="object-cover object-[center_12%]"
+                  className="object-cover object-top"
                 />
               </div>
               <div className="absolute inset-y-0 right-0 w-[58%] [clip-path:polygon(27.6%_0,100%_0,100%_100%,0_100%)]">
@@ -170,7 +190,7 @@ export function PremiumCricketCard({
                   alt={second.portraitAlt}
                   sizes={s.sizes}
                   priority={priority}
-                  className="object-cover object-[center_12%]"
+                  className="object-cover object-top"
                 />
               </div>
               <svg
@@ -196,105 +216,95 @@ export function PremiumCricketCard({
               alt={first.portraitAlt}
               sizes={s.sizes}
               priority={priority}
-              className="object-cover object-[center_12%]"
+              className="object-cover object-top"
             />
           )}
           {holo ? <div aria-hidden="true" className="stumps-card-holo" /> : null}
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[var(--panel)] via-[var(--panel)]/60 to-transparent"
-          />
-          {/* Crest and stars */}
-          <div
-            className={cx(
-              'absolute inset-x-0 top-0 flex items-start justify-between',
-              mini ? 'p-1.5' : 'p-2.5',
-            )}
-          >
-            <span
-              className={cx(
-                'stumps-crest rounded-full font-bold tracking-[0.14em] uppercase backdrop-blur-sm',
-                mini ? 'px-1.5 py-0.5 text-[7px]' : 'px-2.5 py-0.5',
-                !mini && s.label,
-              )}
-            >
-              {RARITY_NAMES[card.rarity]}
-            </span>
-            {mini ? null : (
-              <Stars
-                count={card.stars}
-                className={cx('rounded-full bg-black/45 px-2 py-0.5 backdrop-blur-sm', s.label)}
-              />
-            )}
-          </div>
         </div>
 
-        {/* Name plate */}
-        <div className={cx('relative shrink-0', mini ? '-mt-4 px-1.5' : '-mt-7 px-3')}>
+        {/* Name ribbon (left, reading upward) and role ribbon (right) */}
+        <div
+          className="stumps-ribbon absolute top-[5%] bottom-[25%] left-0 flex w-[11%] items-center justify-center overflow-hidden"
+          style={{ background: `linear-gradient(180deg, ${teamA}, ${teamB})` }}
+        >
           <p
             className={cx(
-              'font-display leading-[1.05] font-bold tracking-wide text-white uppercase drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]',
-              mini && 'truncate',
-              s.name,
+              'rotate-180 font-display leading-none font-bold tracking-wide whitespace-nowrap text-white uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] [writing-mode:vertical-rl]',
+              s.ribbon,
             )}
           >
             {names}
           </p>
-          {mini ? null : (
-            <>
-              <span
-                aria-hidden="true"
-                className="stumps-name-rule my-1 block h-[2px] w-10 rounded-full"
-              />
-              <p className={cx('truncate text-white/70', s.meta)}>
-                {roles}
-                {teams ? ` · ${teams}` : ''}
-              </p>
-            </>
-          )}
+        </div>
+        <div className="stumps-ribbon stumps-ribbon-role absolute top-[5%] right-0 bottom-[25%] flex w-[11%] items-center justify-center overflow-hidden">
+          <p
+            className={cx(
+              'font-display leading-none font-bold tracking-wider whitespace-nowrap text-white uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] [writing-mode:vertical-rl]',
+              s.ribbon,
+            )}
+          >
+            {roles}
+          </p>
         </div>
 
-        {/* Six game ratings, stable 3×2 grid with bars */}
-        <dl
-          className={cx(
-            'stumps-stats grid flex-1 grid-cols-3 grid-rows-2',
-            mini ? 'gap-0.5 p-1' : 'gap-1.5 p-2.5 pt-2',
-          )}
-        >
-          {CARD_METRICS.map((m) => (
-            <div
-              key={m}
-              data-highlight={highlight === m ? 'true' : 'false'}
+        {/* Team and rarity */}
+        <div className="absolute inset-x-[12%] top-[6%] flex items-start justify-between gap-1">
+          {mini ? (
+            <span />
+          ) : (
+            <span
               className={cx(
-                'stumps-stat flex flex-col justify-center rounded-md bg-white/[0.04]',
-                mini ? 'px-1 py-0.5' : 'px-2 py-1',
+                'max-w-[60%] truncate rounded-full bg-black/55 px-2 py-0.5 font-semibold tracking-wide text-white uppercase backdrop-blur-sm',
+                s.team,
               )}
             >
-              <dt className={cx('truncate tracking-wider text-white/70 uppercase', s.label)}>
-                {size === 'detail' ? (
-                  METRIC_LABELS[m]
-                ) : (
-                  <abbr title={METRIC_LABELS[m]} className="no-underline">
-                    {SHORT_LABELS[m]}
-                  </abbr>
-                )}
-              </dt>
-              <dd
-                className={cx('font-display leading-none font-bold text-white tabular-nums', s.num)}
+              {teams}
+            </span>
+          )}
+          <span
+            className={cx(
+              'stumps-crest rounded-full font-bold tracking-[0.12em] uppercase backdrop-blur-sm',
+              mini ? 'px-1 py-0 text-[6px]' : 'px-2 py-0.5',
+              !mini && s.team,
+            )}
+          >
+            {RARITY_NAMES[card.rarity]}
+          </span>
+        </div>
+
+        {/* Stats: Bowling, Runs + stars, Batting */}
+        <dl className="stumps-stat-panel absolute inset-x-0 bottom-0 grid h-[27%] grid-cols-3 items-center px-[4%]">
+          {STAT_ORDER.map((m) => {
+            const isRuns = m === 'runs';
+            return (
+              <div
+                key={m}
+                data-highlight={highlight === m ? 'true' : 'false'}
+                className="stumps-stat flex flex-col items-center justify-center gap-0.5"
               >
-                {card.ratings[m]}
-              </dd>
-              <span
-                aria-hidden="true"
-                className={cx('mt-1 block h-[3px] rounded-full bg-white/10', mini && 'hidden')}
-              >
-                <span
-                  className="stumps-stat-bar block h-full rounded-full"
-                  style={{ width: `${card.ratings[m]}%` }}
-                />
-              </span>
-            </div>
-          ))}
+                <dt
+                  className={cx(
+                    'order-2 font-display font-bold tracking-widest text-white uppercase',
+                    s.label,
+                  )}
+                >
+                  {METRIC_LABELS[m]}
+                </dt>
+                <dd
+                  className={cx(
+                    'order-1 grid place-items-center rounded-full border-2 border-white/90 font-display leading-none font-bold text-white tabular-nums shadow-[0_3px_10px_rgba(0,0,0,0.6)]',
+                    STAT_STYLE[m],
+                    isRuns ? cx(s.runs, s.runsNum) : cx(s.circle, s.num),
+                  )}
+                >
+                  {card.ratings[m]}
+                </dd>
+                {isRuns && !mini ? (
+                  <Stars count={card.stars} className={cx('order-3', s.label)} />
+                ) : null}
+              </div>
+            );
+          })}
         </dl>
       </div>
       {shines ? <div aria-hidden="true" className="stumps-card-shine" /> : null}

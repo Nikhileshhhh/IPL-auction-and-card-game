@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateMatches,
   allocateRarityCounts,
+  battingQuality,
+  bowlingQuality,
   buildCatalog,
+  careerRatings,
   checkPool,
   findLegends,
   LEGEND_FACTORS,
@@ -14,6 +17,9 @@ import {
   rankRescale,
   rat,
   RATING_METRICS,
+  LEGEND_RARITIES,
+  type CareerCounts,
+  type CatalogPlayer,
   type PlayerRatings,
 } from '../src';
 import { generateDemoLeague } from '../../../tests/fixtures/data/demo-league';
@@ -160,64 +166,142 @@ describe('percentile and rescale helpers', () => {
   });
 });
 
-describe('catalog: legends, Bronze singles and Platinum duals (ADR-020)', () => {
-  const ids = ratings.map((r) => r.playerId).sort();
-  const legends = new Set(ids.slice(0, 3));
-  const [l1, l2, l3] = [...legends] as [string, string, string];
-  const cards = buildCatalog(ratings, {
-    legends,
-    duals: [
-      [l1, l2],
-      [l2, l3],
-      [l2, l1], // the same pair again is ignored
-      [l1, 'not-in-pack'], // a missing player skips the pair
-    ],
+describe('career model (ADR-022): whole IPL career, Batting / Bowling / Runs', () => {
+  const players = new Set(ratings.map((r) => r.playerId));
+  const career = careerRatings({
+    seasons: agg.seasons,
+    lines: agg.lines,
+    players,
+    cutoffDate: '2025-12-31',
+  });
+  const counts = (over: Partial<CareerCounts>): CareerCounts => ({
+    innings: 0,
+    runs: 0,
+    balls: 0,
+    dismissals: 0,
+    bowlBalls: 0,
+    bowlRuns: 0,
+    wickets: 0,
+    ...over,
   });
 
-  it('every player has one Bronze card; a legend has Normal, Silver and Gold instead', () => {
-    for (const r of ratings) {
-      const own = cards.filter((c) => c.playerIds.length === 1 && c.playerIds[0] === r.playerId);
-      expect(own.map((c) => c.rarity).sort()).toEqual(
-        legends.has(r.playerId) ? ['gold', 'normal', 'silver'] : ['bronze'],
+  it('the best career batter and bowler are 100; never batting or bowling is a real 0', () => {
+    const list = [...career.values()];
+    expect(Math.max(...list.map((c) => c.batting))).toBe(1000);
+    expect(Math.max(...list.map((c) => c.bowling))).toBe(1000);
+    for (const c of list) {
+      if (c.counts.balls === 0) expect(c.batting).toBe(0);
+      if (c.counts.bowlBalls === 0) expect(c.bowling).toBe(0);
+      expect(c.runs).toBe(
+        c.counts.innings ? Math.round((10 * c.counts.runs) / c.counts.innings) : 0,
       );
     }
-    expect(cards.some((c) => c.rarity === 'platinum')).toBe(false);
+  });
+
+  it('more runs at a better average and strike rate rate higher', () => {
+    const solid = battingQuality(counts({ runs: 4000, balls: 3000, dismissals: 100 }));
+    const weak = battingQuality(counts({ runs: 4000, balls: 3600, dismissals: 160 }));
+    expect(solid).toBeGreaterThan(weak);
+    const tight = bowlingQuality(counts({ bowlBalls: 3000, bowlRuns: 3500, wickets: 150 }));
+    const loose = bowlingQuality(counts({ bowlBalls: 3000, bowlRuns: 4600, wickets: 100 }));
+    expect(tight).toBeGreaterThan(loose);
+  });
+
+  it('is deterministic and independent of input order', () => {
+    const again = careerRatings({
+      seasons: [...agg.seasons].reverse(),
+      lines: agg.lines,
+      players,
+      cutoffDate: '2025-12-31',
+    });
+    expect([...again.values()].map((c) => [c.playerId, c.batting, c.bowling, c.runs])).toEqual(
+      [...career.values()].map((c) => [c.playerId, c.batting, c.bowling, c.runs]),
+    );
+  });
+});
+
+describe('catalog tiers (ADR-020, ADR-022)', () => {
+  const p = (
+    playerId: string,
+    role: CatalogPlayer['role'],
+    batting: number,
+    bowling: number,
+    runs = 300,
+  ): CatalogPlayer => ({ playerId, role, batting, bowling, runs });
+  const players = [
+    p('kohli', 'batter', 1000, 110, 339),
+    p('rohit', 'batter', 830, 260, 266),
+    p('sachin', 'batter', 558, 4, 299),
+    p('bumrah', 'bowler', 67, 937, 23),
+    p('jadeja', 'all_rounder', 630, 841, 169),
+    p('rahul', 'batter', 910, 0, 388),
+    p('gill', 'batter', 809, 0, 351),
+    p('rashid', 'bowler', 279, 925, 86),
+    p('tail', 'bowler', 30, 400, 20),
+  ];
+  const legends = new Set(['kohli', 'rohit', 'sachin', 'bumrah', 'jadeja']);
+  const cards = buildCatalog(players, {
+    legends,
+    duals: [
+      ['rohit', 'kohli'],
+      ['kohli', 'rohit'], // the same pair again is ignored
+      ['kohli', 'not-in-pack'], // a missing player skips the pair
+    ],
+  });
+  const card = (key: string) => cards.find((c) => c.key === key)!;
+
+  it('every non-legend has one Bronze card; a legend has Normal, Silver and Gold', () => {
+    for (const x of players) {
+      const own = cards.filter((c) => c.playerIds.length === 1 && c.playerIds[0] === x.playerId);
+      expect(own.map((c) => c.rarity).sort()).toEqual(
+        legends.has(x.playerId) ? ['gold', 'normal', 'silver'] : ['bronze'],
+      );
+    }
+    expect(cards.filter((c) => c.rarity === 'dual_platinum')).toHaveLength(1);
     expect(new Set(cards.map((c) => c.key)).size).toBe(cards.length);
   });
 
-  it('Platinum only for the named dual pairs', () => {
-    const duals = cards.filter((c) => c.rarity === 'dual_platinum');
-    expect(duals.map((d) => [...d.playerIds].sort().join('+')).sort()).toEqual(
-      [[l1, l2].sort().join('+'), [l2, l3].sort().join('+')].sort(),
+  it('Bronze never shows more than 89; the best Bronze batter and bowler show 89', () => {
+    const bronze = cards.filter((c) => c.rarity === 'bronze');
+    for (const c of bronze) {
+      expect(displayRating(c.ratings.batting)).toBeLessThanOrEqual(89);
+      expect(displayRating(c.ratings.bowling)).toBeLessThanOrEqual(89);
+    }
+    expect(displayRating(card('single:rahul').ratings.batting)).toBe(89);
+    expect(displayRating(card('single:rashid').ratings.bowling)).toBe(89);
+  });
+
+  it("a legend's Gold main skill is 90–100, above every Bronze card; the best legend is 100", () => {
+    expect(displayRating(card('legend:kohli:gold').ratings.batting)).toBe(100);
+    expect(displayRating(card('legend:sachin:gold').ratings.batting)).toBe(90);
+    expect(displayRating(card('legend:bumrah:gold').ratings.bowling)).toBe(100);
+    expect(displayRating(card('legend:jadeja:gold').ratings.bowling)).toBeGreaterThanOrEqual(90);
+    // The other skill stays on the Bronze scale (Kohli does not become a bowler).
+    expect(displayRating(card('legend:kohli:gold').ratings.bowling)).toBeLessThan(20);
+    expect(card('legend:kohli:gold').stars).toBe(5);
+  });
+
+  it('Silver is 96 % and Normal 92 % of Gold for Batting and Bowling; Runs is never scaled', () => {
+    const shown = (['normal', 'silver', 'gold'] as const).map((r) =>
+      displayRating(card(`legend:kohli:${r}`).ratings.batting),
+    );
+    expect(shown).toEqual([92, 96, 100]);
+    for (const r of LEGEND_RARITIES) expect(card(`legend:kohli:${r}`).ratings.runs).toBe(339);
+    expect(scaleRatings({ batting: 1000, bowling: 500, runs: 339 }, LEGEND_FACTORS.normal)).toEqual(
+      { batting: 920, bowling: 460, runs: 339 },
     );
   });
 
-  it('dual ratings are the rounded mean of both players, capped at 950 (display ≤ 95)', () => {
-    for (const d of cards.filter((c) => c.rarity === 'dual_platinum')) {
-      const [a, b] = d.playerIds.map((id) => byId.get(id) as PlayerRatings);
-      for (const m of RATING_METRICS) {
-        const mean = Math.floor((a!.ratings[m] + b!.ratings[m] + 1) / 2);
-        expect(d.ratings[m]).toBe(Math.min(950, mean));
-        expect(displayRating(d.ratings[m])).toBeLessThanOrEqual(95);
-      }
-    }
-  });
-
-  it('Bronze shows the player ratings; legend versions are 92 % / 96 % / 100 % of them', () => {
-    const factor = { normal: 92, silver: 96, gold: 100, bronze: 100 } as Record<string, number>;
-    for (const c of cards.filter((x) => x.playerIds.length === 1)) {
-      const own = byId.get(c.playerIds[0])!.ratings;
-      for (const m of RATING_METRICS) {
-        expect(c.ratings[m]).toBe(Math.floor((own[m] * factor[c.rarity]! + 50) / 100));
-      }
-    }
-    // Kohli-style example: a 1000-point batter shows 92 / 96 / 100.
-    const scaled = (['normal', 'silver', 'gold'] as const).map((r) =>
-      displayRating(
-        scaleRatings({ ...ratings[0]!.ratings, batting: 1000 }, LEGEND_FACTORS[r]).batting,
-      ),
-    );
-    expect(scaled).toEqual([92, 96, 100]);
+  it('a Platinum pair takes the better of the two Gold cards for every stat', () => {
+    const dual = cards.find((c) => c.rarity === 'dual_platinum')!;
+    const k = card('legend:kohli:gold').ratings;
+    const r = card('legend:rohit:gold').ratings;
+    expect(dual.ratings).toEqual({
+      batting: Math.max(k.batting, r.batting),
+      bowling: Math.max(k.bowling, r.bowling),
+      runs: Math.max(k.runs, r.runs),
+    });
+    expect(dual.stars).toBe(5);
   });
 
   it('legends are 100+ matches for one franchise; renamed franchises count as one', () => {

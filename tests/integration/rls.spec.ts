@@ -490,14 +490,7 @@ describe('published catalog versions are immutable (E64)', () => {
 
   it('dual cards need exactly two players and single cards exactly one (deferred check)', async () => {
     const { versionId, playerId } = await draftVersion('immut-2');
-    const ratings = JSON.stringify({
-      batting: 1,
-      bowling: 1,
-      fielding: 1,
-      form: 1,
-      experience: 1,
-      versatility: 1,
-    });
+    const ratings = JSON.stringify({ batting: 1, bowling: 1, runs: 1 });
     await runtime.query('BEGIN');
     const card = await runtime.query<{ id: string }>(
       `INSERT INTO app_private.card_definitions (data_version_id, label, rarity, stars, ratings, model_version)

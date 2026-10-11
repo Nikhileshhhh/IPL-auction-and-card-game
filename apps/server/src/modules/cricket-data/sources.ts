@@ -55,6 +55,16 @@ export const IPL_DUAL_PAIRS: readonly { label: string; pair: readonly [string, s
   { label: 'Jasprit Bumrah & Lasith Malinga', pair: ['462411b3', 'a12e1d51'] },
 ];
 
+/**
+ * All-time greats who get legend cards without 100 matches for one franchise
+ * (product owner, 11 October 2026), by Cricsheet register ID. Shown in the
+ * franchise they played most for.
+ */
+export const IPL_EXTRA_LEGENDS: readonly { label: string; id: string }[] = [
+  { label: 'Sachin Tendulkar', id: 'd2c2b2d5' },
+  { label: 'Chris Gayle', id: 'db584dad' },
+];
+
 /** Minimal RFC 4180 CSV parser (quoted fields, escaped quotes). */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -187,10 +197,17 @@ export async function cricsheetBundle(
     if (person?.cricinfo) aliases.set(s.playerId, [{ source: 'cricinfo', id: person.cricinfo }]);
   }
   const first = windowSeasons[0] ?? latest;
-  // ADR-020: legends (100+ matches for one franchise, all seasons up to the cutoff).
+  // ADR-020: legends (100+ matches for one franchise, all seasons up to the cutoff),
+  // plus the named all-time greats (ADR-022).
   // Retired legends join the pack on their own last three seasons, shown in the
   // franchise they are legends of.
   const legends = findLegends(scoped.seasons);
+  // Named all-time greats join with their most-played franchise (any match count).
+  const anyTeam = findLegends(scoped.seasons, 1);
+  for (const { id } of IPL_EXTRA_LEGENDS) {
+    const great = anyTeam.get(id);
+    if (great && !legends.has(id)) legends.set(id, great);
+  }
   const latestSeasonOf = new Map<string, number>();
   const teamOf = new Map<string, string>();
   for (const [id, legend] of legends) {
@@ -212,7 +229,8 @@ export async function cricsheetBundle(
     externalSource: 'cricsheet',
     latestSeason: latest,
     cutoffDate,
-    windowLabel: `IPL ${first === latest ? latest : `${first}–${latest}`}, as of ${fmtDate(cutoffDate)}`,
+    // ADR-022: card stats are whole IPL careers (from the first season) up to the cutoff.
+    windowLabel: `IPL careers ${seasons[0]}–${latest}, as of ${fmtDate(cutoffDate)}`,
     source: {
       publisher: 'Cricsheet',
       url: CRICSHEET_FILES.matches.url,

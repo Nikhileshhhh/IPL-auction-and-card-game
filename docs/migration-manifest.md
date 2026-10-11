@@ -17,6 +17,7 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `045_catalog_media_ratings` | 6 | catalog_imports; alters players, player_seasons, media_assets (free-license evidence), data_versions, card_definitions |
 | `046_ipl_kit_photos` | 6 | alters media_assets (`ipl_kit` attestation, ADR-019) |
 | `050_card_engine` | 7–8 | card_games, card_seats, card_instances, card_comparisons, card_contributions, card_cycle_counts |
+| `051_attax_card_stats` | 7 | alters card_definitions (ratings: batting, bowling, runs) and card_comparisons (metric) checks; new rows only (ADR-022) |
 | `060_auction` | 9–12 | auction_games, auction_franchises, franchise_members, team_handovers, franchise_invites, franchise_join_requests, auction_pool, auction_nominations, auction_bids, auction_acquisitions, retention_packages, auto_strategies, team_shortlists, shortlist_votes |
 | `070_votes_chat_assets_results_cleanup` | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
 | `080_invariants` | 7–15 (added per feature migration) | (deferred constraint triggers: card conservation, purse sums, single captain, medal mapping) |

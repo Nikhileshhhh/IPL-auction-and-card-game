@@ -200,7 +200,7 @@ export function CardDetailDialog({
                   ) : null}
                   {Object.keys(p.phases).length ? (
                     <StatTable
-                      caption="Phase game ratings (0–100)"
+                      caption="Phase ratings, last three seasons (0–100)"
                       rows={Object.entries(p.phases).map(([k, v]) => [PHASE_LABELS[k] ?? k, v])}
                     />
                   ) : null}

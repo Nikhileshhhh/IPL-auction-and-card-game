@@ -28,10 +28,7 @@ const newId = () => `id-${(counter += 1)}`;
 const pts = (batting: number, rest = 500): Record<CardMetric, number> => ({
   batting,
   bowling: rest,
-  fielding: rest,
-  form: rest,
-  experience: rest,
-  versatility: rest,
+  runs: rest,
 });
 const card = (id: string, batting: number, rest = 500): CardInstance => ({
   id,
@@ -317,29 +314,15 @@ describe('normal contest (rules §5, §14 vectors)', () => {
     const a: CardInstance = {
       id: 'x1',
       definitionId: 'dx1',
-      ratings: {
-        batting: 500,
-        bowling: 900,
-        fielding: 500,
-        form: 500,
-        experience: 500,
-        versatility: 500,
-      },
+      ratings: { batting: 500, bowling: 900, runs: 500 },
     };
     const b: CardInstance = {
       id: 'y1',
       definitionId: 'dy1',
-      ratings: {
-        batting: 400,
-        bowling: 600,
-        fielding: 200,
-        form: 500,
-        experience: 500,
-        versatility: 500,
-      },
+      ratings: { batting: 400, bowling: 600, runs: 200 },
     };
     const t = match({ A: [a], B: [b] }, 'A');
-    // batting +100, bowling +300, fielding +300: equal best advantages → enum order → bowling.
+    // batting +100, bowling +300, runs +300: equal best advantages → enum order → bowling.
     expect(timeoutMetric(t.state)).toBe('bowling');
   });
 

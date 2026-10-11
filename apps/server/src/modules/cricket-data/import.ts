@@ -1,7 +1,10 @@
 import type pg from 'pg';
 import {
   buildCatalog,
+  CAREER_MODEL_VERSION,
+  careerRatings,
   computeRatings,
+  type CatalogPlayer,
   type CatalogPlan,
   RATINGS_MODEL_VERSION,
   type Aggregate,
@@ -165,7 +168,7 @@ export async function importDataVersion(
         known.rows.filter((r) => r.reviewed).map((r) => [r.external_id, r.role]),
       );
 
-      const rated = computeRatings({
+      const window = computeRatings({
         seasons: bundle.aggregate.seasons,
         lines: bundle.aggregate.lines,
         latestSeason: bundle.latestSeason,
@@ -176,6 +179,25 @@ export async function importDataVersion(
       }).map((r) => {
         const team = bundle.teamOf?.get(r.playerId);
         return team ? { ...r, primaryTeam: team } : r;
+      });
+      // ADR-022: card stats and the sourced raw statistics are whole-career figures
+      // (every IPL season up to the cutoff); roles and franchise come from the window model.
+      const career = careerRatings({
+        seasons: bundle.aggregate.seasons,
+        lines: bundle.aggregate.lines,
+        players: new Set(window.map((r) => r.playerId)),
+        cutoffDate: bundle.cutoffDate,
+      });
+      const rated = window.map((r) => ({ ...r, raw: career.get(r.playerId)?.raw ?? r.raw }));
+      const catalogPlayers: CatalogPlayer[] = rated.map((r) => {
+        const c = career.get(r.playerId);
+        return {
+          playerId: r.playerId,
+          role: r.role,
+          batting: c?.batting ?? 0,
+          bowling: c?.bowling ?? 0,
+          runs: c?.runs ?? 0,
+        };
       });
       if (rated.length === 0) {
         throw new AppError('CONFIG_INVALID', 'No players appeared in the selected seasons.');
@@ -313,7 +335,7 @@ export async function importDataVersion(
       const cards = await insertCards(
         tx,
         version,
-        rated,
+        catalogPlayers,
         playerIds,
         bundle.people,
         bundle.catalogPlan ?? { legends: new Set(), duals: [] },
@@ -432,7 +454,7 @@ async function insertRatings(
 async function insertCards(
   tx: Tx,
   version: string,
-  rated: readonly PlayerRatings[],
+  rated: readonly CatalogPlayer[],
   playerIds: ReadonlyMap<string, string>,
   people: ImportBundle['people'],
   plan: CatalogPlan,
@@ -447,7 +469,7 @@ async function insertCards(
      RETURNING id, card_key`,
     [
       version,
-      RATINGS_MODEL_VERSION,
+      CAREER_MODEL_VERSION,
       specs.map((c) =>
         c.playerIds
           .map((p) => people.get(p)?.name ?? p)

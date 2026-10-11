@@ -28,3 +28,12 @@ export function teamBackdrop(team: string | null): string {
   const [a, b] = teamColours(team);
   return `radial-gradient(85% 75% at 50% 30%, ${a}cc 0%, ${b}88 45%, #0a1424 85%)`;
 }
+
+/** Attax-style sunburst in the team's colours behind the player photo. */
+export function teamBurst(team: string | null): string {
+  const [a, b] = teamColours(team);
+  return [
+    `radial-gradient(70% 55% at 50% 38%, rgba(255,255,255,0.35), transparent 70%)`,
+    `repeating-conic-gradient(from 0deg at 50% 38%, ${a} 0deg 7deg, ${b} 7deg 14deg)`,
+  ].join(', ');
+}

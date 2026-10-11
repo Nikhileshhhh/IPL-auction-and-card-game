@@ -715,7 +715,7 @@ function recentWindowLines(
 }
 
 /** Unweighted window totals for the card detail drawer (sourced raw statistics). */
-function rawStats(list: readonly PlayerSeason[], lines: readonly MatchLine[]): RawStats {
+export function rawStats(list: readonly PlayerSeason[], lines: readonly MatchLine[]): RawStats {
   const t = list.reduce(
     (a, s) => ({
       matches: a.matches + s.appearances,

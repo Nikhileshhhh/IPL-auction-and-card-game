@@ -113,5 +113,16 @@
 - **Server:** the snapshot carries `myDeck` for its owner only (ADR-021 §5a). The contracts, the catalog and `contracts:check` are updated.
 - **Tests:** integration covers deck privacy for every seat and queue order after a win. The E2E test checks the deck queue.
 
+## Follow-up (same day): Attax career ratings (ADR-022)
+- **Model** (`ratings/career.ts`): whole-career Batting (runs, average, strike rate), Bowling (wickets, economy, average) and Runs (runs per innings).
+- **Tiers** (`buildCatalog`):
+  - Bronze is capped at 89.
+  - A legend's main skill on Gold is 90–100.
+  - Silver and Normal are 96 % and 92 % of Gold.
+  - Platinum takes the better player per stat.
+- **Extra legends:** Sachin Tendulkar and Chris Gayle.
+- **Categories and cards:** the game's categories are Batting, Bowling and Runs. The card face follows the Attax layout (vertical name and role ribbons, three stat circles and stars).
+- **Migration** `051_attax_card_stats`.
+
 ## Next phase
 Phase 08: ties, exhaustion, fallback, cycle and time endings, ranking, restoration, and the S11 tie arena.
