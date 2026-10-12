@@ -11,9 +11,9 @@ export default function CardPoolPage() {
           Card pool
         </h1>
         <p className="mt-2 max-w-2xl text-ink-2">
-          Every card shows the player&apos;s photo and six Game ratings from 0 to 100, calculated
-          from real match statistics. The best batter in the pool rates 100 for batting, the best
-          bowler 100 for bowling.
+          Every card shows the player&apos;s photo with Batting, Bowling and Runs, calculated from
+          whole IPL careers. Bronze cards top out at 89 and legends reach 100; Sachin
+          Tendulkar&apos;s Gold card alone shows 101.
         </p>
       </header>
       <CardCollection />

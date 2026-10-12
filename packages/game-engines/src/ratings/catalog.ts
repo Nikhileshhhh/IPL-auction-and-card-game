@@ -97,6 +97,31 @@ export interface CatalogPlan {
   legends: ReadonlySet<string>;
   /** Named dual pairs (Platinum only); a pair with a missing player is skipped. */
   duals: readonly (readonly [string, string])[];
+  /**
+   * Product-owner card values for a legend's versions, used verbatim instead of
+   * the tier scaling (ADR-022 amendment). Each value is 0–RATING_CEILING.
+   */
+  overrides?: ReadonlyMap<string, LegendOverride>;
+}
+
+export type LegendRarity = (typeof LEGEND_RARITIES)[number];
+export type LegendOverride = Readonly<Partial<Record<LegendRarity, CardStatPoints>>>;
+
+/**
+ * The highest points any card may carry: 1010 (display 101). Only an owner
+ * override can exceed 1000; the computed model never does.
+ */
+export const RATING_CEILING = 1010;
+
+function checkOverride(playerId: string, o: LegendOverride) {
+  for (const [rarity, r] of Object.entries(o)) {
+    for (const m of CARD_METRICS) {
+      const v = r[m];
+      if (!Number.isInteger(v) || v < 0 || v > RATING_CEILING) {
+        throw new RangeError(`Override ${playerId}/${rarity}/${m} must be 0–${RATING_CEILING}.`);
+      }
+    }
+  }
 }
 
 /** One rated player (career model, ADR-022). */
@@ -117,7 +142,7 @@ export const LEGEND_RARITIES = ['normal', 'silver', 'gold'] as const;
  * is the legend rating, Silver 96 % of it and Normal 92 %, for Batting and
  * Bowling, rounded half-up. Runs is a real career figure and never scaled.
  */
-export const LEGEND_FACTORS: Readonly<Record<(typeof LEGEND_RARITIES)[number], number>> = {
+export const LEGEND_FACTORS: Readonly<Record<LegendRarity, number>> = {
   normal: 92,
   silver: 96,
   gold: 100,
@@ -159,7 +184,9 @@ export function primarySkill(p: CatalogPlayer): 'batting' | 'bowling' {
  *   legends over 90–100 by career rating (the best legend is 100); the other
  *   skill uses the Bronze scale. Silver is 96 % and Normal 92 % of Gold;
  * - Platinum is only for the named dual pairs and takes the better of the two
- *   players' Gold cards for each stat.
+ *   players' Gold cards for each stat;
+ * - a product-owner override replaces a legend version's values outright and
+ *   leaves every other card, and the legend band, unchanged.
  */
 export function buildCatalog(players: readonly CatalogPlayer[], plan: CatalogPlan): CardSpec[] {
   const byId = new Map(players.map((p) => [p.playerId, p]));
@@ -201,9 +228,11 @@ export function buildCatalog(players: readonly CatalogPlayer[], plan: CatalogPla
             : onBronzeScale(p.bowling, 'bowling'),
         runs: p.runs,
       };
-      goldOf.set(p.playerId, gold);
+      const override = plan.overrides?.get(p.playerId);
+      if (override) checkOverride(p.playerId, override);
+      goldOf.set(p.playerId, override?.gold ?? gold);
       for (const rarity of LEGEND_RARITIES) {
-        const ratings = scaleRatings(gold, LEGEND_FACTORS[rarity]);
+        const ratings = override?.[rarity] ?? scaleRatings(gold, LEGEND_FACTORS[rarity]);
         cards.push({
           key: `legend:${p.playerId}:${rarity}`,
           rarity,

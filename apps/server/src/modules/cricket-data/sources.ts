@@ -9,6 +9,7 @@ import {
   generateDemoLeague,
   type CatalogPlan,
   type CricsheetMatch,
+  type LegendOverride,
 } from '@stumps/game-engines';
 import { AppError } from '../../http/app-error';
 import type { ImportBundle } from './import';
@@ -64,6 +65,22 @@ export const IPL_EXTRA_LEGENDS: readonly { label: string; id: string }[] = [
   { label: 'Sachin Tendulkar', id: 'd2c2b2d5' },
   { label: 'Chris Gayle', id: 'db584dad' },
 ];
+
+/**
+ * Card values set by the product owner (12 October 2026, ADR-022 amendment),
+ * in points (display × 10). Sachin Tendulkar alone: Batting 98 / 100 / 101 on
+ * Normal / Silver / Gold, Bowling 20 and Runs 42 on all three.
+ */
+export const LEGEND_CARD_OVERRIDES: ReadonlyMap<string, LegendOverride> = new Map([
+  [
+    'd2c2b2d5',
+    {
+      normal: { batting: 980, bowling: 200, runs: 420 },
+      silver: { batting: 1000, bowling: 200, runs: 420 },
+      gold: { batting: 1010, bowling: 200, runs: 420 },
+    },
+  ],
+]);
 
 /** Minimal RFC 4180 CSV parser (quoted fields, escaped quotes). */
 export function parseCsv(text: string): string[][] {
@@ -221,6 +238,7 @@ export async function cricsheetBundle(
     catalogPlan: {
       legends: new Set(legends.keys()),
       duals: IPL_DUAL_PAIRS.map((d) => d.pair),
+      overrides: LEGEND_CARD_OVERRIDES,
     },
     latestSeasonOf,
     teamOf,

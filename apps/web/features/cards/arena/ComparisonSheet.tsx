@@ -27,7 +27,7 @@ export function ComparisonSheet({
       open={open}
       onOpenChange={onOpenChange}
       title="Comparison"
-      description="Game ratings are whole numbers from 0 to 100. The higher value wins the pot."
+      description="Game ratings are whole numbers from 0 to 100 (Sachin Tendulkar's Gold card shows 101). The higher value wins the pot."
     >
       <div className="flex flex-col gap-5 text-sm">
         {game.visibleCards.length > 0 ? (

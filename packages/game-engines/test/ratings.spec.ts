@@ -9,6 +9,7 @@ import {
   checkPool,
   findLegends,
   LEGEND_FACTORS,
+  RATING_CEILING,
   scaleRatings,
   computeRatings,
   displayRating,
@@ -302,6 +303,40 @@ describe('catalog tiers (ADR-020, ADR-022)', () => {
       runs: Math.max(k.runs, r.runs),
     });
     expect(dual.stars).toBe(5);
+  });
+
+  it("an owner override sets one legend's versions verbatim and nothing else", () => {
+    const sachin = {
+      normal: { batting: 980, bowling: 200, runs: 420 },
+      silver: { batting: 1000, bowling: 200, runs: 420 },
+      gold: { batting: 1010, bowling: 200, runs: 420 },
+    };
+    const owned = buildCatalog(players, {
+      legends,
+      duals: [['rohit', 'kohli']],
+      overrides: new Map([['sachin', sachin]]),
+    });
+    const of = (key: string) => owned.find((c) => c.key === key)!;
+    expect(
+      LEGEND_RARITIES.map((r) => displayRating(of(`legend:sachin:${r}`).ratings.batting)),
+    ).toEqual([98, 100, 101]);
+    for (const r of LEGEND_RARITIES) {
+      expect(of(`legend:sachin:${r}`).ratings).toEqual(sachin[r]);
+      expect(of(`legend:sachin:${r}`).stars).toBe(5);
+    }
+    // Every other card, and the legend band, is unchanged.
+    for (const c of owned.filter((x) => !x.key.includes('sachin'))) {
+      expect(c).toEqual(card(c.key));
+    }
+    expect(displayRating(of('legend:kohli:gold').ratings.batting)).toBe(100);
+  });
+
+  it('an override above the rating ceiling is refused', () => {
+    expect(RATING_CEILING).toBe(1010);
+    const bad = { gold: { batting: 1011, bowling: 0, runs: 0 } };
+    expect(() =>
+      buildCatalog(players, { legends, duals: [], overrides: new Map([['sachin', bad]]) }),
+    ).toThrow(RangeError);
   });
 
   it('legends are 100+ matches for one franchise; renamed franchises count as one', () => {

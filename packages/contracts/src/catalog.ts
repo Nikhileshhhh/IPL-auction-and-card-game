@@ -28,7 +28,12 @@ export const ROLE_LABELS: Record<PlayerRole, string> = {
   wicketkeeper: 'Wicketkeeper',
 };
 
-const Rating = z.number().int().min(0).max(100);
+/**
+ * Highest displayed rating. The model tops out at 100; only a product-owner
+ * override may show 101 (Sachin Tendulkar's Gold card, ADR-022 amendment).
+ */
+export const RATING_MAX = 101;
+const Rating = z.number().int().min(0).max(RATING_MAX);
 export const CardRatingsSchema = z
   .object({
     batting: Rating,

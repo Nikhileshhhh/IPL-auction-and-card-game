@@ -88,3 +88,20 @@ The decisions are in ADR-023. The voting UI that triggers `requestFinish('vote')
 
 ## Next phase
 Phase 09 — auction rulesets, franchises, player pool and retentions (S14–S19, S22).
+
+## Follow-up (same day): Sachin Tendulkar's owner-set cards
+- **Values:** Sachin's cards now show Batting 98 / 100 / 101 on Normal / Silver / Gold, with Bowling 20 and Runs 42 on all three (ADR-022 amendment).
+- **Code:**
+  - `buildCatalog` accepts per-legend overrides.
+  - `RATING_CEILING` is 1010 and `RATING_MAX` is 101.
+  - Migration `053_rating_ceiling`.
+- **Photo:** the product owner's Mumbai Indians photo is imported, so Sachin's cards are no longer pruned.
+- **Pack:**
+  - "IPL career pack (12 Oct)" (`eb5c7568`) is published with 354 cards: 263 Bronze, 27 legends × Normal, Silver and Gold, and 10 Platinum pairs.
+  - The previous pack is archived.
+  - Bronze still tops out at 89, and Kohli's Gold is still 100.
+- **Checked:**
+  - Engine tests for the override, other cards being unchanged, and the ceiling.
+  - Screenshots of Sachin's three cards and his card detail in the running app.
+- **Test fix:** `tests/e2e/card-match.spec.ts` sometimes timed out when the last click ended the match. The category buttons left the page while the play loop's `isEnabled` check was still waiting for them, with no time limit. Those checks and the click now give up after 1–2 s. After the fix the full E2E suite passes: 37 passed, 5 desktop-only skips.
+- **Checks re-run:** lint, typecheck, contracts:check, unit (173), `db:reset`/`db:lint` on `stumps_check`, integration (85), security (43), concurrency (9), build, E2E (37 passed).

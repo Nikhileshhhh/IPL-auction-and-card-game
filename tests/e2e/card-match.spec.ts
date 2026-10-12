@@ -20,9 +20,12 @@ test.beforeEach(async () => {
 async function playIfSelector(page: Page): Promise<boolean> {
   const batting = page.getByRole('button', { name: /^Batting/ });
   if (!(await batting.isVisible().catch(() => false))) return false;
-  if (!(await batting.isEnabled().catch(() => false))) return false;
-  await batting.click();
-  return true;
+  if (!(await batting.isEnabled({ timeout: 1_000 }).catch(() => false))) return false;
+  // The comparison may settle (timeout) or the match end between the check and the click.
+  return batting
+    .click({ timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
 }
 
 test('two players play an 8-card match to the end; photos on every revealed card', async ({
@@ -91,11 +94,11 @@ test('two players play an 8-card match to the end; photos on every revealed card
     if (await host.getByRole('heading', { name: FINISHED }).isVisible()) break;
     const hostTurn = await host
       .getByRole('button', { name: /^Batting/ })
-      .isEnabled()
+      .isEnabled({ timeout: 1_000 }) // the controls leave the page when the match ends
       .catch(() => false);
     const guestTurn = await guest
       .getByRole('button', { name: /^Batting/ })
-      .isEnabled()
+      .isEnabled({ timeout: 1_000 }) // the controls leave the page when the match ends
       .catch(() => false);
     expect(hostTurn && guestTurn).toBe(false);
     if (!(await playIfSelector(host))) await playIfSelector(guest);

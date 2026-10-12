@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CardMetricSchema, PublicCardSchema } from './catalog';
+import { CardMetricSchema, PublicCardSchema, RATING_MAX } from './catalog';
 import { IsoTimestamp, Uuid } from './primitives';
 
 /** Card match payloads (DB spec §8.2–§8.3, §10). Ratings on the wire are 0–100. */
@@ -57,7 +57,7 @@ export const LastComparisonSchema = z
     metric: CardMetricSchema,
     byTimeout: z.boolean(),
     submittedValues: z.array(
-      z.object({ memberId: Uuid, value: z.number().int().min(0).max(100) }).strict(),
+      z.object({ memberId: Uuid, value: z.number().int().min(0).max(RATING_MAX) }).strict(),
     ),
     winnerId: Uuid.nullable(),
     tiedSeats: z.array(Uuid),

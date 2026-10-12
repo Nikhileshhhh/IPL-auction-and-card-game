@@ -141,7 +141,9 @@ export function CardDetailDialog({
       onOpenChange={(open) => (!open ? onClose() : undefined)}
       title={card ? card.players.map((p) => p.name).join(' & ') : 'Card'}
       description={
-        card ? `${card.dataLabel}. Game ratings are 0–100 within this player pool.` : undefined
+        card
+          ? `${card.dataLabel}. Game ratings are 0–100 within this player pool (Sachin Tendulkar's Gold card shows 101).`
+          : undefined
       }
     >
       {card ? (

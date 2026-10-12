@@ -46,3 +46,25 @@
 - **Remaining fields:** fielding, form, experience and versatility no longer appear on cards or in the game. Phase ratings remain in the card detail, labelled "last three seasons".
 - **Pack label:** "IPL careers 2008–2026, as of …".
 - **Older packs:** packs published before this change keep their six-stat rows and are archived when the new pack is published.
+
+## Amendment (12 October 2026): owner-set values for Sachin Tendulkar
+- **Decision (product owner):** Sachin Tendulkar's cards are set by hand and do not follow the model:
+
+  | Card | Batting | Bowling | Runs |
+  |---|---|---|---|
+  | Normal | 98 | 20 | 42 |
+  | Silver | 100 | 20 | 42 |
+  | Gold | 101 | 20 | 42 |
+
+  - All three cards have five stars.
+  - A single player still has only Normal, Silver and Gold cards; Sachin has no Bronze card.
+- **Mechanism:**
+  - `CatalogPlan.overrides` lets `buildCatalog` use a legend version's points verbatim.
+  - The values live in `LEGEND_CARD_OVERRIDES` (`apps/server/src/modules/cricket-data/sources.ts`).
+  - Every other card is unchanged, and the legend band is still computed from career ratings, so Kohli's Gold stays 100.
+- **Rating ceiling:**
+  - Points may reach `RATING_CEILING = 1010` (display `RATING_MAX = 101`), and only through an override. The computed model never exceeds 1000.
+  - Migration `053_rating_ceiling` widens `card_contributions.metric_points` to 0–1010.
+  - The contract schemas accept display values up to 101.
+- **Photo:** the product owner supplied the missing photo of Sachin batting for Mumbai Indians in the franchise kit. It was cropped to an upper-body 3:4 frame and imported through the player sheet as an IPL-jersey photo. The licence holder is "IPL cards", and the credit reads "Photo: used under licence by IPL cards".
+- **Pack:** "IPL career pack (12 Oct)" is published with 354 cards, including Sachin's three. 33 incomplete Bronze cards were pruned as before. "IPL career pack" is archived.
