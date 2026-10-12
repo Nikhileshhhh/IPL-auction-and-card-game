@@ -10,6 +10,7 @@ import {
   ReadyRequestSchema,
   SettingsPatchRequestSchema,
   StartRequestSchema,
+  Uuid,
 } from '@stumps/contracts';
 import { AppError } from '../../http/app-error';
 import { success } from '../../http/envelope';
@@ -29,8 +30,9 @@ import {
   updateSettings,
   type MemberContext,
 } from '../../modules/rooms/service';
-import { buildSnapshot, replay, requireMembership } from '../../rooms/projection';
+import { buildSnapshot, replay, requireMembership, streamAcl } from '../../rooms/projection';
 import { readRoom } from '../../rooms/room-tx';
+import { squadOf } from '../../modules/auctions/squad';
 import type { RuntimeDeps } from '../../runtime';
 
 const RoomParams = z.object({ id: z.uuid() });
@@ -127,8 +129,7 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
         const me = await requireMembership(tx, roomId, ctx.userId);
         const stream = await tx.query(
           `SELECT 1 FROM app_private.room_streams
-            WHERE id = $1 AND room_id = $2
-              AND (audience_kind = 'public' OR (audience_kind = 'member' AND audience_id = $3))`,
+            WHERE id = $1 AND room_id = $2 AND ${streamAcl('$3')}`,
           [query.data.streamId, roomId, me.id],
         );
         if (stream.rowCount !== 1) throw new AppError('NOT_FOUND', 'Stream not found.');
@@ -137,6 +138,25 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       { isolation: 'repeatable read', readOnly: true },
     );
     return success(result, request.id, new Date());
+  });
+
+  /** S22 squad view: any room member may read a team's acquired squad (no strategy). */
+  app.get('/rooms/:id/franchises/:franchiseId/squad', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const teamId = Uuid.safeParse((request.params as { franchiseId?: string }).franchiseId);
+    if (!teamId.success) throw new AppError('NOT_FOUND', 'Team not found.');
+    const squad = await withTransaction(
+      deps.pool,
+      async (tx) => {
+        await requireMembership(tx, roomId, ctx.userId);
+        const room = await readRoom(tx, roomId);
+        if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+        return squadOf(tx, room, teamId.data);
+      },
+      { isolation: 'repeatable read', readOnly: true },
+    );
+    return success(squad, request.id, new Date());
   });
 
   app.post('/rooms/:id/ready', async (request) => {

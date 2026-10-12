@@ -1,5 +1,5 @@
 {
-  "$comment": "Server-produced DTO field catalogue (DB/realtime \u00a710). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
+  "$comment": "Server-produced DTO field catalogue (DB/realtime §10). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
   "specVersion": "1.0",
   "envelopes": {
     "success": [
@@ -260,6 +260,55 @@
       "withPortrait",
       "publishedAt",
       "validation"
+    ],
+    "AuctionSetupSnapshot": [
+      "kind",
+      "phase",
+      "format",
+      "rules",
+      "rulesHash",
+      "dataKind",
+      "franchiseLimit",
+      "collaboratorLimit",
+      "teams",
+      "pool",
+      "myTeam?",
+      "myRequest?",
+      "myAllowedActions"
+    ],
+    "PublicTeamDTO": [
+      "franchiseDefinitionId",
+      "name",
+      "shortName",
+      "primaryHex",
+      "secondaryHex",
+      "teamId?",
+      "captain?",
+      "memberCount",
+      "retention",
+      "retainedCount",
+      "retentionChargeRupees",
+      "initialPurseRupees",
+      "remainingPurseRupees",
+      "rosterCount",
+      "overseasCount",
+      "previousSquadCount",
+      "ready"
+    ],
+    "AuctionPlayerDTO": [
+      "playerId",
+      "name",
+      "role",
+      "country?",
+      "overseas",
+      "cappedStatus",
+      "basePriceRupees",
+      "priceSource",
+      "currentSalaryRupees?",
+      "previousFranchiseId?",
+      "setLabel",
+      "portraitUrl",
+      "portraitAlt"
     ]
   },
   "changesFromSpec": [

@@ -21,6 +21,7 @@ export const COMMAND_TYPES = [
   'team.shortlist.vote',
   'auction.retention.propose',
   'auction.retention.lock',
+  'auction.franchiseSelection.close',
   'auction.bid',
   'auction.rtm.intent',
   'auction.rtm.finalOffer',

@@ -7,7 +7,24 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
+  AUCTION_EVENT_PAYLOADS,
+  AuctionPlayerSchema,
+  AuctionSetupSnapshotSchema,
   CARD_EVENT_PAYLOADS,
+  ClaimFranchiseAck,
+  ClaimFranchisePayload,
+  CloseFranchiseSelectionAck,
+  CloseFranchiseSelectionPayload,
+  DecideJoinAck,
+  DecideJoinPayload,
+  PublicTeamSchema,
+  RequestJoinAck,
+  RequestJoinPayload,
+  RetentionLockAck,
+  RetentionLockPayload,
+  RetentionProposeAck,
+  RetentionProposePayload,
+  SquadDTOSchema,
   COMMAND_TYPES,
   ERROR_CODES,
   EVENT_TYPES,
@@ -70,12 +87,21 @@ for (const [name, cmd] of Object.entries(commands)) {
 // Field lists of implemented schemas must match their catalog entries ("x?" = optional/nullable).
 const fields = (names: readonly string[]) => names.map((n) => n.replace(/\?$/, ''));
 const shapeOf = (schema: { shape: Record<string, unknown> }) => Object.keys(schema.shape);
-for (const [type, schema] of Object.entries(CARD_EVENT_PAYLOADS)) {
+for (const [type, schema] of Object.entries({
+  ...CARD_EVENT_PAYLOADS,
+  ...AUCTION_EVENT_PAYLOADS,
+})) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
 const implementedCommands = {
   'card.selectCategory': [SelectCategoryPayload, SelectCategoryAck],
   'card.revealAcknowledged': [RevealAcknowledgedPayload, RevealAcknowledgedAck],
+  'auction.claimFranchise': [ClaimFranchisePayload, ClaimFranchiseAck],
+  'team.requestJoin': [RequestJoinPayload, RequestJoinAck],
+  'team.decideJoin': [DecideJoinPayload, DecideJoinAck],
+  'auction.retention.propose': [RetentionProposePayload, RetentionProposeAck],
+  'auction.retention.lock': [RetentionLockPayload, RetentionLockAck],
+  'auction.franchiseSelection.close': [CloseFranchiseSelectionPayload, CloseFranchiseSelectionAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -87,6 +113,15 @@ sameSet(
   shapeOf(PermittedCardSnapshotSchema),
   fields(dtos.PermittedCardSnapshot ?? []),
 );
+
+for (const [name, schema] of [
+  ['AuctionSetupSnapshot', AuctionSetupSnapshotSchema],
+  ['PublicTeamDTO', PublicTeamSchema],
+  ['AuctionPlayerDTO', AuctionPlayerSchema],
+  ['SquadDTO', SquadDTOSchema],
+] as const) {
+  sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
+}
 
 const seen = new Set<string>();
 for (const op of http) {

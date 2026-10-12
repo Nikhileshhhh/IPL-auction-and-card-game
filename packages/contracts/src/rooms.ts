@@ -55,11 +55,15 @@ export const CardSettingsSchema = z
   .refine((s) => new Set(s.rarities).size === s.rarities.length, { message: 'Duplicate rarities' });
 export type CardSettings = z.infer<typeof CardSettingsSchema>;
 
-/** Auction room settings; ruleset-specific validation lands in phase 09. */
+/**
+ * Auction room settings. The rules are the real IPL mega-auction rules
+ * (ADR-024), bound at creation to the published pool of the current data pack;
+ * the host chooses the format and how many teams and people may take part.
+ */
 export const AuctionSettingsSchema = z
   .object({
-    preset: z.enum(['CASUAL_v1', 'IPL_2025_MEGA_HISTORICAL_v1']).default('CASUAL_v1'),
-    format: z.enum(['fresh', 'retention']).default('fresh'),
+    preset: z.enum(['IPL_MEGA_RULES_2025_27']).default('IPL_MEGA_RULES_2025_27'),
+    format: z.enum(['fresh', 'retention']).default('retention'),
     franchiseCount: z.number().int().min(2).max(10).default(4),
     collaboratorsPerFranchise: z.number().int().min(1).max(6).default(4),
     openingClockSeconds: z.number().int().min(10).max(60).default(20),

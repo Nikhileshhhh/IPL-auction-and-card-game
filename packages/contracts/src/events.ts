@@ -32,6 +32,7 @@ export const EVENT_TYPES = [
   'team.shortlistVoteChanged',
   'team.retentionProposed',
   'auction.retentionLocked',
+  'auction.setupPhaseChanged',
   'auction.playerNominated',
   'auction.biddingOpened',
   'auction.bidAccepted',

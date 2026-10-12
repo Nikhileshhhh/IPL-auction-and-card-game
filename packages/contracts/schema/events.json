@@ -30,6 +30,7 @@
     "team.shortlistVoteChanged":  { "audience": "team",   "payload": ["playerId", "tally"] },
     "team.retentionProposed":     { "audience": "team",   "payload": ["packageId", "version", "playersAndAllocations", "totalCharge"] },
     "auction.retentionLocked":    { "audience": "room",   "payload": ["franchiseId", "retainedPlayerIds", "retentionCharge", "remainingPurse"] },
+    "auction.setupPhaseChanged":  { "audience": "room",   "payload": ["phase"] },
     "auction.playerNominated":    { "audience": "room",   "payload": ["playerPublicDTO", "basePrice", "nominationId", "bidVersion", "deadline"] },
     "auction.biddingOpened":      { "audience": "room",   "payload": ["playerPublicDTO", "basePrice", "nominationId", "bidVersion", "deadline"] },
     "auction.bidAccepted":        { "audience": "room",   "payload": ["nominationId", "franchiseId", "amountRupees", "nominationVersion", "deadline", "actorType"] },

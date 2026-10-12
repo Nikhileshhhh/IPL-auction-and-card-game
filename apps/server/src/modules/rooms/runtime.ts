@@ -4,6 +4,7 @@ import { DeadlineRegistry, dueSettler } from '../../jobs/deadlines';
 import { registerRoomDeadlines } from '../../rooms/deadline-handlers';
 import { StarterRegistry } from '../../rooms/starters';
 import type { GameProjector } from '../../rooms/projection';
+import { registerAuctionModule } from '../auctions';
 import { registerCardModule } from '../cards';
 import { CommandDispatcher } from '../commands/dispatcher';
 import type { RoomDeps } from './service';
@@ -23,6 +24,7 @@ export interface RoomRuntime {
     wake?: () => void;
     onMemberRemoved?: (roomId: string, memberId: string) => void;
     onRoomClosed?: (roomId: string) => void;
+    onStreamGranted?: (roomId: string, memberId: string, streamId: string) => void;
   }): void;
 }
 
@@ -33,6 +35,8 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
   let wake: () => void = () => undefined;
   let onMemberRemoved: (roomId: string, memberId: string) => void = () => undefined;
   let onRoomClosed: (roomId: string) => void = () => undefined;
+  let onStreamGranted: (roomId: string, memberId: string, streamId: string) => void = () =>
+    undefined;
 
   const deps: RoomDeps = {
     pool,
@@ -42,9 +46,16 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
     wake: () => wake(),
     onMemberRemoved: (roomId, memberId) => onMemberRemoved(roomId, memberId),
     onRoomClosed: (roomId) => onRoomClosed(roomId),
+    onStreamGranted: (roomId, memberId, streamId) => onStreamGranted(roomId, memberId, streamId),
   };
   registerRoomDeadlines(deadlines, { onRoomClosed: (roomId) => onRoomClosed(roomId) });
-  const gameProjector = registerCardModule({ starters, deadlines, commands }, secrets);
+  const cardProjector = registerCardModule({ starters, deadlines, commands }, secrets);
+  const auctionProjector = registerAuctionModule({ commands }, secrets);
+  // One projector per game type: the snapshot's `game` belongs to the room's game.
+  const gameProjector: GameProjector = (tx, room, member) =>
+    room.game_type === 'auction'
+      ? auctionProjector(tx, room, member)
+      : cardProjector(tx, room, member);
 
   return {
     deps,
@@ -56,6 +67,7 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
       if (hooks.wake) wake = hooks.wake;
       if (hooks.onMemberRemoved) onMemberRemoved = hooks.onMemberRemoved;
       if (hooks.onRoomClosed) onRoomClosed = hooks.onRoomClosed;
+      if (hooks.onStreamGranted) onStreamGranted = hooks.onStreamGranted;
     },
   };
 }

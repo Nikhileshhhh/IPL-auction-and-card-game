@@ -123,9 +123,22 @@ export async function lobbyProjection(
 }
 
 /**
- * Streams the viewer may read right now (public + own member stream). Pure
- * read: streams are created with the room/membership, so snapshots can run in
- * READ ONLY transactions.
+ * Stream ACL (DB/realtime §3.1) as SQL over room_streams columns: the public
+ * stream, the viewer's own member stream, and the stream of the auction team
+ * the viewer is an approved member of. `member` is the parameter holding the
+ * viewer's membership ID (e.g. "$2").
+ */
+export const streamAcl = (member: string) =>
+  `(audience_kind = 'public'
+    OR (audience_kind = 'member' AND audience_id = ${member})
+    OR (audience_kind = 'team' AND audience_id IN (
+          SELECT fm.auction_franchise_id FROM app_private.franchise_members fm
+           WHERE fm.member_id = ${member})))`;
+
+/**
+ * Streams the viewer may read right now (public, own member stream, own team
+ * stream). Pure read: streams are created with the room, membership or team,
+ * so snapshots can run in READ ONLY transactions.
  */
 export async function permittedStreams(
   tx: Tx,
@@ -134,8 +147,8 @@ export async function permittedStreams(
 ): Promise<string[]> {
   const res = await tx.query<{ id: string }>(
     `SELECT id FROM app_private.room_streams
-      WHERE room_id = $1 AND (audience_kind = 'public' OR (audience_kind = 'member' AND audience_id = $2))
-      ORDER BY audience_kind DESC`,
+      WHERE room_id = $1 AND ${streamAcl('$2')}
+      ORDER BY audience_kind DESC, id`,
     [roomId, memberId],
   );
   return res.rows.map((r) => r.id);

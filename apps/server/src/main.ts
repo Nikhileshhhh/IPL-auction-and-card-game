@@ -13,7 +13,7 @@ import { createRoomRuntime } from './modules/rooms/runtime';
 import { LocalDiskStorage, SupabaseStorage, type MediaStorage } from './modules/media/storage';
 import { failInterruptedImports } from './modules/cricket-data/service';
 import { OutboxDispatcher } from './realtime/dispatcher';
-import { evictFromRoom, registerRoomSockets } from './realtime/rooms-socket';
+import { evictFromRoom, joinStream, registerRoomSockets } from './realtime/rooms-socket';
 import type { ServerEnv } from './config/env';
 import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
@@ -101,6 +101,7 @@ async function main() {
       wake: outbox.wake,
       onMemberRemoved: (roomId, memberId) => evictFromRoom(io, roomId, memberId),
       onRoomClosed: (roomId) => evictFromRoom(io, roomId),
+      onStreamGranted: (roomId, memberId, streamId) => joinStream(io, roomId, memberId, streamId),
     });
     registerRoomSockets(io, {
       pool: runtime.pool,

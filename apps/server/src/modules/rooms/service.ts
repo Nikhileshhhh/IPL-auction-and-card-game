@@ -1,6 +1,7 @@
 import type pg from 'pg';
 import {
   AuctionSettingsSchema,
+  type AuctionSettings,
   CardSettingsSchema,
   type CreateRoomRequest,
   type RoomLobbyDTO,
@@ -20,6 +21,7 @@ import {
 } from '../../rooms/room-tx';
 import { appendEvents, streamFor, type EventDraft } from '../../rooms/streams';
 import type { StarterRegistry } from '../../rooms/starters';
+import { setUpAuctionRoom } from '../auctions';
 import { consumeRate } from '../security/rate-limit';
 import type { MemberContext as FullMemberContext } from '../auth/service';
 
@@ -41,6 +43,8 @@ export interface RoomDeps {
   /** Disconnect sockets of removed members / closed rooms after commit. */
   onMemberRemoved?: (roomId: string, memberId: string) => void;
   onRoomClosed?: (roomId: string) => void;
+  /** Subscribe a member's open sockets to a stream they were just granted (team). */
+  onStreamGranted?: (roomId: string, memberId: string, streamId: string) => void;
 }
 
 const userKey = (userId: string) => `user:${userId}`;
@@ -187,6 +191,9 @@ export async function createRoom(
         await streamFor(tx, roomId, { kind: 'public' });
         await streamFor(tx, roomId, { kind: 'member', memberId: member.id });
         await scheduleLobbyExpiry(tx, roomId, new Date(now.getTime() + LOBBY_INACTIVITY_MS));
+        if (input.gameType === 'auction') {
+          await setUpAuctionRoom(tx, roomId, settings as AuctionSettings);
+        }
         await tx.query(
           `INSERT INTO app_private.request_receipts (actor_id, command_id, body_hash, response, resource_id, created_at, expires_at)
            VALUES ($1, $2, $3, '{"created":true}', $4, $5, $6)`,
@@ -488,6 +495,13 @@ export async function startRoom(
           reason: 'NOT_READY',
           notReady,
         });
+      }
+      if (room.game_type === 'auction' && room.phase !== 'AUCTION_LOBBY') {
+        throw new AppError(
+          'NOT_READY',
+          'Every team must finish franchise selection and lock its retentions first.',
+          { reason: 'SETUP_INCOMPLETE', phase: room.phase },
+        );
       }
       if (room.game_type === 'card') {
         const total = Number(room.settings.totalCards);

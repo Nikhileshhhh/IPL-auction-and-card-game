@@ -6,7 +6,7 @@ import { AppError } from '../http/app-error';
 import { failure, success } from '../http/envelope';
 import { dbNow, withTransaction } from '../db/transaction';
 import type { Secrets } from '../config/secrets';
-import { buildSnapshot, listMembers, type GameProjector } from '../rooms/projection';
+import { buildSnapshot, listMembers, streamAcl, type GameProjector } from '../rooms/projection';
 import { lockRoom, readRoom } from '../rooms/room-tx';
 import { appendEvents, type EventDraft } from '../rooms/streams';
 import { HOST_ABSENCE_MS, takeControl, type RoomDeps } from '../modules/rooms/service';
@@ -145,8 +145,7 @@ export function registerRoomSockets(io: Server, deps: RoomSocketDeps) {
           if (events.length) await appendEvents(tx, room.id, room.state_version, events);
           memberId = me.id;
           const streams = await tx.query<{ id: string }>(
-            `SELECT id FROM app_private.room_streams WHERE room_id = $1
-               AND (audience_kind = 'public' OR (audience_kind = 'member' AND audience_id = $2))`,
+            `SELECT id FROM app_private.room_streams WHERE room_id = $1 AND ${streamAcl('$2')}`,
             [room.id, me.id],
           );
           return streams.rows.map((r) => r.id);
@@ -269,6 +268,17 @@ export async function markDisconnected(
  * deleted. Stream-room membership is delivery only; the database already
  * refuses the member, this just stops further pushes immediately.
  */
+/** A member joined a team: their open sockets follow the team stream too. */
+export function joinStream(io: Server, roomId: string, memberId: string, streamId: string) {
+  for (const socket of io.sockets.sockets.values()) {
+    const entry = socket.data.rooms?.get(roomId);
+    if (!entry || entry.memberId !== memberId) continue;
+    const name = streamRoom(streamId);
+    if (!entry.streams.includes(name)) entry.streams.push(name);
+    void socket.join(name);
+  }
+}
+
 export function evictFromRoom(io: Server, roomId: string, memberId?: string) {
   for (const socket of io.sockets.sockets.values()) {
     const entry = socket.data.rooms?.get(roomId);
