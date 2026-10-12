@@ -13,7 +13,7 @@ import { AppError } from '../../http/app-error';
 import type { RoomRow } from '../../rooms/room-tx';
 import type { EventDraft } from '../../rooms/streams';
 import { cardsByDefinition } from '../cricket-data/read';
-import { persistTransition, type MatchMeta } from './store';
+import { FINISH_GRACE, FINISH_GRACE_SECONDS, persistTransition, type MatchMeta } from './store';
 
 const PUBLIC = { kind: 'public' } as const;
 
@@ -94,9 +94,20 @@ export async function applyTransition(
     e.type === 'roundOpened' ? e.cards.map((c) => c.instanceId) : [],
   );
   const cards = await arenaCards(tx, t.state, revealed);
+  // An end requested mid-chain: the chain has at most FINISH_GRACE_SECONDS to settle.
+  let graceDeadline: Date | null = null;
+  if (t.events.some((e) => e.type === 'finishPending')) {
+    graceDeadline = new Date(now.getTime() + FINISH_GRACE_SECONDS * 1000);
+    await tx.query(
+      `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
+       VALUES ($1, '${FINISH_GRACE}', NULL, 0, $2)
+       ON CONFLICT (room_id, kind, subject_id, generation) DO UPDATE SET due_at = EXCLUDED.due_at`,
+      [room.id, graceDeadline],
+    );
+  }
   const drafts: EventDraft[] = [];
   for (const event of t.events)
-    drafts.push(await toDraft(tx, secrets, room, event, cards, deadline, now));
+    drafts.push(await toDraft(tx, secrets, room, event, cards, deadline, now, graceDeadline));
   if (t.state.result) {
     await tx.query(
       `UPDATE app_private.rooms SET lifecycle = 'FINALIZING', phase = 'FINISHED', match_deadline = NULL
@@ -115,6 +126,7 @@ async function toDraft(
   cards: Map<string, ArenaCardDTO>,
   deadline: Date | null,
   now: Date,
+  graceDeadline: Date | null = null,
 ): Promise<EventDraft> {
   switch (event.type) {
     case 'roundOpened':
@@ -152,6 +164,18 @@ async function toDraft(
           winnerId: event.winnerId,
           tiedSeats: event.tiedSeats,
           reason: event.reason,
+          fallback: event.fallback ?? null,
+        },
+      };
+    case 'finishPending':
+      return {
+        audience: PUBLIC,
+        type: 'game.finalizing',
+        payload: {
+          stage: 'finish_pending',
+          progressPercent: 0,
+          reason: event.reason,
+          deadline: (graceDeadline ?? now).toISOString(),
         },
       };
     case 'potChanged':

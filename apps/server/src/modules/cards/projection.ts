@@ -64,14 +64,28 @@ export function cardProjector(secrets: Secrets): GameProjector {
       })),
       potCount: state.pot.length,
       myDeck: myDeckIds.map((id) => card(id)),
-      contributions: state.pot.map((p) => ({ memberId: p.memberId, card: card(p.instanceId) })),
+      contributions: state.pot.map((p) => ({
+        memberId: p.memberId,
+        card: card(p.instanceId),
+        comparisonIndex: p.comparisonIndex,
+      })),
+      chainSelector: state.chainSelector || null,
+      tieCount: state.tieCount,
+      tieCap: state.tieCap,
+      // Still in the match but sitting out this tie comparison (S11 "waiting").
+      waitingSeats:
+        open && state.tiedSeats.length > 0
+          ? state.seats
+              .filter((s) => s.eliminationOrder === null && !open.contributors.includes(s.memberId))
+              .map((s) => s.memberId)
+          : [],
       allowedMetrics: open ? [...CARD_METRICS] : [],
       metric: last?.metric ?? null,
       deadline: open && meta.phaseDeadline ? meta.phaseDeadline.toISOString() : null,
       myAllowedActions,
       seedCommitment: roomRow?.seed_commitment ?? '',
       rngVersion: meta.rngVersion || RNG_VERSION,
-      finishPending: meta.finishPending,
+      finishPending: state.finishPending,
       completedContests: state.completedContests,
       lastComparison: last
         ? {
@@ -85,6 +99,7 @@ export function cardProjector(secrets: Secrets): GameProjector {
             winnerId: last.winner_id,
             tiedSeats: last.tied_ids,
             reason: last.reason,
+            fallback: last.fallback,
           }
         : null,
       result: state.result,

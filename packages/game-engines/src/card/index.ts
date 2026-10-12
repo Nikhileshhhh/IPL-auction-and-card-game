@@ -3,4 +3,7 @@ export * from './rng';
 export * from './sha256';
 export * from './deal';
 export * from './reduce';
+export * from './ties';
+export * from './ranking';
+export * from './termination';
 export * from './invariants';

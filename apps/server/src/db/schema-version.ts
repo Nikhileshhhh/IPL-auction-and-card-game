@@ -5,7 +5,7 @@ import type { ReadinessCheck } from '../http/readiness';
  * Latest migration this build requires. Expand/contract rollouts allow the
  * database to be newer than the code, never older.
  */
-export const REQUIRED_MIGRATION = '051_attax_card_stats';
+export const REQUIRED_MIGRATION = '052_card_ties';
 
 export function schemaCheck(
   pool: pg.Pool | undefined,

@@ -7,6 +7,7 @@ import {
   secondsLeft,
   type CardGame,
 } from '../features/cards/arena/model';
+import { fallbackText } from '../features/cards/tie-arena/fallback';
 
 const A = '00000000-0000-4000-8000-00000000000a';
 const B = '00000000-0000-4000-8000-00000000000b';
@@ -62,6 +63,10 @@ function game(overrides: Partial<CardGame> = {}): CardGame {
     ],
     potCount: 0,
     contributions: [],
+    chainSelector: A,
+    tieCount: 0,
+    tieCap: 12,
+    waitingSeats: [],
     myDeck: [],
     allowedMetrics: ['batting', 'bowling', 'runs'],
     metric: null,
@@ -69,7 +74,7 @@ function game(overrides: Partial<CardGame> = {}): CardGame {
     myAllowedActions: ['card.selectCategory', 'card.revealAcknowledged'],
     seedCommitment: 'a'.repeat(64),
     rngVersion: 'hmac-sha256-ctr-v1',
-    finishPending: false,
+    finishPending: null,
     completedContests: 0,
     lastComparison: null,
     result: null,
@@ -116,5 +121,64 @@ describe('card arena view model', () => {
     const members = [{ id: A, displayName: 'Asha' }] as RoomMemberSummary[];
     expect(seatName(members, A)).toBe('Asha');
     expect(seatName(members, B)).toBe('Former player');
+  });
+});
+
+describe('tie fallback explanation', () => {
+  const members = [
+    { id: A, displayName: 'Asha' },
+    { id: B, displayName: 'Bilal' },
+  ] as RoomMemberSummary[];
+  const last = (
+    fallback: NonNullable<CardGame['lastComparison']>['fallback'],
+    reason = 'FALLBACK',
+  ): NonNullable<CardGame['lastComparison']> =>
+    ({
+      comparisonId: '00000000-0000-4000-8000-000000000001',
+      metric: 'batting',
+      winnerId: A,
+      reason,
+      byTimeout: false,
+      submittedValues: [],
+      fallback,
+    }) as unknown as NonNullable<CardGame['lastComparison']>;
+
+  it('says nothing for an ordinary decision', () => {
+    expect(fallbackText(last(null), members)).toBeNull();
+  });
+
+  it('explains a decision by stat totals', () => {
+    const text = fallbackText(
+      last({
+        sums: [
+          { memberId: A, sum: 1700 },
+          { memberId: B, sum: 1100 },
+        ],
+        byPermutation: false,
+        rotatedOrder: [A, B],
+      }),
+      members,
+    );
+    expect(text).toContain('no cards left');
+    expect(text).toContain('Asha 1700 vs Bilal 1100');
+  });
+
+  it('explains the committed seat order after the tie cap', () => {
+    const text = fallbackText(
+      last(
+        {
+          sums: [
+            { memberId: A, sum: 900 },
+            { memberId: B, sum: 900 },
+          ],
+          byPermutation: true,
+          rotatedOrder: [B, A],
+        },
+        'TIE_CAP',
+      ),
+      members,
+    );
+    expect(text).toContain('tie limit');
+    expect(text).toContain('Bilal before Asha');
   });
 });

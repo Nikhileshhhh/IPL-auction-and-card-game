@@ -17,6 +17,11 @@ export type ArenaCardDTO = z.infer<typeof ArenaCardSchema>;
 
 export const RevealedCardSchema = z.object({ memberId: Uuid, card: ArenaCardSchema }).strict();
 
+/** A card in the pot, with the comparison it was contributed in (pot history, S11). */
+export const PotCardSchema = z
+  .object({ memberId: Uuid, card: ArenaCardSchema, comparisonIndex: z.number().int().min(0) })
+  .strict();
+
 export const CardSeatSchema = z
   .object({
     memberId: Uuid,
@@ -27,7 +32,18 @@ export const CardSeatSchema = z
   })
   .strict();
 
-export const FINISH_REASONS = ['natural', 'cycle', 'contest_cap', 'time_limit'] as const;
+export const FINISH_REASONS = ['natural', 'cycle', 'contest_cap', 'time_limit', 'vote'] as const;
+/** Ends that wait for the current chain to settle (rules §6.2). */
+export const PENDING_FINISH = ['time_limit', 'vote'] as const;
+
+/** How an exhausted or capped tie was settled (rules §6 fallback). */
+export const FallbackDetailSchema = z
+  .object({
+    sums: z.array(z.object({ memberId: Uuid, sum: z.number().int().min(0) }).strict()),
+    byPermutation: z.boolean(),
+    rotatedOrder: z.array(Uuid),
+  })
+  .strict();
 export const CardResultSchema = z
   .object({
     reason: z.enum(FINISH_REASONS),
@@ -46,6 +62,8 @@ export const LastComparisonSchema = z
     winnerId: Uuid.nullable(),
     tiedSeats: z.array(Uuid),
     reason: z.string(),
+    /** Present when the fallback or the tie cap settled the pot. */
+    fallback: FallbackDetailSchema.nullable(),
   })
   .strict();
 
@@ -69,7 +87,15 @@ export const PermittedCardSnapshotSchema = z
     isTie: z.boolean(),
     visibleCards: z.array(RevealedCardSchema),
     potCount: z.number().int().min(0),
-    contributions: z.array(RevealedCardSchema),
+    /** Pot history in contribution order (comparison, then seat). */
+    contributions: z.array(PotCardSchema),
+    /** The chain's original selector (S11 marker). */
+    chainSelector: Uuid.nullable(),
+    /** Tie comparisons so far in this chain, and the cap before the fallback decides. */
+    tieCount: z.number().int().min(0),
+    tieCap: z.number().int().min(4).max(30),
+    /** Players still in the match who sit out the current tie comparison. */
+    waitingSeats: z.array(Uuid),
     /**
      * The viewer's own deck in play order (front first; won cards join the
      * back). Only the owner ever receives it; everyone else sees counts.
@@ -82,7 +108,8 @@ export const PermittedCardSnapshotSchema = z
     myAllowedActions: z.array(z.enum(['card.selectCategory', 'card.revealAcknowledged'])),
     seedCommitment: z.string().regex(/^[0-9a-f]{64}$/),
     rngVersion: z.string(),
-    finishPending: z.boolean(),
+    /** An end requested mid-chain: the match finishes when this chain settles. */
+    finishPending: z.enum(PENDING_FINISH).nullable(),
     completedContests: z.number().int().min(0),
     lastComparison: LastComparisonSchema.nullable(),
     result: CardResultSchema.nullable(),
@@ -140,6 +167,16 @@ export const PlayerEliminatedPayload = z
   .strict();
 
 /** Medals and the results TTL arrive with phases 14–15; until then they are `deferred`/null. */
+/** `game.finalizing`: phase 08 uses stage `finish_pending` (an end waits for the chain). */
+export const FinalizingPayload = z
+  .object({
+    stage: z.enum(['finish_pending']),
+    progressPercent: z.number().int().min(0).max(100),
+    reason: z.enum(PENDING_FINISH),
+    deadline: IsoTimestamp,
+  })
+  .strict();
+
 export const GameCompletedPayload = z
   .object({
     publicResult: CardResultSchema,
@@ -162,5 +199,6 @@ export const CARD_EVENT_PAYLOADS = {
   'card.comparisonResolved': ComparisonResolvedPayload,
   'card.potChanged': PotChangedPayload,
   'card.playerEliminated': PlayerEliminatedPayload,
+  'game.finalizing': FinalizingPayload,
   'game.completed': GameCompletedPayload,
 } as const;

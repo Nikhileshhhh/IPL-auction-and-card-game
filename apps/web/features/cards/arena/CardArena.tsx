@@ -14,6 +14,9 @@ import { DeckQueue } from './DeckQueue';
 import { MatchResult } from './MatchResult';
 import { arenaView, seatName, type CardGame } from './model';
 import { RoundWinnerReveal } from './RoundWinnerReveal';
+import { FinishPendingNotice } from '../tie-arena/FinishPendingNotice';
+import { PotHistory } from '../tie-arena/PotHistory';
+import { TieBanner } from '../tie-arena/TieBanner';
 
 /**
  * S09 card arena. Everything shown is the last confirmed server snapshot:
@@ -125,11 +128,14 @@ export function CardArena({ roomId }: { roomId: string }) {
             />
             Pot <span className="font-display text-lg leading-none font-bold">{game.potCount}</span>
           </span>
+          <PotHistory game={game} members={members} />
           <Button size="touch" variant="secondary" onClick={() => setSheetOpen(true)}>
             Comparison
           </Button>
         </div>
       </header>
+
+      <FinishPendingNotice game={game} />
 
       {offline ? (
         <StatusMessage tone="warning" title="Reconnecting">
@@ -168,7 +174,9 @@ export function CardArena({ roomId }: { roomId: string }) {
               </p>
               <p className="text-sm text-ink-2">
                 {game.isTie
-                  ? `Tie round: ${game.tiedSeats.map((id) => seatName(members, id)).join(', ')} reveal again. The pot holds ${game.potCount} cards.`
+                  ? view.isSelector
+                    ? 'Tie round: pick a stat to break the tie.'
+                    : 'Tie round: the tied players reveal their next cards.'
                   : view.isSelector
                     ? 'Pick the stat on your card most likely to beat the others.'
                     : 'The highest value of the chosen stat wins every card on the table.'}
@@ -180,6 +188,8 @@ export function CardArena({ roomId }: { roomId: string }) {
               total={selectionSeconds}
             />
           </section>
+
+          <TieBanner game={game} members={members} me={me} />
 
           <BattleZone
             view={view}

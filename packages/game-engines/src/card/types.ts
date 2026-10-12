@@ -52,7 +52,20 @@ export interface Comparison {
   active: ActiveCard[];
 }
 
-export type FinishReason = 'natural' | 'cycle' | 'contest_cap' | 'time_limit';
+export type FinishReason = 'natural' | 'cycle' | 'contest_cap' | 'time_limit' | 'vote';
+
+/** An end requested mid-chain waits for the chain to settle (rules §6.2). */
+export type PendingFinish = Extract<FinishReason, 'time_limit' | 'vote'>;
+
+/** How an exhausted or capped tie was settled (rules §6 fallback), for the audit and S11. */
+export interface FallbackDetail {
+  /** Sum of the card stats of each tied seat's most recent contributed card. */
+  sums: { memberId: string; sum: number }[];
+  /** True when the sums were equal and the committed seat order decided. */
+  byPermutation: boolean;
+  /** The tied seats in the rotated committed order (only when it decided). */
+  rotatedOrder: string[];
+}
 
 export interface MatchResult {
   reason: FinishReason;
@@ -83,6 +96,8 @@ export interface MatchState {
   eliminationsSoFar: number;
   /** Normal-boundary state key → occurrences (cycle guard, rules §6.2). */
   cycleCounts: Record<string, number>;
+  /** Set when an end was requested mid-chain; the next normal boundary finishes. */
+  finishPending: PendingFinish | null;
   result: MatchResult | null;
 }
 
@@ -107,6 +122,8 @@ export type CardEngineEvent =
       tiedSeats: string[];
       winnerId: string | null;
       reason: 'UNIQUE_MAX' | 'TIE' | 'SOLE_TIE_CONTRIBUTOR' | 'FALLBACK' | 'TIE_CAP';
+      /** Present when FALLBACK or TIE_CAP settled the pot. */
+      fallback?: FallbackDetail;
     }
   | {
       type: 'potChanged';
@@ -116,6 +133,7 @@ export type CardEngineEvent =
       deckCounts: Record<string, number>;
     }
   | { type: 'playerEliminated'; memberId: string; eliminationOrder: number }
+  | { type: 'finishPending'; reason: PendingFinish }
   | { type: 'finished'; result: MatchResult };
 
 export interface Transition {

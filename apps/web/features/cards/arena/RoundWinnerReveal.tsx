@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { METRIC_LABELS, type CardMetric, type RoomMemberSummary } from '@stumps/contracts';
 import { Button, cx } from '@stumps/ui';
 import { PortraitImage } from '@/components/cards/PortraitImage';
+import { fallbackText } from '../tie-arena/fallback';
 import { seatName, type CardGame } from './model';
 
 interface Reveal {
@@ -14,6 +15,8 @@ interface Reveal {
   cards: number;
   values: { memberId: string; value: number }[];
   portrait: { src: string; alt: string } | null;
+  /** How a fallback or the tie cap settled the pot, when it did. */
+  explain: string | null;
 }
 
 const SHOW_MS = 5_000;
@@ -57,8 +60,9 @@ export function RoundWinnerReveal({
       cards: before.potCount + before.visibleCards.length,
       values: last.submittedValues,
       portrait: player ? { src: player.portraitUrl, alt: player.portraitAlt } : null,
+      explain: fallbackText(last, members),
     });
-  }, [game]);
+  }, [game, members]);
 
   useEffect(() => {
     if (!reveal) return;
@@ -108,6 +112,7 @@ export function RoundWinnerReveal({
                 </li>
               ))}
             </ul>
+            {reveal.explain ? <p className="mt-1 text-sm text-ink-2">{reveal.explain}</p> : null}
           </div>
           <Button size="touch" variant="tertiary" onClick={() => setReveal(null)}>
             Dismiss

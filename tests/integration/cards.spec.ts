@@ -291,14 +291,57 @@ describe('card deadlines (ADR-007)', () => {
     });
   });
 
-  it('the match time limit restores the open chain and ranks by cards', async () => {
-    const { roomId, players } = await startedMatch('cs_limit');
-    await api.admin.query(
+  const makeDue = (roomId: string, kind: string) =>
+    api.admin.query(
       `UPDATE app_private.deadline_jobs SET due_at = now() - interval '1 second'
-        WHERE room_id = $1 AND kind = 'card.match_limit'`,
+        WHERE room_id = $1 AND kind = $2`,
+      [roomId, kind],
+    );
+  const duePass = () => runDuePass(api.pool, api.deps.rooms.deadlines, () => undefined);
+
+  it('the soft time limit mid-chain waits for the contest, then ends at the boundary', async () => {
+    const { roomId, players } = await startedMatch('cs_limit');
+    await makeDue(roomId, 'card.match_limit');
+    await duePass();
+    let snap = await snapshot(players[0]!.client, roomId);
+    expect(snap.room.lifecycle).toBe('RUNNING'); // the open contest may still be played
+    expect(snap.game!.finishPending).toBe('time_limit');
+    expect(snap.game!.comparisonId).not.toBeNull();
+    const finalizing = (await publicEvents(roomId)).find((e) => e.type === 'game.finalizing');
+    expect(finalizing?.payload).toMatchObject({ stage: 'finish_pending', reason: 'time_limit' });
+    const grace = await api.admin.query(
+      `SELECT 1 FROM app_private.deadline_jobs WHERE room_id = $1 AND kind = 'card.finish_grace'`,
       [roomId],
     );
-    await runDuePass(api.pool, api.deps.rooms.deadlines, () => undefined);
+    expect(grace.rowCount).toBe(1);
+
+    // Play the contest out (ties included); the match ends at the next boundary.
+    for (let i = 0; i < 20 && !snap.game!.result; i += 1) {
+      const selector = selectorOf(players, snap.game!);
+      const res = await command(selector.client, roomId, {
+        comparisonId: snap.game!.comparisonId,
+        metric: 'batting',
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      snap = await snapshot(players[0]!.client, roomId);
+    }
+    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
+    expect(snap.game!.finishPending).toBeNull();
+    expect(snap.game!.seats.reduce((n, s) => n + s.deckCount, 0)).toBe(8);
+    const jobs = await api.admin.query(
+      `SELECT kind FROM app_private.deadline_jobs WHERE room_id = $1 AND kind LIKE 'card.%'`,
+      [roomId],
+    );
+    expect(jobs.rowCount).toBe(0); // grace, hard limit and selection timers are cleared
+  });
+
+  it('an unsettled chain at grace expiry is restored to deck fronts, then ranked', async () => {
+    const { roomId, players } = await startedMatch('cs_grace');
+    await makeDue(roomId, 'card.match_limit');
+    await duePass();
+    await makeDue(roomId, 'card.finish_grace');
+    await duePass();
     const snap = await snapshot(players[0]!.client, roomId);
     expect(snap.room.lifecycle).toBe('FINALIZING');
     expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
@@ -309,5 +352,34 @@ describe('card deadlines (ADR-007)', () => {
       [roomId],
     );
     expect(cancelled.rowCount).toBe(1);
+    expect(snap.game!.auditSeed).toMatch(/^[0-9a-f]{64}$/); // disclosed only now
+  });
+
+  it('the hard ceiling always ends the match at once, restoring the open chain', async () => {
+    const { roomId, players } = await startedMatch('cs_hard', { matchMinutes: null });
+    const before = await snapshot(players[0]!.client, roomId);
+    expect(before.game!.auditSeed).toBeNull();
+    await makeDue(roomId, 'card.hard_limit');
+    await duePass();
+    const snap = await snapshot(players[0]!.client, roomId);
+    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
+    expect(snap.game!.seats.map((s) => s.deckCount)).toEqual([4, 4]);
+  });
+
+  it('a stale grace job after the match ended is a no-op', async () => {
+    const { roomId, players } = await startedMatch('cs_stale_grace');
+    await makeDue(roomId, 'card.hard_limit');
+    await duePass();
+    const ended = await snapshot(players[0]!.client, roomId);
+    await api.admin.query(
+      `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
+       VALUES ($1, 'card.finish_grace', NULL, 0, now() - interval '1 second')`,
+      [roomId],
+    );
+    await duePass();
+    const after = await snapshot(players[0]!.client, roomId);
+    expect(after.room.stateVersion).toBe(ended.room.stateVersion);
+    expect(after.game!.result).toEqual(ended.game!.result);
   });
 });

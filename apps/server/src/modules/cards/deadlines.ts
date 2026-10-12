@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { finishMatch, timeoutSelection, type Transition } from '@stumps/game-engines';
+import { timeoutSelection, type Transition } from '@stumps/game-engines';
 import type { Secrets } from '../../config/secrets';
 import type { DeadlineRegistry } from '../../jobs/deadlines';
 import { applyTransition, engineError } from './apply';
 import { ordinals } from './commands';
-import { MATCH_LIMIT, SELECTION_TIMEOUT, loadMatch } from './store';
+import { SELECTION_TIMEOUT, loadMatch } from './store';
 
 /**
  * Card deadlines. Each handler re-validates its target under the room lock
@@ -21,30 +21,6 @@ export function registerCardDeadlines(registry: DeadlineRegistry, secrets: Secre
     let t: Transition;
     try {
       t = timeoutSelection(match.state, { comparisonId: open.id }, randomUUID);
-    } catch (error) {
-      engineError(error);
-    }
-    const events = await applyTransition(
-      tx,
-      secrets,
-      room,
-      match.state,
-      match.meta,
-      t,
-      now,
-      ordinals(match.state),
-    );
-    return { events, bumpState: true };
-  });
-
-  /** Soft match limit: restore the unresolved chain and rank by cards (rules §6.2). */
-  registry.register(MATCH_LIMIT, async (tx, room, _job, now) => {
-    if (room.game_type !== 'card' || room.lifecycle !== 'RUNNING') return {};
-    const match = await loadMatch(tx, room.id);
-    if (!match || match.state.result) return {};
-    let t: Transition;
-    try {
-      t = finishMatch(match.state, 'time_limit');
     } catch (error) {
       engineError(error);
     }

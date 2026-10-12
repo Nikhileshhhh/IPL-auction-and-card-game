@@ -1,0 +1,320 @@
+{
+  "$comment": "Phase 08 tie and termination scenarios (rules §6, §6.1, §6.2). Cards are [batting, bowling, runs] points, top of deck first. The fallback seat order is the seat order. 'holdings' counts deck cards plus a card on the table. Expectations were worked out by hand from the rules text.",
+  "scenarios": [
+    {
+      "name": "exact six-card example: 94,94,82,76 then 88,96 — B wins all six",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [940, 0, 0],
+          [880, 0, 0]
+        ],
+        "B": [
+          [940, 0, 0],
+          [960, 0, 0]
+        ],
+        "C": [
+          [820, 0, 0],
+          [100, 0, 0]
+        ],
+        "D": [
+          [760, 0, 0],
+          [100, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 0, "B": 6, "C": 1, "D": 1 },
+        "eliminated": ["A"],
+        "tieContributors": [["A", "B"]],
+        "result": null
+      }
+    },
+    {
+      "name": "two-way repeated tie, second tie settled by timeout policy, then a winner",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [700, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [600, 0, 0]
+        ],
+        "C": [
+          [500, 0, 0],
+          [500, 0, 0],
+          [500, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "timeout": true }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 7, "B": 0, "C": 2 },
+        "eliminated": ["B"],
+        "tieContributors": [
+          ["A", "B"],
+          ["A", "B"]
+        ],
+        "result": null
+      }
+    },
+    {
+      "name": "three-way repeated tie; two simultaneous eliminations ordered by committed priority",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [300, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [700, 0, 0]
+        ],
+        "C": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [200, 0, 0]
+        ],
+        "D": [
+          [100, 0, 0],
+          [100, 0, 0],
+          [100, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "select": "batting" }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 0, "B": 10, "C": 0, "D": 2 },
+        "eliminated": ["C", "A"],
+        "tieContributors": [
+          ["A", "B", "C"],
+          ["A", "B", "C"]
+        ],
+        "result": null
+      }
+    },
+    {
+      "name": "four-way repeated tie; the winner takes all twelve and wins naturally; podium is stable",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [300, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [200, 0, 0]
+        ],
+        "C": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [100, 0, 0]
+        ],
+        "D": [
+          [900, 0, 0],
+          [800, 0, 0],
+          [700, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "select": "batting" }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 0, "B": 0, "C": 0, "D": 12 },
+        "eliminated": ["C", "B", "A"],
+        "tieContributors": [
+          ["A", "B", "C", "D"],
+          ["A", "B", "C", "D"]
+        ],
+        "result": { "reason": "natural", "standings": ["D", "A", "B", "C"] }
+      }
+    },
+    {
+      "name": "all tied seats exhausted: fallback by stat sum between A and B only",
+      "selector": "A",
+      "decks": {
+        "A": [[900, 500, 300]],
+        "B": [[900, 100, 100]],
+        "C": [
+          [500, 0, 0],
+          [400, 0, 0]
+        ],
+        "D": [
+          [400, 0, 0],
+          [300, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }],
+      "expect": {
+        "reasons": ["FALLBACK"],
+        "fallback": { "byPermutation": false, "sums": { "A": 1700, "B": 1100 } },
+        "holdings": { "A": 4, "B": 0, "C": 1, "D": 1 },
+        "eliminated": ["B"],
+        "result": null
+      }
+    },
+    {
+      "name": "equal stat sums: the committed seat order decides; a zero-card player can win and survive",
+      "selector": "A",
+      "decks": {
+        "A": [[900, 100, 100]],
+        "B": [[900, 100, 100]],
+        "C": [
+          [100, 0, 0],
+          [100, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }],
+      "expect": {
+        "reasons": ["FALLBACK"],
+        "fallback": { "byPermutation": true, "rotatedOrder": ["A", "B"] },
+        "holdings": { "A": 3, "B": 0, "C": 1 },
+        "eliminated": ["B"],
+        "result": null
+      }
+    },
+    {
+      "name": "one able tied seat takes the pot without an unopposed extra card",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [100, 0, 0]
+        ],
+        "B": [[900, 0, 0]],
+        "C": [
+          [500, 0, 0],
+          [400, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }],
+      "expect": {
+        "reasons": ["SOLE_TIE_CONTRIBUTOR"],
+        "holdings": { "A": 4, "B": 0, "C": 1 },
+        "eliminated": ["B"],
+        "result": null
+      }
+    },
+    {
+      "name": "a winner playing its last card survives with the pot",
+      "selector": "A",
+      "decks": {
+        "A": [[950, 0, 0]],
+        "B": [
+          [500, 0, 0],
+          [400, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }],
+      "expect": {
+        "reasons": ["UNIQUE_MAX"],
+        "holdings": { "A": 2, "B": 1 },
+        "eliminated": [],
+        "result": null
+      }
+    },
+    {
+      "name": "a seat that lost the first comparison never re-enters the chain",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [100, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [200, 0, 0]
+        ],
+        "C": [
+          [100, 0, 0],
+          [999, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 0, "B": 5, "C": 1 },
+        "eliminated": ["A"],
+        "tieContributors": [["A", "B"]],
+        "result": null
+      }
+    },
+    {
+      "name": "an end requested mid-chain waits; the chain settles and the match ends at the boundary",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [800, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [700, 0, 0]
+        ],
+        "C": [
+          [100, 0, 0],
+          [100, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "requestFinish": "vote" }, { "select": "batting" }],
+      "expect": {
+        "reasons": ["TIE", "UNIQUE_MAX"],
+        "holdings": { "A": 5, "B": 0, "C": 1 },
+        "eliminated": ["B"],
+        "result": { "reason": "vote", "standings": ["A", "C", "B"] }
+      }
+    },
+    {
+      "name": "restoration after a vote: the unsettled chain returns to deck fronts in original order",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [900, 0, 0],
+          [800, 0, 0]
+        ],
+        "B": [
+          [900, 0, 0],
+          [700, 0, 0]
+        ],
+        "C": [
+          [100, 0, 0],
+          [100, 0, 0]
+        ]
+      },
+      "steps": [{ "select": "batting" }, { "requestFinish": "vote" }, { "expireGrace": true }],
+      "expect": {
+        "reasons": ["TIE"],
+        "holdings": { "A": 2, "B": 2, "C": 2 },
+        "decks": { "A": ["A0", "A1"], "B": ["B0", "B1"], "C": ["C0", "C1"] },
+        "eliminated": [],
+        "result": { "reason": "vote", "standings": ["A", "B", "C"] }
+      }
+    },
+    {
+      "name": "a repeating position ends the match on its third occurrence",
+      "selector": "A",
+      "decks": {
+        "A": [
+          [9, 0, 0],
+          [1, 0, 0]
+        ],
+        "B": [
+          [1, 0, 0],
+          [9, 0, 0]
+        ]
+      },
+      "steps": [{ "playUntilDone": "batting", "max": 50 }],
+      "expect": {
+        "result": { "reason": "cycle" }
+      }
+    }
+  ]
+}

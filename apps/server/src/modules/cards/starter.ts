@@ -18,7 +18,7 @@ import { canonicalJson } from '../../rooms/room-tx';
 import type { GameStarter } from '../../rooms/starters';
 import { currentVersion, dealPool } from '../cricket-data/read';
 import { applyTransition, cardSettings, engineError } from './apply';
-import { MATCH_LIMIT, type MatchMeta } from './store';
+import { HARD_LIMIT, HARD_LIMIT_MINUTES, MATCH_LIMIT, type MatchMeta } from './store';
 
 /** Bumped when the card rules change in a way that alters outcomes. */
 export const CARD_RULES_VERSION = 'card-rules-v1';
@@ -136,6 +136,12 @@ export function cardStarter(secrets: Secrets): GameStarter {
          SELECT $1, u.member_id, u.ord - 1, $3 FROM unnest($2::uuid[]) WITH ORDINALITY AS u(member_id, ord)`,
         [room.id, seats, settings.totalCards / seats.length],
       );
+      // The hard ceiling always applies, whatever the soft limit (rules §6.2).
+      await tx.query(
+        `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
+         VALUES ($1, '${HARD_LIMIT}', NULL, 0, $2)`,
+        [room.id, new Date(now.getTime() + HARD_LIMIT_MINUTES * 60_000)],
+      );
       if (matchDeadline) {
         await tx.query(
           `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
@@ -153,7 +159,6 @@ export function cardStarter(secrets: Secrets): GameStarter {
         configHash,
         phaseDeadline: null,
         timerGeneration: '0',
-        finishPending: false,
       };
       const dealtAt = new Map(deal.decks.flatMap((deck) => deck.map((id, i) => [id, i] as const)));
       const events = await applyTransition(

@@ -1,16 +1,20 @@
 import { CARD_METRICS, type CardMetric } from '@stumps/contracts';
 import { assertInvariants } from './invariants';
+import { eliminateEmptySeats, finish } from './ranking';
 import { sha256Hex } from './rng';
+import { cloneState, clockwise, deckCounts, live, seatOf, type Ctx } from './shared';
+import { ableSeats, fallbackWinner, tieSelector } from './ties';
 import {
   CardEngineError,
   type CardEngineEvent,
   type CardInstance,
-  type FinishReason,
-  type MatchResult,
+  type FallbackDetail,
   type MatchState,
   type SeatState,
   type Transition,
 } from './types';
+
+export { cloneState } from './shared';
 
 /** Rules §1: three identical boundary states or 2,000 decided contests end the match. */
 export const CYCLE_LIMIT = 3;
@@ -24,31 +28,6 @@ export interface StartInput {
   fallbackOrder: readonly string[];
   tieCap: number;
   newId: () => string;
-}
-
-type Ctx = { state: MatchState; events: CardEngineEvent[]; newId: () => string };
-
-/** Transitions never mutate their input (the state is plain JSON data). */
-export const cloneState = (s: MatchState): MatchState =>
-  JSON.parse(JSON.stringify(s)) as MatchState;
-
-const seatOf = (s: MatchState, memberId: string) => {
-  const seat = s.seats.find((x) => x.memberId === memberId);
-  if (!seat) throw new CardEngineError('INVARIANT_VIOLATION', `Unknown seat ${memberId}.`);
-  return seat;
-};
-const live = (s: MatchState) => s.seats.filter((x) => x.eliminationOrder === null);
-const deckCounts = (s: MatchState) =>
-  Object.fromEntries(s.seats.map((x) => [x.memberId, x.deck.length] as const));
-
-/** First seat clockwise after `from` (exclusive, wrapping) that satisfies `ok`. */
-function clockwise(s: MatchState, from: string, ok: (seat: SeatState) => boolean): string | null {
-  const start = s.seats.findIndex((x) => x.memberId === from);
-  for (let step = 1; step <= s.seats.length; step += 1) {
-    const seat = s.seats[(start + step) % s.seats.length] as SeatState;
-    if (ok(seat)) return seat.memberId;
-  }
-  return null;
 }
 
 /** Initialize a dealt match and open its first comparison (rules §4.4–4.5). */
@@ -78,6 +57,7 @@ export function startMatch(input: StartInput): Transition {
     completedContests: 0,
     eliminationsSoFar: 0,
     cycleCounts: {},
+    finishPending: null,
     result: null,
   };
   const ctx: Ctx = { state, events: [], newId: input.newId };
@@ -149,73 +129,21 @@ export function timeoutSelection(
   return { state: ctx.state, events: ctx.events };
 }
 
-/**
- * End the match now (time limit; vote in phase 14). An unresolved chain is
- * restored first: every POT and ACTIVE card returns to its contributor's deck
- * front in original chronological order (rules §6.2), so all N cards have an owner.
- */
-export function finishMatch(state: MatchState, reason: FinishReason): Transition {
-  const ctx: Ctx = { state: cloneState(state), events: [], newId: () => '' };
-  if (ctx.state.result) throw new CardEngineError('GAME_FINISHED', 'The match has finished.');
-  const s = ctx.state;
-  const contributed = [
-    ...s.pot,
-    ...(s.comparison?.active.map((a) => ({
-      ...a,
-      comparisonIndex: s.comparison?.index ?? 0,
-    })) ?? []),
-  ].sort((a, b) => a.comparisonIndex - b.comparisonIndex);
-  for (const seat of s.seats) {
-    const mine = contributed.filter((p) => p.memberId === seat.memberId).map((p) => p.instanceId);
-    seat.deck = [...mine, ...seat.deck];
-  }
-  s.pot = [];
-  s.comparison = null;
-  s.tiedSeats = [];
-  finish(ctx, reason);
-  assertInvariants(ctx.state);
-  return { state: ctx.state, events: ctx.events };
-}
-
 // ------------------------------------------------------------------ internals
 
-function finish(ctx: Ctx, reason: FinishReason) {
-  const s = ctx.state;
-  const priority = (id: string) => s.fallbackOrder.indexOf(id);
-  const deckSum = (seat: SeatState) =>
-    seat.deck.reduce(
-      (sum, id) => sum + CARD_METRICS.reduce((t, m) => t + (s.instances[id]?.ratings[m] ?? 0), 0),
-      0,
-    );
-  const alive = live(s).sort(
-    (a, b) =>
-      b.deck.length - a.deck.length ||
-      b.contestsWon - a.contestsWon ||
-      deckSum(b) - deckSum(a) ||
-      priority(a.memberId) - priority(b.memberId),
-  );
-  const eliminated = s.seats
-    .filter((x) => x.eliminationOrder !== null)
-    .sort((a, b) => (b.eliminationOrder ?? 0) - (a.eliminationOrder ?? 0));
-  const result: MatchResult = {
-    reason,
-    standings: [...alive, ...eliminated].map((x) => x.memberId),
-  };
-  s.result = result;
-  s.comparison = null;
-  ctx.events.push({ type: 'finished', result });
-}
-
-/** A normal boundary: completion and cycle checks, then the next chain's reveal. */
+/**
+ * A normal boundary: a pending end, completion and cycle checks, then the next
+ * chain's reveal.
+ */
 function openBoundary(ctx: Ctx, preferredSelector: string) {
   const s = ctx.state;
+  if (s.finishPending) return finish(ctx, s.finishPending);
   const eligible = live(s).filter((x) => x.deck.length > 0);
   if (eligible.length <= 1) {
     const owner = eligible[0];
     if (!owner || owner.deck.length !== s.totalCards)
       throw new CardEngineError('INVARIANT_VIOLATION', 'A natural winner must own all cards.');
-    finish(ctx, 'natural');
-    return;
+    return finish(ctx, 'natural');
   }
   const selector = eligible.some((x) => x.memberId === preferredSelector)
     ? preferredSelector
@@ -279,7 +207,7 @@ function resolve(ctx: Ctx, metric: CardMetric, byTimeout: boolean) {
     memberId: a.memberId,
     points: (s.instances[a.instanceId] as CardInstance).ratings[metric],
   }));
-  // ACTIVE → POT in seat order, tagged with this comparison's index.
+  // ACTIVE → POT in seat order, tagged with this comparison.
   s.pot.push(...c.active.map((a) => ({ ...a, comparisonId: c.id, comparisonIndex: c.index })));
   s.lastComparisonIndex = c.index;
   s.comparison = null;
@@ -289,6 +217,7 @@ function resolve(ctx: Ctx, metric: CardMetric, byTimeout: boolean) {
   const resolved = (
     winnerId: string | null,
     reason: Extract<CardEngineEvent, { type: 'comparisonResolved' }>['reason'],
+    fallback?: FallbackDetail,
   ) =>
     ctx.events.push({
       type: 'comparisonResolved',
@@ -299,6 +228,7 @@ function resolve(ctx: Ctx, metric: CardMetric, byTimeout: boolean) {
       tiedSeats: top.length > 1 ? top : [],
       winnerId,
       reason,
+      ...(fallback ? { fallback } : {}),
     });
 
   if (top.length === 1) {
@@ -310,46 +240,22 @@ function resolve(ctx: Ctx, metric: CardMetric, byTimeout: boolean) {
   s.tiedSeats = top;
   s.tieCount += 1;
   if (s.tieCount >= s.tieCap) {
-    const winner = fallbackWinner(s, top);
-    resolved(winner, 'TIE_CAP');
+    const { winner, detail } = fallbackWinner(s, top);
+    resolved(winner, 'TIE_CAP', detail);
     return award(ctx, winner);
   }
-  const able = top.filter((id) => seatOf(s, id).deck.length > 0);
+  const able = ableSeats(s, top);
   if (able.length >= 2) {
     resolved(null, 'TIE');
-    const selector =
-      able.includes(s.chainSelector) && seatOf(s, s.chainSelector).deck.length > 0
-        ? s.chainSelector
-        : (clockwise(s, s.chainSelector, (x) => able.includes(x.memberId)) as string);
-    return openComparison(ctx, able, selector, true);
+    return openComparison(ctx, able, tieSelector(s, able), true);
   }
   if (able.length === 1) {
     resolved(able[0] as string, 'SOLE_TIE_CONTRIBUTOR');
     return award(ctx, able[0] as string);
   }
-  const winner = fallbackWinner(s, top);
-  resolved(winner, 'FALLBACK');
+  const { winner, detail } = fallbackWinner(s, top);
+  resolved(winner, 'FALLBACK', detail);
   return award(ctx, winner);
-}
-
-/**
- * Fallback (rules §6): the tied seats' most recent contributed cards by the sum
- * of six ratings; then the committed fallback permutation rotated by
- * chainIndex mod participants, first tied seat wins.
- */
-export function fallbackWinner(s: MatchState, tied: readonly string[]): string {
-  const sum = (memberId: string) => {
-    const last = [...s.pot].reverse().find((p) => p.memberId === memberId);
-    const card = last ? s.instances[last.instanceId] : undefined;
-    return card ? CARD_METRICS.reduce((t, m) => t + card.ratings[m], 0) : -1;
-  };
-  const best = Math.max(...tied.map(sum));
-  const leaders = tied.filter((id) => sum(id) === best);
-  if (leaders.length === 1) return leaders[0] as string;
-  const n = s.seats.length;
-  const r = ((s.chainIndex % n) + n) % n;
-  const rotated = [...s.fallbackOrder.slice(r), ...s.fallbackOrder.slice(0, r)];
-  return rotated.find((id) => leaders.includes(id)) as string;
 }
 
 /** Transfer the whole pot to the winner's tail, then eliminate, then the next boundary. */
@@ -369,26 +275,7 @@ function award(ctx: Ctx, winnerId: string) {
     awardedCount: won.length,
     deckCounts: deckCounts(s),
   });
-
   // Elimination only now, after the pot is empty (rules §6.1).
-  const priority = (id: string) => s.fallbackOrder.indexOf(id);
-  const out = live(s)
-    .filter((x) => x.deck.length === 0)
-    .sort(
-      (a, b) =>
-        a.chainStartCount - b.chainStartCount ||
-        a.contestsWon - b.contestsWon ||
-        priority(b.memberId) - priority(a.memberId),
-    );
-  for (const seat of out) {
-    s.eliminationsSoFar += 1;
-    seat.eliminationOrder = s.eliminationsSoFar;
-    seat.eliminatedChain = s.chainIndex;
-    ctx.events.push({
-      type: 'playerEliminated',
-      memberId: seat.memberId,
-      eliminationOrder: seat.eliminationOrder,
-    });
-  }
+  eliminateEmptySeats(ctx);
   openBoundary(ctx, winnerId);
 }

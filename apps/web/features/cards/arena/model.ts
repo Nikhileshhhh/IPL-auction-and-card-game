@@ -25,6 +25,7 @@ export const FINISH_LABELS: Record<NonNullable<CardGame['result']>['reason'], st
   cycle: 'The same position repeated three times, so the match ended by card count.',
   contest_cap: 'The contest limit was reached, so the match ended by card count.',
   time_limit: 'The match time limit was reached, so it ended by card count.',
+  vote: 'The players voted to end the match, so it ended by card count.',
 };
 
 export const REASON_LABELS: Record<string, string> = {

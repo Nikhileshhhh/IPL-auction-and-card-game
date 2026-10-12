@@ -3,8 +3,10 @@ import type {
   CardEngineEvent,
   CardInstance,
   CardPoints,
+  FallbackDetail,
   MatchResult,
   MatchState,
+  PendingFinish,
   PotCard,
 } from '@stumps/game-engines';
 import type { Tx } from '../../db/transaction';
@@ -24,7 +26,6 @@ export interface MatchMeta {
   configHash: string;
   phaseDeadline: Date | null;
   timerGeneration: string;
-  finishPending: boolean;
 }
 
 export interface LoadedMatch {
@@ -34,6 +35,13 @@ export interface LoadedMatch {
 
 export const SELECTION_TIMEOUT = 'card.selection_timeout';
 export const MATCH_LIMIT = 'card.match_limit';
+/** An end requested mid-chain gives the chain at most this long to settle (rules §6.2). */
+export const FINISH_GRACE = 'card.finish_grace';
+export const FINISH_GRACE_SECONDS = 60;
+/** The room's hard ceiling always applies (rules §6.2). */
+export const HARD_LIMIT = 'card.hard_limit';
+/** Card rooms' hard match ceiling (matches rooms.hard_deadline set at start). */
+export const HARD_LIMIT_MINUTES = 120;
 
 interface GameRow {
   total_cards: number;
@@ -46,7 +54,7 @@ interface GameRow {
   tied_member_ids: string[];
   phase_deadline: Date | null;
   timer_generation: string;
-  finish_pending: boolean;
+  pending_reason: PendingFinish | null;
   rng_version: string;
   room_nonce: string;
   config_hash: string;
@@ -74,7 +82,7 @@ export async function loadMatch(tx: Tx, roomId: string): Promise<LoadedMatch | n
   const game = (
     await tx.query<GameRow>(
       `SELECT total_cards, tie_cap, deal_mode, chain_selector_id, chain_index, comparison_index, tie_count,
-              tied_member_ids, phase_deadline, timer_generation::text, finish_pending, rng_version, room_nonce,
+              tied_member_ids, phase_deadline, timer_generation::text, pending_reason, rng_version, room_nonce,
               config_hash, fallback_order, completed_contests, eliminations, result
          FROM app_private.card_games WHERE room_id = $1`,
       [roomId],
@@ -181,6 +189,7 @@ export async function loadMatch(tx: Tx, roomId: string): Promise<LoadedMatch | n
     completedContests: game.completed_contests,
     eliminationsSoFar: game.eliminations,
     cycleCounts: Object.fromEntries(cycles.rows.map((c) => [c.key, c.occurrences] as const)),
+    finishPending: game.pending_reason,
     result: game.result,
   };
   return {
@@ -194,7 +203,6 @@ export async function loadMatch(tx: Tx, roomId: string): Promise<LoadedMatch | n
       configHash: game.config_hash,
       phaseDeadline: game.phase_deadline,
       timerGeneration: game.timer_generation,
-      finishPending: game.finish_pending,
     },
   };
 }
@@ -283,7 +291,8 @@ export async function persistTransition(
     if (event.type === 'comparisonResolved') {
       await tx.query(
         `UPDATE app_private.card_comparisons
-            SET status = $3, metric = $4, by_timeout = $5, reason = $6, tied_ids = $7, winner_id = $8, resolved_at = $9
+            SET status = $3, metric = $4, by_timeout = $5, reason = $6, tied_ids = $7, winner_id = $8,
+                resolved_at = $9, fallback = $10
           WHERE room_id = $1 AND id = $2 AND status = 'open'`,
         [
           roomId,
@@ -295,6 +304,7 @@ export async function persistTransition(
           event.tiedSeats,
           event.winnerId,
           now,
+          event.fallback ? JSON.stringify(event.fallback) : null,
         ],
       );
       for (const v of event.values) {
@@ -455,7 +465,8 @@ export async function persistTransition(
     `UPDATE app_private.card_games
         SET selector_member_id = $2, chain_selector_id = $3, chain_index = $4, comparison_index = $5,
             tie_count = $6, tied_member_ids = $7, phase_deadline = $8, timer_generation = $9,
-            completed_contests = $10, eliminations = $11, result = $12, finish_pending = false
+            completed_contests = $10, eliminations = $11, result = $12,
+            finish_pending = ($13::text IS NOT NULL), pending_reason = $13
       WHERE room_id = $1`,
     [
       roomId,
@@ -470,6 +481,7 @@ export async function persistTransition(
       after.completedContests,
       after.eliminationsSoFar,
       after.result ? JSON.stringify(after.result) : null,
+      after.finishPending,
     ],
   );
 
@@ -497,8 +509,9 @@ export async function lastResolved(tx: Tx, roomId: string) {
       winner_id: string | null;
       tied_ids: string[];
       reason: string;
+      fallback: FallbackDetail | null;
     }>(
-      `SELECT id, metric, by_timeout, winner_id, tied_ids, reason FROM app_private.card_comparisons
+      `SELECT id, metric, by_timeout, winner_id, tied_ids, reason, fallback FROM app_private.card_comparisons
         WHERE room_id = $1 AND status IN ('tied', 'awarded')
         ORDER BY comparison_index DESC LIMIT 1`,
       [roomId],

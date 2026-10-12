@@ -7,8 +7,9 @@ import { registerCardCommands } from './commands';
 import { registerCardDeadlines } from './deadlines';
 import { cardProjector } from './projection';
 import { cardStarter } from './starter';
+import { registerTieService } from './tie-service';
 
-/** Wire the authoritative card engine into the room runtime (phase 07). */
+/** Wire the authoritative card engine into the room runtime (phases 07–08). */
 export function registerCardModule(
   registries: {
     starters: StarterRegistry;
@@ -19,6 +20,7 @@ export function registerCardModule(
 ): GameProjector {
   registries.starters.register('card', cardStarter(secrets));
   registerCardDeadlines(registries.deadlines, secrets);
+  registerTieService(registries.deadlines, secrets);
   registerCardCommands(registries.commands, secrets);
   return cardProjector(secrets);
 }

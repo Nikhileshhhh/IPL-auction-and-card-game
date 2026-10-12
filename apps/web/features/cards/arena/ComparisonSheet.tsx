@@ -2,6 +2,7 @@
 
 import { METRIC_LABELS, type RoomMemberSummary } from '@stumps/contracts';
 import { Dialog } from '@stumps/ui';
+import { FallbackExplanation } from '../tie-arena/FallbackExplanation';
 import { metricRows, REASON_LABELS, seatName, type CardGame } from './model';
 
 /**
@@ -107,6 +108,7 @@ export function ComparisonSheet({
               </tbody>
             </table>
             <p className="text-ink-2">{REASON_LABELS[last.reason] ?? last.reason}</p>
+            <FallbackExplanation last={last} members={members} />
           </div>
         ) : (
           <p className="text-ink-2">No comparison has been decided yet.</p>

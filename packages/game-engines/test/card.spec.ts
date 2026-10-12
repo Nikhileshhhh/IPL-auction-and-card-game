@@ -386,9 +386,9 @@ describe('ties and settlement (rules §6)', () => {
     ];
     s.fallbackOrder = ['B', 'A'];
     s.chainIndex = 0;
-    expect(fallbackWinner(s, ['A', 'B'])).toBe('B');
+    expect(fallbackWinner(s, ['A', 'B']).winner).toBe('B');
     s.chainIndex = 1; // rotated by chainIndex mod participants
-    expect(fallbackWinner(s, ['A', 'B'])).toBe('A');
+    expect(fallbackWinner(s, ['A', 'B']).winner).toBe('A');
   });
 
   it('time limit mid-chain restores contributions to deck fronts, then ranks', () => {
