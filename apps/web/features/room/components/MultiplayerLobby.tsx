@@ -438,7 +438,7 @@ export function MultiplayerLobby({
             Start game
           </Button>
         ) : null}
-        {isHost && lobbyOpen && notReady.length > 0 ? (
+        {isHost && lobbyOpen && readyPhase && notReady.length > 0 ? (
           <p className="text-sm text-ink-2">
             Waiting for: {notReady.map((m) => m.displayName).join(', ')}
           </p>

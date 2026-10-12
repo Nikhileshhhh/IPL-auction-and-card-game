@@ -15,6 +15,7 @@ import { AppError } from '../../http/app-error';
 import { one } from '../../db/rows';
 import { withTransaction, type Tx } from '../../db/transaction';
 import { approvedPortrait } from '../media/service';
+import { IPL_SHORT_NAMES } from './sources';
 import { validateVersion } from './validate';
 
 /** Identity facts known at import (others come from the manifest or the editor). */
@@ -77,6 +78,7 @@ const slugOf = (name: string) =>
     .slice(0, 40) || 'team';
 
 const shortOf = (name: string) =>
+  IPL_SHORT_NAMES.get(name) ??
   name
     .split(/\s+/)
     .map((w) => w[0] ?? '')
@@ -266,7 +268,8 @@ export async function importDataVersion(
           await tx.query<{ id: string }>(
             `INSERT INTO app_private.franchises (slug, name, short_name, primary_hex, secondary_hex, is_fictional)
              VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+             ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, short_name = EXCLUDED.short_name
+             RETURNING id`,
             [slugOf(name), name.slice(0, 60), shortOf(name), primary, secondary, bundle.fictional],
           ),
         );

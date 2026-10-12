@@ -35,15 +35,15 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S11 | Tie-break arena | `/rooms/:id/cards` (in-arena while `isTie`) | (room) | `features/cards/tie-arena: TieBanner, PotHistory, FallbackExplanation, FinishPendingNotice` | PermittedCardSnapshot (chainSelector, tieCount/tieCap, waitingSeats, contributions, finishPending, lastComparison.fallback) | → S09/S12 | 8 (built) |
 | S12 | Card round victory reveal | `/rooms/:id/cards#round-result` | (room) | `RoundWinnerReveal > WinnerLabel/ComparisonResult/CardCountDelta` | lastComparison (keyed by comparison ID) | nonmodal | 7 (built) |
 | S13 | Card final results | `/rooms/:id/results` | (room) | `VictoryPodium > ResultSummary/RankingTable/QualificationStatus/AuditDrawer` | ResultDTO | → /play, /players/:u | 14 |
-| S14 | Auction room creation | `/play/auction/create` | (member) | `AuctionCreationForm > RulesetPicker/FormatSelector/PoolPicker/TimerFields/RuleSummary` | rulesets, data versions | → /rooms/:id/franchises | 9 |
+| S14 | Auction room creation | `/play/auction/create` | (member) | `AuctionCreationForm` (real-rules summary with sources, format, teams, pacing) | IPL_RULES_SUMMARY; server binds the published ruleset | → /rooms/:id/franchises | 9 (built) |
 | S15 | Auction room joining | `/play/auction/join` | (member) | `AuctionJoin > RoomJoinForm/NextStepHint` | RoomLobbyDTO | → /rooms/:id/franchises | 5 |
-| S16 | Franchise selection | `/rooms/:id/franchises` | (room) | `FranchiseSelection > FranchiseCard[]/MembershipSummary` | franchises, teams | → retentions or auction-lobby | 9 |
-| S17 | Collaboration approval | `/rooms/:id/team/requests` | (room) | `TeamApproval > PendingRequests/CapabilityEditor/InviteCodePanel` | join requests | drawer | 11 |
-| S18 | Retention management | `/rooms/:id/retentions` | (room) | `RetentionManager > EligibleRoster/RetentionSlots/CostBreakdown/ConfirmPanel` | previous roster, cost model | → auction-lobby | 9 |
-| S19 | Auction waiting lobby | `/rooms/:id/auction-lobby` | (room) | `AuctionLobby > FranchiseRoster/RetentionStatus/AutoConsent/StartChecklist` | teams, members | → /rooms/:id/auction | 9 |
+| S16 | Franchise selection | `/rooms/:id/franchises` | (room) | `features/auction/setup: FranchiseSelection, Crest, TeamPanel` | AuctionSetupSnapshot (teams, myTeam, myRequest) | → retentions or auction-lobby | 9 (built) |
+| S17 | Collaboration approval | `/rooms/:id/team/requests` | (room) | basic `TeamPanel` (join code, teammates, approve/reject) inside S16/S18/S19; capability editor phase 11 | myTeam.requests | drawer | 9 (basic) / 11 |
+| S18 | Retention management | `/rooms/:id/retentions` | (room) | `RetentionManager` (ordered slabs, negotiated salary, server-priced charge, RTM cards, lock dialog) | myTeam.eligible, myTeam.package | → auction-lobby | 9 (built) |
+| S19 | Auction waiting lobby | `/rooms/:id/auction-lobby` | (room) | `AuctionLobbyPanel` (teams and public purses, start checklist); auto consent phase 12 | teams, members | → /rooms/:id/auction (phase 10) | 9 (built) |
 | S20 | Live auction stage | `/rooms/:id/auction` | (room) | `AuctionStage > FranchiseRosterPanel/AuctionPlayerSpotlight/AuctionCountdown/AuctionHistory/BidControlPanel` | NominationDTO | → results | 10 |
 | S21 | Auction player detail | `/rooms/:id/auction?player=:id` | (room) | `PlayerDetail > Identity/Statistics/PhaseSkills/SourceInfo/ComparePicker` | PlayerPublicDTO | close → S20 | 10 |
-| S22 | Franchise squad management | `/rooms/:id/squad` | (room) | `SquadManager > PurseTracker/RoleCoverage/SquadTable/ProvisionalXI` | SquadDTO | drawer/page | 9 |
+| S22 | Franchise squad management | `/rooms/:id/squad` | (room) | `SquadView` (purse, reserve, counts, deficits, players by role); provisional XI phase 14 | SquadDTO | page (?team=) | 9 (built) |
 | S23 | Player shortlist | `/rooms/:id/shortlist` | (room) | `TeamShortlist > PlayerSearch/TargetList/RecommendationVotes` | StrategyDTO (own team) | drawer/page | 11 |
 | S24 | Public auction chat | `/rooms/:id/chat/public` | (room) | `PublicChat > AudienceLabel/MessageList/Composer/ModerationMenu` | chat channel | drawer | 13 |
 | S25 | Private franchise chat | `/rooms/:id/chat/team` | (room) | `TeamChat > PrivateAudienceBanner/ApprovedMemberList/MessageList/Composer` | team channel | drawer | 13 |

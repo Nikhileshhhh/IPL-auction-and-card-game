@@ -25,6 +25,20 @@ export const CRICSHEET_ATTRIBUTION =
   'Ball-by-ball data from Cricsheet (cricsheet.org), ODC-By 1.0.';
 
 /** Factual team colours (text/hex only; no logos or emblems are reproduced). */
+/** The franchises' own abbreviations (initials would give "PK" and "SH"). */
+export const IPL_SHORT_NAMES: ReadonlyMap<string, string> = new Map([
+  ['Chennai Super Kings', 'CSK'],
+  ['Delhi Capitals', 'DC'],
+  ['Gujarat Titans', 'GT'],
+  ['Kolkata Knight Riders', 'KKR'],
+  ['Lucknow Super Giants', 'LSG'],
+  ['Mumbai Indians', 'MI'],
+  ['Punjab Kings', 'PBKS'],
+  ['Rajasthan Royals', 'RR'],
+  ['Royal Challengers Bengaluru', 'RCB'],
+  ['Sunrisers Hyderabad', 'SRH'],
+]);
+
 export const IPL_TEAM_COLOURS: ReadonlyMap<string, readonly [string, string]> = new Map([
   ['Chennai Super Kings', ['#F9CD05', '#0081E9']],
   ['Mumbai Indians', ['#004BA0', '#D1AB3E']],
