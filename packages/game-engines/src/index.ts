@@ -19,3 +19,4 @@ export * from './ratings/career';
 export * from './ratings/catalog';
 export * from './demo/league';
 export * from './card';
+export * from './auction';

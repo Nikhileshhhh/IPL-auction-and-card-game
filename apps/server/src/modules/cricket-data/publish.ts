@@ -3,6 +3,7 @@ import type pg from 'pg';
 import { AppError } from '../../http/app-error';
 import { withTransaction } from '../../db/transaction';
 import { canonicalJson } from '../../rooms/room-tx';
+import { createDemoRuleset, publishRuleset } from '../auctions/rulesets';
 import { INCOMPLETE_CARDS, validateVersion, type ValidationReport } from './validate';
 
 /**
@@ -20,8 +21,8 @@ export async function publishVersion(
     pool,
     async (tx) => {
       const version = (
-        await tx.query<{ status: string }>(
-          'SELECT status FROM app_private.data_versions WHERE id = $1 FOR UPDATE',
+        await tx.query<{ status: string; kind: 'demo' | 'factual' }>(
+          'SELECT status, kind FROM app_private.data_versions WHERE id = $1 FOR UPDATE',
           [versionId],
         )
       ).rows[0];
@@ -75,6 +76,8 @@ export async function publishVersion(
           WHERE id = $1`,
         [versionId, contentHash, JSON.stringify(report)],
       );
+      // The demo pack gets its auction pool with it (ADR-024); real packs import theirs.
+      if (version.kind === 'demo') await publishRuleset(tx, await createDemoRuleset(tx, versionId));
       await tx.query(
         `INSERT INTO app_private.admin_audit (actor_id, action, target_class, safe_diff)
          VALUES ($1, 'catalog.published', 'data_version', $2)`,

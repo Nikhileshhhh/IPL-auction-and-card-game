@@ -33,7 +33,8 @@
     "data:facts": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-facts.ts",
     "data:headshots": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-ipl-headshots.ts",
     "data:demo": "tsx --env-file-if-exists=.env scripts/data/seed-demo.ts",
-    "data:profiles": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-profiles.ts"
+    "data:profiles": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-profiles.ts",
+    "data:auction": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-auction.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

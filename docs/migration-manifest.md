@@ -20,7 +20,7 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `052_card_ties` | 8 | adds card_comparisons.fallback (tie fallback audit) and card_games.pending_reason (end waiting for the chain; consistent with finish_pending) (ADR-023) |
 | `053_rating_ceiling` | 8 | widens card_contributions.metric_points to 0–1010 so an owner override (Sachin Tendulkar Gold, display 101) can be compared (ADR-022 amendment) |
 | `051_attax_card_stats` | 7 | alters card_definitions (ratings: batting, bowling, runs) and card_comparisons (metric) checks; new rows only (ADR-022) |
-| `060_auction` | 9–12 | auction_games, auction_franchises, franchise_members, team_handovers, franchise_invites, franchise_join_requests, auction_pool, auction_nominations, auction_bids, auction_acquisitions, retention_packages, auto_strategies, team_shortlists, shortlist_votes |
+| `060_auction` | 9 | auction_games, auction_franchises, franchise_members, franchise_invites, franchise_join_requests, auction_pool, retention_packages, auction_acquisitions; pool-entry facts (overseas, role, current salary, price source); deferred purse-conservation and captain-pointer triggers (ADR-024). Nominations, bids, handovers, strategies and shortlists follow in phases 10–12 as later migrations. |
 | `070_votes_chat_assets_results_cleanup` | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
 | `080_invariants` | 7–15 (added per feature migration) | (deferred constraint triggers: card conservation, purse sums, single captain, medal mapping) |
 | `090_rls_grants_verify` | 2 (rerun every phase) | (reconcile/verify every table: RLS enabled+forced, backend policy, grants, no browser access) |
