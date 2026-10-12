@@ -62,8 +62,8 @@ function ruleLabels(room: RoomRow): string[] {
     ];
   }
   return [
-    s.preset === 'IPL_2025_MEGA_HISTORICAL_v1' ? '2025 historical simulation' : 'Casual rules',
-    s.format === 'retention' ? 'Retention format' : 'Fresh reset format',
+    'Real IPL mega-auction rules (2025–27)',
+    s.format === 'retention' ? 'Retention format' : 'Fresh reset format (simulator option)',
     `${String(s.franchiseCount)} franchises`,
     `Up to ${String(s.collaboratorsPerFranchise)} people per franchise`,
     `${String(s.openingClockSeconds)} s opening clock`,

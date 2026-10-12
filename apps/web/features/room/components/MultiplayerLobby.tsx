@@ -7,6 +7,7 @@ import { Badge, Button, Dialog, Skeleton, StatusMessage, Surface } from '@stumps
 import type { ApiError, RoomLobbyDTO, RoomMemberSummary } from '@stumps/contracts';
 import { useRoom } from '../useRoom';
 import type { RoomConnection } from '../connection';
+import type { RoomState } from '../events';
 import { SettingsDialog } from './SettingsDialog';
 
 type Lobby = RoomLobbyDTO;
@@ -131,8 +132,22 @@ function useAction() {
   return { pending, error, run, clear: () => setError(null) };
 }
 
-/** S07 (card) and the auction pre-franchise lobby: roster, readiness, rules and host controls. */
-export function MultiplayerLobby({ roomId, children }: { roomId: string; children?: ReactNode }) {
+/** What a screen inside the lobby needs: the confirmed room state and the live link. */
+export interface LobbyContext {
+  room: RoomState;
+  connection: RoomConnection;
+  /** This tab controls the seat and the link is live. */
+  canAct: boolean;
+}
+
+/** S07 (card) and the auction setup screens: roster, readiness, rules and host controls. */
+export function MultiplayerLobby({
+  roomId,
+  children,
+}: {
+  roomId: string;
+  children?: ReactNode | ((ctx: LobbyContext) => ReactNode);
+}) {
   const router = useRouter();
   const { status, room, loadError, connection } = useRoom(roomId);
   const actions = useAction();
@@ -201,6 +216,9 @@ export function MultiplayerLobby({ roomId, children }: { roomId: string; childre
     handover &&
     new Date(handover.expiresAt).getTime() > new Date(room.snapshot.serverNow).getTime();
   const capacity = Number(lobby.settings.maxPlayers ?? 0);
+  // An auction gets ready and starts only from its lobby, after franchises and retentions.
+  const auctionPhase = (room.snapshot.game as { phase?: string } | null)?.phase;
+  const readyPhase = lobby.gameType === 'card' || auctionPhase === 'AUCTION_LOBBY';
 
   const copyCode = async () => {
     if (!lobby.roomCode) return;
@@ -324,7 +342,7 @@ export function MultiplayerLobby({ roomId, children }: { roomId: string; childre
                 : null}
             </ul>
           </Surface>
-          {children}
+          {typeof children === 'function' ? children({ room, connection, canAct }) : children}
         </div>
 
         <aside className="flex flex-col gap-6">
@@ -388,7 +406,7 @@ export function MultiplayerLobby({ roomId, children }: { roomId: string; childre
       ) : null}
 
       <div className="sticky bottom-0 -mx-[var(--gutter)] flex flex-wrap items-center gap-3 border-t border-line bg-midnight px-[var(--gutter)] py-4">
-        {lobbyOpen && mine?.role === 'player' ? (
+        {lobbyOpen && readyPhase && mine?.role === 'player' ? (
           <Button
             aria-pressed={mine.ready}
             variant={lobby.gameType === 'card' ? 'primary' : 'auction'}
@@ -406,7 +424,7 @@ export function MultiplayerLobby({ roomId, children }: { roomId: string; childre
             {mine.ready ? 'Ready ✓ (tap to undo)' : "I'm ready"}
           </Button>
         ) : null}
-        {isHost && lobbyOpen ? (
+        {isHost && lobbyOpen && readyPhase ? (
           <Button
             variant="secondary"
             disabled={!canAct}

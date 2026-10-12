@@ -111,13 +111,14 @@ test('wrong room code shows the generic failure and no membership', async ({ pag
   await expectNoHorizontalScroll(page);
 });
 
-test('auction room creation lands on the franchise shell', async ({ page }, testInfo) => {
+test('auction room creation lands on franchise selection', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'covered once');
   await onboardThroughUi(page, CODE, `rauct_${Date.now() % 100000}`);
   await page.goto('/play/auction/create');
+  await expect(page.getByRole('heading', { name: 'Real IPL auction rules' })).toBeVisible();
   await page.getByLabel('Room name').fill('Auction night');
   await page.getByRole('button', { name: 'Create auction room' }).click();
   await expect(page).toHaveURL(/\/rooms\/[0-9a-f-]{36}\/franchises$/);
-  await expect(page.getByText('Franchise selection is not open yet')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose a franchise' })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 });

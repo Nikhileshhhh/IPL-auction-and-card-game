@@ -1,0 +1,109 @@
+import { expect, test } from '@playwright/test';
+import {
+  clearAttempts,
+  expectNoHorizontalScroll,
+  expectNoSeriousA11yViolations,
+  onboardThroughUi,
+  setAccessCode,
+} from './support';
+
+const CODE = 'e2e-auction-setup-code';
+const ROOM_CODE = /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/;
+
+test.beforeEach(async () => {
+  await setAccessCode(CODE);
+  await clearAttempts();
+});
+
+test('two captains claim franchises, lock retentions and reach the auction lobby', async ({
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'two-context flow runs once (guest at 360 px)');
+  test.setTimeout(180_000);
+  const suffix = Date.now() % 100000;
+  const hostContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const guestContext = await browser.newContext({
+    viewport: { width: 360, height: 800 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const host = await hostContext.newPage();
+  const guest = await guestContext.newPage();
+  await onboardThroughUi(host, CODE, `ahost_${suffix}`);
+  await onboardThroughUi(guest, CODE, `aguest_${suffix}`);
+
+  // S14: real IPL rules, retention format by default.
+  await host.goto('/play/auction/create');
+  await expect(host.getByText('₹120 crore per franchise')).toBeVisible();
+  await host.getByLabel('Room name').fill('E2E auction');
+  await host.getByRole('button', { name: 'Create auction room' }).click();
+  await expect(host).toHaveURL(/\/rooms\/[0-9a-f-]{36}\/franchises$/);
+  const roomCode = (await host.getByText(ROOM_CODE).first().textContent()) ?? '';
+
+  await guest.goto('/play/auction/join');
+  await guest.getByLabel('Room code').fill(roomCode);
+  await guest.getByRole('button', { name: 'Join room' }).click();
+  await expect(guest).toHaveURL(/\/franchises$/);
+
+  // S16: each claims a franchise and becomes its captain.
+  await host
+    .getByRole('button', { name: /^Claim / })
+    .first()
+    .click();
+  await expect(host.getByRole('heading', { name: /^Your team: / })).toBeVisible();
+  await expect(host.getByText('Team invitation code (not the room code)')).toBeVisible();
+  await expect(guest.getByText(/^Captain AHOST_/).first()).toBeVisible();
+  await guest
+    .getByRole('button', { name: /^Claim / })
+    .first()
+    .click();
+  await expect(guest.getByRole('heading', { name: /^Your team: / })).toBeVisible();
+  await expectNoSeriousA11yViolations(host);
+  await expectNoHorizontalScroll(guest);
+
+  await host.getByRole('button', { name: 'Close selection with 2 teams' }).click();
+  for (const page of [host, guest]) await expect(page).toHaveURL(/\/retentions$/);
+
+  // S18: the host keeps two players at the real slab rates; the guest keeps nobody.
+  const retain = host.getByRole('button', { name: /^Retain / });
+  await retain.first().click();
+  await retain.first().click();
+  await expect(host.getByText('Selected: 2 of 6')).toBeVisible();
+  await host.getByRole('button', { name: 'Save proposal' }).click();
+  await expect(host.getByText('Charged to the purse')).toBeVisible();
+  for (const card of await host
+    .getByRole('list', { name: 'Players you retain, in order' })
+    .locator('img')
+    .all()) {
+    await expect(card).toBeVisible(); // portraits on every player row (ADR-017)
+  }
+  await expectNoSeriousA11yViolations(host);
+  await host.getByRole('button', { name: 'Lock retentions' }).click();
+  await host.getByRole('button', { name: /^Lock for ₹/ }).click();
+  await expect(host.getByText('Retentions locked')).toBeVisible();
+
+  await guest.getByRole('button', { name: 'Keep nobody' }).click();
+  await expect(guest.getByText('Right-to-match cards')).toBeVisible();
+  await guest.getByRole('button', { name: 'Lock retentions' }).click();
+  await guest.getByRole('button', { name: /^Lock for ₹/ }).click();
+
+  // S19: both reach the auction lobby with locked squads and public purses.
+  for (const page of [host, guest]) {
+    await expect(page).toHaveURL(/\/auction-lobby$/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Teams and purses' })).toBeVisible();
+    await expect(page.getByText('Bidding opens in the next update')).toBeVisible();
+  }
+  await expect(guest.getByText('₹120 cr').first()).toBeVisible(); // the guest kept nobody
+  await expectNoSeriousA11yViolations(guest);
+  await expectNoHorizontalScroll(guest);
+
+  // S22: anyone can look at a team's squad.
+  await host.getByRole('link', { name: 'Squads' }).click();
+  await expect(host).toHaveURL(/\/squad$/);
+  await expect(host.getByText('Kept for minimum squad')).toBeVisible();
+  await expect(host.getByText('Need 16 more players')).toBeVisible();
+  await expectNoSeriousA11yViolations(host);
+
+  await hostContext.close();
+  await guestContext.close();
+});
