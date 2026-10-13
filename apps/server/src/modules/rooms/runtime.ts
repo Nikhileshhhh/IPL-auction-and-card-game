@@ -7,6 +7,7 @@ import type { GameProjector } from '../../rooms/projection';
 import { registerAuctionModule } from '../auctions';
 import { registerCardModule } from '../cards';
 import { registerTeamModule } from '../teams';
+import { registerChatModule } from '../chat';
 import { CommandDispatcher } from '../commands/dispatcher';
 import type { RoomDeps } from './service';
 
@@ -53,6 +54,7 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
   const cardProjector = registerCardModule({ starters, deadlines, commands }, secrets);
   const auctionProjector = registerAuctionModule({ starters, deadlines, commands }, secrets);
   registerTeamModule({ commands }, secrets);
+  registerChatModule({ commands });
   // One projector per game type: the snapshot's `game` belongs to the room's game.
   const gameProjector: GameProjector = (tx, room, member) =>
     room.game_type === 'auction'

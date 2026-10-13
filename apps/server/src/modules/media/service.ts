@@ -120,11 +120,17 @@ export async function readPortrait(
     options.admin
       ? `SELECT object_key FROM app_private.media_assets WHERE id = $1 AND purpose = 'portrait'`
       : `SELECT a.object_key FROM app_private.media_assets a
-          WHERE a.id = $1 AND a.purpose = 'portrait' AND a.rights_status = 'approved'
+          WHERE a.id = $1 AND a.rights_status = 'approved'
             AND (a.expires_at IS NULL OR a.expires_at > now())
-            AND EXISTS (SELECT 1 FROM app_private.player_seasons ps
-                          JOIN app_private.data_versions v ON v.id = ps.data_version_id
-                         WHERE ps.portrait_asset_id = a.id AND v.status = 'published')`,
+            AND (
+              (a.purpose = 'portrait' AND EXISTS (
+                 SELECT 1 FROM app_private.player_seasons ps
+                   JOIN app_private.data_versions v ON v.id = ps.data_version_id
+                  WHERE ps.portrait_asset_id = a.id AND v.status = 'published'))
+              -- A member's current avatar (ADR-028); replaced avatars are no longer served.
+              OR (a.purpose = 'avatar' AND EXISTS (
+                 SELECT 1 FROM app_private.profiles p WHERE p.avatar_asset_id = a.id))
+            )`,
     [assetId],
   );
   const row = res.rows[0];

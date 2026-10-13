@@ -6,6 +6,7 @@ import { accessRoutes } from './access';
 import { adminRoutes } from './admin';
 import { authRoutes } from './auth';
 import { profileRoutes } from './profiles';
+import { socialRoutes } from './social';
 import { realtimeRoutes } from './realtime';
 import { roomRoutes } from './rooms';
 import { catalogRoutes } from './catalog';
@@ -30,6 +31,7 @@ export async function v1Routes(app: FastifyInstance, opts: { runtime?: RuntimeDe
   await accessRoutes(app, runtime);
   await authRoutes(app, runtime);
   await profileRoutes(app, runtime);
+  await socialRoutes(app, runtime);
   await adminRoutes(app, runtime);
   await realtimeRoutes(app, runtime);
   await roomRoutes(app, runtime);

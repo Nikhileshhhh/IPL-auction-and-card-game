@@ -35,6 +35,7 @@ import { readRoom } from '../../rooms/room-tx';
 import { squadOf } from '../../modules/auctions/squad';
 import { shortlistView, teamView } from '../../modules/teams';
 import { autoView } from '../../modules/auctions';
+import { channelView } from '../../modules/chat';
 import type { RuntimeDeps } from '../../runtime';
 
 const RoomParams = z.object({ id: z.uuid() });
@@ -213,6 +214,23 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       },
       { isolation: 'repeatable read', readOnly: true },
     );
+    return success(view, request.id, new Date());
+  });
+
+  /** S24/S25: chat history for the room channel, or the viewer's own team channel only. */
+  app.get('/rooms/:id/chat/:channel/messages', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const kind = z
+      .enum(['room', 'team'])
+      .safeParse((request.params as { channel?: string }).channel);
+    if (!kind.success) throw new AppError('NOT_FOUND', 'Chat not found.');
+    const view = await withTransaction(deps.pool, async (tx) => {
+      const me = await requireMembership(tx, roomId, ctx.userId);
+      const room = await readRoom(tx, roomId);
+      if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+      return channelView(tx, room, me, kind.data, await dbNow(tx));
+    });
     return success(view, request.id, new Date());
   });
 

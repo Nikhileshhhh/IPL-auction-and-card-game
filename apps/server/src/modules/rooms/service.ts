@@ -246,7 +246,9 @@ export async function joinRoom(
   deps: RoomDeps,
   ctx: MemberContext,
   input: {
-    code: string;
+    /** The room code — or, for an accepted friend invitation, the room id (ADR-028). */
+    code?: string;
+    roomId?: string;
     password?: string | undefined;
     gameType: 'card' | 'auction';
     clientIp: string;
@@ -265,10 +267,15 @@ export async function joinRoom(
     { kind: 'room_join_ip', limit: 30, windowSeconds: 60 },
     input.clientIp,
   );
-  const lookup = await deps.pool.query<{ id: string; password_hash: string | null }>(
-    'SELECT id, password_hash FROM app_private.rooms WHERE code_hash = $1',
-    [roomCodeHash(deps.secrets, input.code)],
-  );
+  const lookup = input.roomId
+    ? await deps.pool.query<{ id: string; password_hash: string | null }>(
+        'SELECT id, password_hash FROM app_private.rooms WHERE id = $1',
+        [input.roomId],
+      )
+    : await deps.pool.query<{ id: string; password_hash: string | null }>(
+        'SELECT id, password_hash FROM app_private.rooms WHERE code_hash = $1',
+        [roomCodeHash(deps.secrets, input.code ?? '')],
+      );
   const target = lookup.rows[0];
   const fail = () =>
     new AppError('JOIN_FAILED', 'Could not join. Check the room code and password.');
