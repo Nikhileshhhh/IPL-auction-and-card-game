@@ -149,6 +149,12 @@ export async function runDuePass(
  */
 export class CoordinatorLease {
   generation: string | undefined;
+  /**
+   * Set once when this instance takes the lease over from another owner whose
+   * last heartbeat is older than the outage gap (crash or restart, not a graceful
+   * hand-over, which deletes the row): the last healthy heartbeat to recover from.
+   */
+  takeoverGap: { lastHealthy: Date; gapMs: number } | undefined;
   constructor(
     private readonly pool: pg.Pool,
     readonly ownerId: string,
@@ -156,8 +162,15 @@ export class CoordinatorLease {
   ) {}
 
   async tryAcquire(): Promise<boolean> {
-    const res = await this.pool.query<{ generation: string; owner_id: string }>(
-      `INSERT INTO app_private.runtime_leases (name, owner_id, generation, heartbeat_at, expires_at)
+    const res = await this.pool.query<{
+      generation: string;
+      owner_id: string;
+      previous_owner: string | null;
+      previous_heartbeat: Date | null;
+      db_now: Date;
+    }>(
+      `WITH prev AS (SELECT owner_id, heartbeat_at FROM app_private.runtime_leases WHERE name = 'coordinator')
+       INSERT INTO app_private.runtime_leases (name, owner_id, generation, heartbeat_at, expires_at)
        VALUES ('coordinator', $1, 1, now(), now() + make_interval(secs => $2::double precision / 1000))
        ON CONFLICT (name) DO UPDATE SET
          owner_id = EXCLUDED.owner_id,
@@ -165,11 +178,24 @@ export class CoordinatorLease {
                            THEN app_private.runtime_leases.generation ELSE app_private.runtime_leases.generation + 1 END,
          heartbeat_at = now(), expires_at = EXCLUDED.expires_at
        WHERE app_private.runtime_leases.owner_id = EXCLUDED.owner_id OR app_private.runtime_leases.expires_at < now()
-       RETURNING generation::text, owner_id`,
+       RETURNING generation::text, owner_id, (SELECT owner_id FROM prev) AS previous_owner,
+                 (SELECT heartbeat_at FROM prev) AS previous_heartbeat, now() AS db_now`,
       [this.ownerId, this.ttlMs],
     );
     const row = res.rows[0];
+    const wasMine = this.generation !== undefined;
     this.generation = row?.owner_id === this.ownerId ? row.generation : undefined;
+    if (
+      row &&
+      this.generation !== undefined &&
+      !wasMine &&
+      row.previous_owner !== null &&
+      row.previous_owner !== this.ownerId &&
+      row.previous_heartbeat
+    ) {
+      const gapMs = row.db_now.getTime() - row.previous_heartbeat.getTime();
+      this.takeoverGap = { lastHealthy: row.previous_heartbeat, gapMs };
+    }
     return this.generation !== undefined;
   }
 

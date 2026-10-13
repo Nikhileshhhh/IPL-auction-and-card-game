@@ -18,6 +18,7 @@ import {
 import { ruleSummary } from './projection';
 import { poolPlayers, teamMembership, type TeamMemberRow } from './setup';
 import { publicPurses } from './settlement';
+import { contractMode } from './auto-bid';
 import { shortlistEntries } from '../teams/strategy';
 
 /**
@@ -67,6 +68,7 @@ async function liveTeams(tx: Tx, live: Live): Promise<LiveTeam[]> {
         rosterCount: t.squad.length,
         overseasCount: t.squad.filter((p) => p.overseas).length,
         rtmCards: rtmCardsOf(live, t),
+        control: contractMode({ mode: t.control_mode, failoverMemberId: t.failover_member_id }),
         maxBidRupees: ceiling === null ? null : ceiling.toString(),
       },
     ];
@@ -82,7 +84,11 @@ async function ownBid(
   now: Date,
 ): Promise<Pick<Nomination, 'ownLegalNextBidRupees' | 'ownRejectionReason'>> {
   if (!mine) return { ownLegalNextBidRupees: null, ownRejectionReason: 'NOT_ON_TEAM' };
-  if (mine.role !== 'captain' && !mine.can_bid)
+  const own = live.teams.find((t) => t.id === mine.auction_franchise_id);
+  if (own && own.control_mode !== 'manual')
+    return { ownLegalNextBidRupees: null, ownRejectionReason: 'TEAM_NOT_MANUAL' };
+  const failover = own?.failover_member_id === mine.member_id;
+  if (mine.role !== 'captain' && !mine.can_bid && !failover)
     return { ownLegalNextBidRupees: null, ownRejectionReason: 'NO_BID_RIGHT' };
   if (lot.stage !== 'bidding' || !lot.deadline || now.getTime() >= lot.deadline.getTime())
     return { ownLegalNextBidRupees: null, ownRejectionReason: 'NOT_BIDDING' };
@@ -122,8 +128,19 @@ function allowedActions(
   // A player without a team may still ask to join one (late joiner: advisor, no medal).
   if (!mine && member.role === 'player') actions.push('team.requestJoin');
   const myTeamId = mine?.auction_franchise_id ?? null;
-  const rtmRight = mine !== null && (mine.role === 'captain' || mine.can_rtm);
-  const bidRight = mine !== null && (mine.role === 'captain' || mine.can_bid);
+  const myTeam = live.teams.find((t) => t.id === myTeamId);
+  const failover = myTeam !== undefined && myTeam.failover_member_id === mine?.member_id;
+  const manual = myTeam?.control_mode === 'manual';
+  const rtmRight = mine !== null && manual && (mine.role === 'captain' || mine.can_rtm || failover);
+  const bidRight = mine !== null && manual && (mine.role === 'captain' || mine.can_bid || failover);
+  // Resume manual control: the captain, co-captain, a bidder or the failover holder.
+  if (
+    mine !== null &&
+    myTeam &&
+    (myTeam.control_mode !== 'manual' || myTeam.failover_member_id !== null) &&
+    (mine.role === 'captain' || mine.role === 'cocaptain' || mine.can_bid || failover)
+  )
+    actions.push('team.auto.takeover');
   if (lot) {
     if (lot.stage === 'bidding' && own?.ownLegalNextBidRupees) actions.push('auction.bid');
     if (lot.stage === 'rtm_intent' && rtmRight && myTeamId === lot.rtm_franchise_id)

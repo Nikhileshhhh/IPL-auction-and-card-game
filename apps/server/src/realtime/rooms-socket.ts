@@ -9,11 +9,13 @@ import type { Secrets } from '../config/secrets';
 import { buildSnapshot, listMembers, streamAcl, type GameProjector } from '../rooms/projection';
 import { lockRoom, readRoom } from '../rooms/room-tx';
 import { appendEvents, type EventDraft } from '../rooms/streams';
+import { memberCameOnline, memberWentOffline } from '../modules/presence/recovery';
 import { HOST_ABSENCE_MS, takeControl, type RoomDeps } from '../modules/rooms/service';
 import type { CommandDispatcher } from '../modules/commands/dispatcher';
 import { streamRoom } from './dispatcher';
 
-export const CONNECTION_TTL_MS = 30_000;
+/** A tab is stale 15 s after its last heartbeat (rules §1: 5 s heartbeat, 15 s stale). */
+export const CONNECTION_TTL_MS = 15_000;
 
 export interface RoomSocketDeps {
   pool: pg.Pool;
@@ -126,6 +128,7 @@ export function registerRoomSockets(io: Server, deps: RoomSocketDeps) {
             throw new AppError('RULE_VIOLATION', 'This connection already follows another room.');
           const events: EventDraft[] = [];
           if (!me.online) {
+            await memberCameOnline(tx, room, me.id, now);
             events.push({
               audience: { kind: 'public' },
               type: 'presence.changed',
@@ -181,7 +184,7 @@ export function registerRoomSockets(io: Server, deps: RoomSocketDeps) {
     socket.on('presence.ping', (_payload: unknown, ack: unknown) =>
       respond(socket, ack, async () => {
         await deps.pool.query(
-          `UPDATE app_private.room_connections SET last_heartbeat_at = now(), expires_at = now() + interval '30 seconds'
+          `UPDATE app_private.room_connections SET last_heartbeat_at = now(), expires_at = now() + interval '15 seconds'
             WHERE socket_id = $1 AND last_heartbeat_at < now() - interval '4 seconds'`,
           [socket.id],
         );
@@ -222,8 +225,12 @@ export async function markDisconnected(
   deps: Pick<RoomSocketDeps, 'pool' | 'rooms'>,
   socketId: string,
 ) {
-  const conn = await deps.pool.query<{ room_id: string; member_id: string }>(
-    'SELECT room_id, member_id FROM app_private.room_connections WHERE socket_id = $1',
+  const conn = await deps.pool.query<{
+    room_id: string;
+    member_id: string;
+    last_heartbeat_at: Date;
+  }>(
+    'SELECT room_id, member_id, last_heartbeat_at FROM app_private.room_connections WHERE socket_id = $1',
     [socketId],
   );
   const row = conn.rows[0];
@@ -241,6 +248,7 @@ export async function markDisconnected(
       me.id,
       now,
     ]);
+    await memberWentOffline(tx, room, me.id, row.last_heartbeat_at, now);
     await appendEvents(tx, room.id, room.state_version, [
       {
         audience: { kind: 'public' },
@@ -304,4 +312,15 @@ export async function sweepStaleConnections(
 
 export function isErrorCode(value: string): value is ErrorCode {
   return value in ERROR_CODES;
+}
+
+/** Tell a room's sockets that clocks were paused after a server outage (S35). */
+export function notifyRecovering(
+  io: Server,
+  roomId: string,
+  payload: { reason: string; reconnectAfterMs: number; recoveryGeneration: string },
+) {
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.rooms?.has(roomId)) socket.emit('server.recovering', { roomId, ...payload });
+  }
 }

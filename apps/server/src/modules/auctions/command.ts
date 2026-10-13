@@ -11,7 +11,6 @@ import {
 import {
   biddingCeiling,
   bidRejection,
-  extendedDeadline,
   finalOfferProblem,
   hasRtmCard,
   nextBidAmount,
@@ -21,7 +20,7 @@ import {
 import type { Tx } from '../../db/transaction';
 import { AppError } from '../../http/app-error';
 import { requireMembership, type MemberRow } from '../../rooms/projection';
-import { runRoomCommand, type RoomRow } from '../../rooms/room-tx';
+import { requireNotRecovering, runRoomCommand, type RoomRow } from '../../rooms/room-tx';
 import type { EventDraft } from '../../rooms/streams';
 import type { CommandDispatcher } from '../commands/dispatcher';
 import { requireCurrentControl } from '../teams/shared';
@@ -40,6 +39,8 @@ import {
   type Live,
   type LotRow,
 } from './live-store';
+import { placeBid, recordBid } from './bidding';
+import { scheduleAutoBids, teamControl } from './auto-bid';
 import { teamMembership } from './setup';
 import { enterStage, openNextLot, scheduleJob, sell, skipLot } from './settlement';
 
@@ -57,7 +58,7 @@ const draft = (type: EventType, payload: Record<string, unknown>): EventDraft =>
   payload,
 });
 
-function requireRunning(room: RoomRow) {
+function requireRunning(room: RoomRow, now: Date) {
   if (room.game_type !== 'auction') {
     throw new AppError('GAME_MISMATCH', 'This command belongs to the auction.');
   }
@@ -66,6 +67,7 @@ function requireRunning(room: RoomRow) {
       lifecycle: room.lifecycle,
     });
   }
+  requireNotRecovering(room, now);
 }
 
 /** The lot a command targets: the open one, or a clear reason why not. */
@@ -94,7 +96,18 @@ async function teamRight(
 ): Promise<string> {
   const mine = await teamMembership(tx, room.id, member.id);
   if (!mine) throw new AppError('FORBIDDEN', 'You are not in a team in this auction.');
-  const allowed = mine.role === 'captain' || (right === 'bid' ? mine.can_bid : mine.can_rtm);
+  const control = await teamControl(tx, mine.auction_franchise_id);
+  // One controller at a time (ADR-027): while the team is automatic or
+  // observing, people resume manual control first; the epoch fences the switch.
+  if (control.mode !== 'manual') {
+    throw new AppError('STATE_CONFLICT', 'Your team is not on manual control. Resume it first.', {
+      reason: 'TEAM_NOT_MANUAL',
+      mode: control.mode,
+    });
+  }
+  const failover = control.failoverMemberId === member.id;
+  const allowed =
+    mine.role === 'captain' || failover || (right === 'bid' ? mine.can_bid : mine.can_rtm);
   if (!allowed) {
     throw new AppError(
       'FORBIDDEN',
@@ -178,33 +191,12 @@ function run<T>(
   );
 }
 
-async function recordBid(
-  tx: Tx,
-  room: RoomRow,
-  lot: LotRow,
-  teamId: string,
-  memberId: string,
-  amount: bigint,
-  kind: 'normal' | 'rtm_raise' | 'rtm_match',
-  commandId: string,
-  now: Date,
-) {
-  const version = (BigInt(lot.bid_version) + 1n).toString();
-  await tx.query(
-    `INSERT INTO app_private.auction_bids
-       (room_id, nomination_id, auction_franchise_id, actor_member_id, kind, amount, bid_version, command_id, accepted_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [room.id, lot.id, teamId, memberId, kind, amount.toString(), version, commandId, now],
-  );
-  return version;
-}
-
 export function registerLiveAuctionCommands(commands: CommandDispatcher) {
   commands.register('auction.bid', async (deps, actor, env) => {
     const payload = BidPayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'bidding')
@@ -228,48 +220,19 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
       const rejection = bidRejection({ ...check, leaderTeamId: lot.high_franchise_id });
       if (rejection) throw rejectionError(rejection);
 
-      const version = await recordBid(
+      const placed = await placeBid(
         tx,
         room,
         lot,
         teamId,
-        member.id,
+        { type: 'human', memberId: member.id },
         next,
-        'normal',
         env.commandId,
         now,
       );
-      const deadline = extendedDeadline(lot.deadline as Date, now);
-      const moved = deadline.getTime() !== (lot.deadline as Date).getTime();
-      const generation = moved
-        ? (BigInt(lot.timer_generation) + 1n).toString()
-        : lot.timer_generation;
-      await tx.query(
-        `UPDATE app_private.auction_nominations
-            SET high_franchise_id = $2, high_bid = $3, bid_version = $4, deadline = $5, timer_generation = $6
-          WHERE id = $1`,
-        [lot.id, teamId, next.toString(), version, deadline, generation],
-      );
-      if (moved) await scheduleJob(tx, room.id, JOBS.bidding, lot.id, generation, deadline);
-      const events = [
-        draft('auction.bidAccepted', {
-          nominationId: lot.id,
-          franchiseId: teamId,
-          amountRupees: next.toString(),
-          nominationVersion: version,
-          deadline: deadline.toISOString(),
-          actorType: 'human',
-        }),
-      ];
-      if (moved) {
-        events.push(
-          draft('auction.timerChanged', {
-            nominationId: lot.id,
-            deadline: deadline.toISOString(),
-            generation,
-          }),
-        );
-      }
+      const version = placed.version;
+      const deadline = placed.deadline;
+      const events = [...placed.events, ...(await scheduleAutoBids(tx, room, placed.lot, now))];
       return {
         reply: {
           commandId: env.commandId,
@@ -290,7 +253,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     type Reply = { stage: 'settled' | 'rtm_raise' };
     return run<Reply>(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_intent')
@@ -331,7 +294,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     const payload = RtmFinalOfferPayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_raise')
@@ -367,7 +330,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
           room,
           lot,
           teamId,
-          member.id,
+          { type: 'human', memberId: member.id },
           amount,
           'rtm_raise',
           env.commandId,
@@ -399,7 +362,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     type Reply = { acquisition: 'rtm' | 'auction'; status: 'sold' };
     return run<Reply>(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_match')
@@ -438,7 +401,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
         room,
         lot,
         teamId,
-        member.id,
+        { type: 'human', memberId: member.id },
         final,
         'rtm_match',
         env.commandId,
@@ -466,7 +429,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     const payload = PausePayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const live = await loadLive(tx, room);
@@ -515,7 +478,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     const payload = ResumePayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const live = await loadLive(tx, room);
@@ -541,7 +504,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     const payload = SkipPayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
-      requireRunning(room);
+      requireRunning(room, now);
       requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const lot = await targetLot(tx, room, payload.nominationId);

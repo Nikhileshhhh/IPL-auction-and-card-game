@@ -5,7 +5,7 @@ import type { Secrets } from '../../config/secrets';
 import { withTransaction } from '../../db/transaction';
 import { AppError } from '../../http/app-error';
 import { requireMembership } from '../../rooms/projection';
-import { runRoomCommand, type RoomRow } from '../../rooms/room-tx';
+import { requireNotRecovering, runRoomCommand, type RoomRow } from '../../rooms/room-tx';
 import type { CommandDispatcher } from '../commands/dispatcher';
 import { applyTransition, engineError } from './apply';
 import { loadMatch } from './store';
@@ -44,6 +44,7 @@ export function registerCardCommands(commands: CommandDispatcher, secrets: Secre
       async ({ tx, room, now }) => {
         const member = await requireMembership(tx, room.id, actor.userId);
         requireRunningCard(room);
+        requireNotRecovering(room, now);
         const match = await loadMatch(tx, room.id);
         if (!match) throw new AppError('STATE_CONFLICT', 'The match has not been dealt.');
         let t: Transition;

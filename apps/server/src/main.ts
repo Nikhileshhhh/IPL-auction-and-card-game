@@ -13,7 +13,12 @@ import { createRoomRuntime } from './modules/rooms/runtime';
 import { LocalDiskStorage, SupabaseStorage, type MediaStorage } from './modules/media/storage';
 import { failInterruptedImports } from './modules/cricket-data/service';
 import { OutboxDispatcher } from './realtime/dispatcher';
-import { evictFromRoom, joinStream, registerRoomSockets } from './realtime/rooms-socket';
+import {
+  evictFromRoom,
+  joinStream,
+  notifyRecovering,
+  registerRoomSockets,
+} from './realtime/rooms-socket';
 import type { ServerEnv } from './config/env';
 import type pg from 'pg';
 import { randomUUID } from 'node:crypto';
@@ -117,6 +122,16 @@ async function main() {
       rooms: runtime.rooms,
       instanceId,
       onError: () => app.log.warn('room worker pass failed'),
+      onRecovered: (rooms) => {
+        app.log.warn({ rooms: rooms.length }, 'recovery pause after coordinator outage');
+        for (const r of rooms) {
+          notifyRecovering(io, r.roomId, {
+            reason: 'SERVER_RESTART',
+            reconnectAfterMs: Math.max(0, r.until.getTime() - Date.now()),
+            recoveryGeneration: r.generation,
+          });
+        }
+      },
     });
     stopRooms = async () => {
       outbox.stop();

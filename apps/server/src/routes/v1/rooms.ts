@@ -34,6 +34,7 @@ import { buildSnapshot, replay, requireMembership, streamAcl } from '../../rooms
 import { readRoom } from '../../rooms/room-tx';
 import { squadOf } from '../../modules/auctions/squad';
 import { shortlistView, teamView } from '../../modules/teams';
+import { autoView } from '../../modules/auctions';
 import type { RuntimeDeps } from '../../runtime';
 
 const RoomParams = z.object({ id: z.uuid() });
@@ -190,6 +191,25 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
         const room = await readRoom(tx, roomId);
         if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
         return shortlistView(tx, room, me.id, teamId.data);
+      },
+      { isolation: 'repeatable read', readOnly: true },
+    );
+    return success(view, request.id, new Date());
+  });
+
+  /** S26: the team's automated limits, control state and decisions — own team only (others: 404). */
+  app.get('/rooms/:id/franchises/:franchiseId/strategy', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const teamId = Uuid.safeParse((request.params as { franchiseId?: string }).franchiseId);
+    if (!teamId.success) throw new AppError('NOT_FOUND', 'Team not found.');
+    const view = await withTransaction(
+      deps.pool,
+      async (tx) => {
+        const me = await requireMembership(tx, roomId, ctx.userId);
+        const room = await readRoom(tx, roomId);
+        if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+        return autoView(tx, room, me.id, teamId.data);
       },
       { isolation: 'repeatable read', readOnly: true },
     );

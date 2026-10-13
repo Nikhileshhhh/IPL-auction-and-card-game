@@ -529,7 +529,10 @@ export async function startRoom(
       }
       const started = await starter.start(tx, room, players, now);
       await tx.query(
-        `UPDATE app_private.room_members SET eligible_at_start = (role = 'player' AND ready), participation_opened_at = $2
+        `UPDATE app_private.room_members m SET eligible_at_start = (role = 'player' AND ready),
+            participation_opened_at = CASE WHEN EXISTS (SELECT 1 FROM app_private.room_connections c
+                                                        WHERE c.member_id = m.id AND c.expires_at > $2)
+                                           THEN $2::timestamptz END
           WHERE room_id = $1 AND left_at IS NULL`,
         [room.id, now],
       );

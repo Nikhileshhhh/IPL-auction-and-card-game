@@ -15,6 +15,7 @@ import {
   type Live,
   type LotRow,
 } from './live-store';
+import { creditAutoSale, scheduleAutoBids, scheduleAutoRtm } from './auto-bid';
 import { poolPlayers } from './setup';
 
 /**
@@ -129,6 +130,7 @@ export async function sell(
     `UPDATE app_private.auction_franchises SET remaining_purse = remaining_purse - $2 WHERE id = $1`,
     [teamId, price.toString()],
   );
+  await creditAutoSale(tx, lot.id, teamId, price);
   await tx.query(
     `UPDATE app_private.auction_pool SET status = 'sold' WHERE room_id = $1 AND player_id = $2`,
     [room.id, lot.player_id],
@@ -217,6 +219,7 @@ export async function enterStage(
     )
   ).rows[0]?.timer_generation;
   await scheduleJob(tx, live.room.id, JOBS.rtm, lot.id, gen ?? '0', deadline);
+  await scheduleAutoRtm(tx, live.room, lot, actingTeamId, gen ?? '0', now);
   return [
     draft('auction.rtmStageChanged', {
       nominationId: lot.id,
@@ -394,6 +397,7 @@ export async function openNextLot(tx: Tx, room: RoomRow, now: Date): Promise<Eve
     const row = (await openLot(tx, room.id)) as LotRow;
     if (someoneCanBid) {
       await scheduleJob(tx, room.id, JOBS.bidding, lot.id, '0', deadline);
+      await scheduleAutoBids(tx, room, row, now);
       return events;
     }
     // Nobody can buy this player: it goes unsold without a clock, then the next lot.

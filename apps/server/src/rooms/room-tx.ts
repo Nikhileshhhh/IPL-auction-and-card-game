@@ -24,11 +24,14 @@ export interface RoomRow {
   started_at: Date | null;
   data_version_id: string | null;
   ruleset_id: string | null;
+  /** Outage recovery pause: gameplay waits until this time (ADR-027). */
+  recovery_until: Date | null;
+  recovery_generation: string;
 }
 
 const ROOM_COLUMNS = `id, game_type, name, host_user_id, lifecycle, phase, settings, max_members, results_ttl_seconds,
   config_version::text, state_version::text, generation::text, password_hash, code_ciphertext, expires_at,
-  last_activity_at, started_at, data_version_id, ruleset_id`;
+  last_activity_at, started_at, data_version_id, ruleset_id, recovery_until, recovery_generation::text`;
 
 /** Lock order: room row first, always (DB/realtime §3). */
 export async function lockRoom(tx: Tx, roomId: string): Promise<RoomRow> {
@@ -177,4 +180,17 @@ export async function runRoomCommand<T>(
   options.wake?.();
   for (const fn of after) fn();
   return reply;
+}
+
+/**
+ * During an outage recovery pause (ADR-027) gameplay waits for the visible
+ * countdown; nothing can be bought or decided while players reconnect.
+ */
+export function requireNotRecovering(room: RoomRow, now: Date) {
+  if (room.recovery_until && room.recovery_until.getTime() > now.getTime()) {
+    throw new AppError('GAME_PAUSED', 'The server is recovering; play resumes in a moment.', {
+      reason: 'RECOVERY',
+      until: room.recovery_until.toISOString(),
+    });
+  }
 }

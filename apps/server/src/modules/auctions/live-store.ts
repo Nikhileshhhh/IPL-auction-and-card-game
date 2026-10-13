@@ -60,6 +60,8 @@ export interface LiveTeamRow {
   captain_member_id: string;
   initial_purse: bigint;
   remaining_purse: bigint;
+  control_mode: 'manual' | 'auto' | 'observe';
+  failover_member_id: string | null;
   squad: SquadEntry[];
 }
 
@@ -108,8 +110,11 @@ export async function loadLive(tx: Tx, room: RoomRow): Promise<Live> {
     captain_member_id: string;
     initial_purse: string;
     remaining_purse: string;
+    control_mode: LiveTeamRow['control_mode'];
+    failover_member_id: string | null;
   }>(
-    `SELECT id, franchise_id, captain_member_id, initial_purse::text, remaining_purse::text
+    `SELECT id, franchise_id, captain_member_id, initial_purse::text, remaining_purse::text,
+            control_mode, failover_member_id
        FROM app_private.auction_franchises WHERE room_id = $1 ORDER BY id`,
     [room.id],
   );
@@ -140,6 +145,8 @@ export async function loadLive(tx: Tx, room: RoomRow): Promise<Live> {
       captain_member_id: t.captain_member_id,
       initial_purse: BigInt(t.initial_purse),
       remaining_purse: BigInt(t.remaining_purse),
+      control_mode: t.control_mode,
+      failover_member_id: t.failover_member_id,
       squad: squads.rows
         .filter((s) => s.auction_franchise_id === t.id)
         .map((s) => ({

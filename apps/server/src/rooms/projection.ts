@@ -205,6 +205,10 @@ export async function buildSnapshot(
         }
       : null,
     cursors: await cursorsFor(tx, streamIds),
+    recoveryUntil:
+      room.recovery_until && room.recovery_until.getTime() > now.getTime()
+        ? room.recovery_until.toISOString()
+        : null,
     serverNow: now.toISOString(),
     streamIds,
   };
