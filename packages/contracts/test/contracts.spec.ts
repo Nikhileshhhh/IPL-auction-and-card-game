@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CHAT_MAX_CODEPOINTS,
+  ChatSendPayload,
   CommandEnvelopeSchema,
+  codepoints,
   DecimalString,
   ERROR_CODES,
   FailureEnvelopeSchema,
@@ -87,5 +90,32 @@ describe('error envelope', () => {
       'RATE_LIMITED',
       'SERVICE_UNAVAILABLE',
     ]);
+  });
+});
+
+describe('chat text (ADR-028)', () => {
+  const send = (text: string) =>
+    ChatSendPayload.safeParse({
+      channelId: '00000000-0000-4000-8000-000000000001',
+      clientMessageId: '00000000-0000-4000-8000-000000000002',
+      text,
+    }).success;
+
+  it('counts Unicode code points, so an emoji is one character', () => {
+    expect(codepoints('🏏🏏')).toBe(2);
+    expect(send('🏏'.repeat(CHAT_MAX_CODEPOINTS))).toBe(true);
+    expect(send('🏏'.repeat(CHAT_MAX_CODEPOINTS + 1))).toBe(false);
+  });
+
+  it('refuses empty or whitespace-only messages and unknown fields', () => {
+    expect(send('   ')).toBe(false);
+    expect(
+      ChatSendPayload.safeParse({
+        channelId: '00000000-0000-4000-8000-000000000001',
+        clientMessageId: '00000000-0000-4000-8000-000000000002',
+        text: 'hi',
+        html: '<b>hi</b>',
+      }).success,
+    ).toBe(false);
   });
 });

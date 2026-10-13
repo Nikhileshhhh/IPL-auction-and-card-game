@@ -11,6 +11,21 @@ import {
   AUCTION_LIVE_EVENT_PAYLOADS,
   TEAM_EVENT_PAYLOADS,
   AUTO_EVENT_PAYLOADS,
+  CHAT_EVENT_PAYLOADS,
+  ChatSendPayload,
+  ChatSendAck,
+  ChatRemovePayload,
+  ChatRemoveAck,
+  ChatMutePayload,
+  ChatMuteAck,
+  ChatSubscribePayload,
+  ChatSubscribeAck,
+  ChatUnsubscribePayload,
+  ChatUnsubscribeAck,
+  ChatChannelSchema,
+  ProfileDTOSchema,
+  FriendsViewSchema,
+  NotificationsViewSchema,
   AutoConfigureAck,
   AutoConfigurePayload,
   AutoTakeoverAck,
@@ -134,6 +149,7 @@ for (const [type, schema] of Object.entries({
   ...AUCTION_LIVE_EVENT_PAYLOADS,
   ...TEAM_EVENT_PAYLOADS,
   ...AUTO_EVENT_PAYLOADS,
+  ...CHAT_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -162,6 +178,11 @@ const implementedCommands = {
   'team.shortlist.vote': [ShortlistVotePayload, ShortlistVoteAck],
   'team.auto.configure': [AutoConfigurePayload, AutoConfigureAck],
   'team.auto.takeover': [AutoTakeoverPayload, AutoTakeoverAck],
+  'chat.send': [ChatSendPayload, ChatSendAck],
+  'chat.remove': [ChatRemovePayload, ChatRemoveAck],
+  'chat.mute': [ChatMutePayload, ChatMuteAck],
+  'chat.subscribe': [ChatSubscribePayload, ChatSubscribeAck],
+  'chat.unsubscribe': [ChatUnsubscribePayload, ChatUnsubscribeAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -185,6 +206,10 @@ for (const [name, schema] of [
   ['ShortlistViewDTO', ShortlistViewSchema],
   ['StrategyDTO', StrategyDTOSchema],
   ['AutoViewDTO', AutoViewSchema],
+  ['ProfileDTO', ProfileDTOSchema],
+  ['FriendsViewDTO', FriendsViewSchema],
+  ['NotificationsViewDTO', NotificationsViewSchema],
+  ['ChatChannelDTO', ChatChannelSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }

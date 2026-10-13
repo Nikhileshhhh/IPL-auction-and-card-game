@@ -372,6 +372,27 @@
       "canTakeover",
       "decisions",
       "autoPurchases"
+    ],
+    "FriendsViewDTO": [
+      "friends",
+      "incoming",
+      "outgoing",
+      "blocked"
+    ],
+    "NotificationsViewDTO": [
+      "notifications",
+      "invites",
+      "unread"
+    ],
+    "ChatChannelDTO": [
+      "channelId",
+      "kind",
+      "audienceLabel",
+      "members?",
+      "messages",
+      "canSend",
+      "mutedUntil?",
+      "canModerate"
     ]
   },
   "changesFromSpec": [

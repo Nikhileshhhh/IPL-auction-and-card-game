@@ -576,7 +576,8 @@
       "errors": [
         "CHAT_FORBIDDEN",
         "MUTED",
-        "RATE_LIMITED"
+        "RATE_LIMITED",
+        "VALIDATION_FAILED"
       ],
       "events": [
         "chat.message"
@@ -596,7 +597,9 @@
       ],
       "versionCheck": "none",
       "errors": [
-        "FORBIDDEN"
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "CHAT_FORBIDDEN"
       ],
       "events": [
         "chat.muted"

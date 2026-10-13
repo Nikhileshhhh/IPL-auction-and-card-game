@@ -517,6 +517,18 @@
       "path": "/v1/admin/rooms/:id/abort",
       "rights": "A+step-up",
       "phase": 15
+    },
+    {
+      "method": "GET",
+      "path": "/v1/blocks",
+      "rights": "G; own blocks only",
+      "phase": 13
+    },
+    {
+      "method": "POST",
+      "path": "/v1/rooms/invites/:inviteId/accept",
+      "rights": "G; recipient only; room password still required; never the room code",
+      "phase": 13
     }
   ]
 }
