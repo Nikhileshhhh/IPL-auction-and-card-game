@@ -27,7 +27,7 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-19 | RTM intent / final raise / match (2025 flow), card accounting, one sale and one purse deduction, unsold second pass, host pause/resume/skip, end to FINALIZING | 10 | game-engines/auction/{rtm,nomination}; server/modules/auctions/{settlement,live}; web S20 (ADR-025) | `tests/integration/auction-live.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 10) |
 | RQ-20 | Multi-user franchises: explicit capabilities (captain only, one co-captain, no second captain), captain handover by consent (60 s), codes never bypass approval, code rotation revokes requests, friend-only auto-join, private shortlist and advisory votes, late joiners advisor-only without medal, control epoch re-checked under the room lock | 11 | server/modules/teams/{permissions,invitations,handover,strategy,view}; migration 080; web features/team (ADR-026) | `tests/integration/teams.spec.ts; tests/security/teams.spec.ts; tests/concurrency/teams.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 11) |
 | RQ-21 | Reconnect/replay (fresh ticket per connection, cursor replay, snapshot on gap), outage recovery pause with a 10 s countdown, failover (co-captain) after a 30 s grace, controller takeover fenced by the franchise epoch, deterministic opt-in auto-bid within private caps and reserve, participation intervals | 12 | presence/recovery; jobs/recovery; auctions/{auto-bid,auto-control,bidding}; game-engines/auction/auto; migration 090 (ADR-027) | `packages/game-engines/test/auction-auto.spec.ts; tests/integration/auto.spec.ts; apps/web/test/room-events.spec.ts` | Done (phase 12) |
-| RQ-22 | Profiles, friends, blocks, notifications, public + private team chat (plain text, ACL on read/replay) | 13 | server/modules/profiles, friends, chat | `tests/security/chat-acl.spec.ts` | Planned |
+| RQ-22 | Profiles, friends, blocks, notifications, public + private team chat (plain text, ACL on read/replay) | 13 | server/modules/{social,chat}; routes/v1/social; migration 100; web features/{chat,social} (ADR-028) | `tests/security/chat-acl.spec.ts; tests/integration/{chat,social}.spec.ts; tests/e2e/social.spec.ts` | Done (phase 13) |
 | RQ-23 | 15-second end vote: frozen electorate, one ballot per franchise, strict majority, timer restore | 14 | game-engines/voting; server/modules/voting | `packages/game-engines/test/voting.spec.ts; tests/integration/voting.spec.ts` | Planned |
 | RQ-24 | Exact XI squad evaluator, legality gate, ranking tiebreaks | 14 | game-engines/evaluation; jobs/evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
 | RQ-25 | Qualification, top-three medals, team credits, idempotent receipts and summaries | 14 | game-engines/achievements; server/modules/achievements | `tests/integration/finalization.spec.ts` | Planned |
@@ -75,7 +75,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E30 | 14 | voting | `packages/game-engines/test/voting.spec.ts` | Planned |
 | E31 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
 | E32 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
-| E33 | 13 | chat | `tests/security/chat-acl.spec.ts` | Planned |
+| E33 | 13 | chat | `tests/security/chat-acl.spec.ts` (rival read/send/remove/mute/subscribe/replay by known ids; removed member) | Done (phase 13) |
 | E34 | 15 | cleanup/results | `tests/integration/cleanup.spec.ts` | Planned |
 | E35 | 15 | cleanup | `tests/concurrency/cleanup.spec.ts` | Planned |
 | E36 | 12 | auth/realtime | `tests/security/revocation.spec.ts` | Planned |
@@ -109,8 +109,8 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` (published version immutable; new data → new version) | Done (phase 06) |
 | E65 | 6 | media | `apps/server/test/unit/media.spec.ts; tests/integration/catalog.spec.ts` | Done (phase 06) |
 | E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
-| E67 | 13 | friends | `tests/integration/friends.spec.ts` | Planned |
-| E68 | 13 | chat | `tests/security/chat-acl.spec.ts` | Planned |
+| E67 | 13 | friends | `tests/integration/social.spec.ts` (block cancels the pending invite; unblock restores nothing) | Done (phase 13) |
+| E68 | 13 | chat | `tests/integration/chat.spec.ts` (rate limit, mute, verbatim markup); `tests/e2e/social.spec.ts` (script text inert) | Done (phase 13) |
 | E69 | 16 | admin | `tests/security/admin-scope.spec.ts` | Planned |
 | E70 | 19 | ops | `docs/runbooks/restore.md drill` | Planned |
 | E71 | 3 | auth | `tests/security/auth-session.spec.ts` | Done (phase 03) |
@@ -150,7 +150,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | Third wrong code concurrently in two tabs | 3 | `tests/security/access-gate.spec.ts` (done, phase 03) |
 | Admin rotates in revoke mode → bid requires reverification | 3, 10 | `tests/security/access-gate.spec.ts` |
 | Host changes rules → readiness cleared | 5 | `tests/integration/rooms.spec.ts` |
-| Collaborator knows team code → private chat denied before approval | 11, 13 | `tests/security/team-acl.spec.ts` |
+| Collaborator knows team code → private chat denied before approval | 11, 13 | `tests/security/team-acl.spec.ts`; `tests/security/chat-acl.spec.ts` (room member not on the team: history, send and replay refused) |
 | Captain + collaborator bid same version → never two deductions | 11 | `tests/integration/teams.spec.ts` |
 | Vote during auction fails → no sale during pause, time restored | 14 | `tests/integration/voting.spec.ts` |
 | Franchise wins with 3 eligible members, finalizer retried twice | 14 | `tests/integration/finalization.spec.ts` |

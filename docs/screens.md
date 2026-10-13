@@ -45,14 +45,14 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S21 | Auction player detail | `/rooms/:id/auction?player=:id` | (room) | `PlayerDetail > Identity/Statistics/PhaseSkills/SourceInfo/ComparePicker` | PlayerPublicDTO | close → S20 | 10 |
 | S22 | Franchise squad management | `/rooms/:id/squad` | (room) | `SquadView` (purse, reserve, counts, deficits, players by role); provisional XI phase 14 | SquadDTO | page (?team=) | 9 (built) |
 | S23 | Player shortlist | `/rooms/:id/shortlist` | (room) | `TeamShortlist > PlayerSearch/TargetList(TargetRow: votes, ↑↓, note, ceiling)` (built, phase 11); S20 spotlight shows the own-team target | ShortlistViewDTO (own team) | page | 11 |
-| S24 | Public auction chat | `/rooms/:id/chat/public` | (room) | `PublicChat > AudienceLabel/MessageList/Composer/ModerationMenu` | chat channel | drawer | 13 |
-| S25 | Private franchise chat | `/rooms/:id/chat/team` | (room) | `TeamChat > PrivateAudienceBanner/ApprovedMemberList/MessageList/Composer` | team channel | drawer | 13 |
+| S24 | Public auction chat | `/rooms/:id/chat/public` | (room) | `ChatDrawer > ChatPanel (Public tab): AudienceLabel/log MessageList/Composer (used/500, cooldown)/Remove + Mute` (built, phase 13); drawer from lobby, stage and arena | ChatChannelDTO (room) | drawer | 13 |
+| S25 | Private franchise chat | `/rooms/:id/chat/team` | (room) | `ChatPanel (🔒 Team tab): PrivateAudienceBanner/ApprovedMemberList/MessageList/Composer` (built, phase 13; separate draft) | ChatChannelDTO (team) | drawer | 13 |
 | S26 | Auto mode status | `/rooms/:id/auto` | (room) | `AutoModePanel > Control/Limits(editor)/BoughtAutomatically/Decisions` (built, phase 12); stage `ControlBanner` + teams-rail control labels | AutoViewDTO (StrategyDTO, control epoch) | page | 12 |
 | S27 | Auction results and analysis | `/rooms/:id/results` | (room) | `AuctionResults > VictoryPodium/FranchiseLeaderboard/ScoreBreakdown/RecommendedXI/MemberCredits` | ResultDTO | → /play | 14 |
 | S28 | End-game voting | `modal over current room` | (room) | `VoteCountdownModal > ElectorateSummary/Countdown/EndButton/ContinueButton/RecordedChoice` | VoteDTO | modal | 14 |
-| S29 | User profile | `/players/:username` | (member) | `ProfileOverview > Identity/MedalStats/AchievementGallery/FriendActions` | ProfileDTO | — | 13 |
-| S30 | Friends interface | `/friends` | (member) | `FriendsPage > Search/FriendList/RequestPanel/InvitePicker` | relationships | — | 13 |
-| S31 | Notifications center | `/notifications` | (member) | `NotificationCenter > Filter/NotificationList/ActionLink` | notifications | → join flow | 13 |
+| S29 | User profile | `/players/:username` | (member) | `ProfileView > Identity/MedalStats/FriendActions/ProfileEditor (privacy, avatar)` (built, phase 13); achievement gallery phase 14 | ProfileDTO | — | 13 |
+| S30 | Friends interface | `/friends` | (member) | `FriendsPage > Friends/Requests/Find/Blocked tabs; Invite buttons with ?room=` (built, phase 13) | FriendsViewDTO | — | 13 |
+| S31 | Notifications center | `/notifications` | (member) | `NotificationsPage > Invitations (password, Join)/Updates (mark read)`; shell `InboxLink` unread count (built, phase 13) | NotificationsViewDTO | → lobby | 13 |
 | S32 | Administrator login | `/admin/login` | (admin) | `AdminLogin > Credentials/MFAChallenge/SessionNotice` | admin challenge | → /admin | 3 |
 | S33 | Administrator dashboard | `/admin` | (admin) | `AdminShell > HealthOverview/ActiveRoomTable/CleanupQueue/AuditPreview` | admin overview | → /admin/* | 16 |
 | S34 | Game/data configuration management | `/admin/catalog` | (admin) | `CatalogAdmin > VersionList/SchemaForm/SourceEditor/RightsPanel/ValidationDiff/PublishAction` | drafts, sources, media | — | 6 |
