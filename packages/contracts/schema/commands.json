@@ -1,39 +1,669 @@
 {
   "$comment": "Gameplay/team/vote/chat command allowlist (DB/realtime §8.2). Every command uses envelope {type, commandId, roomId, expectedVersion, controlEpoch, payload} over socket 'game.command' or POST /v1/rooms/:id/commands. Rights: M member, H host, C captain, BID approved bidder with current epoch. versionCheck: 'config' = exact config version, 'phase' = compatible phase/generation, 'nomination' = nominationVersion governs contention, 'none' = no gameplay version.",
   "specVersion": "1.0",
-  "envelope": ["type", "commandId", "roomId", "expectedVersion", "controlEpoch", "payload"],
+  "envelope": [
+    "type",
+    "commandId",
+    "roomId",
+    "expectedVersion",
+    "controlEpoch",
+    "payload"
+  ],
   "commands": {
-    "room.host.accept":         { "rights": "M(target)", "payload": ["handoverId"], "ack": ["hostId"], "versionCheck": "none", "errors": ["NOT_FOUND", "STATE_CONFLICT"], "events": ["room.hostTransferred"], "phase": 5 },
-    "card.selectCategory":      { "rights": "M(selector)", "payload": ["comparisonId", "metric"], "ack": ["comparisonId", "stateVersion"], "versionCheck": "phase", "errors": ["SELECTOR_ONLY", "STALE_COMPARISON", "VERSION_CONFLICT", "GAME_PAUSED", "STATE_CONFLICT"], "events": ["card.comparisonResolved", "card.potChanged", "card.roundOpened", "card.playerEliminated", "game.finalizing"], "phase": 7 },
-    "card.revealAcknowledged":  { "rights": "M", "payload": ["comparisonId"], "ack": ["accepted"], "versionCheck": "none", "errors": [], "events": [], "phase": 7 },
-    "auction.claimFranchise":   { "rights": "M", "payload": ["franchiseDefinitionId"], "ack": ["franchiseId"], "versionCheck": "config", "errors": ["FRANCHISE_TAKEN", "GAME_STARTED"], "events": ["team.created"], "phase": 9 },
-    "team.requestJoin":         { "rights": "M", "payload": ["franchiseCode"], "ack": ["requestId", "pending"], "versionCheck": "none", "errors": ["NOT_FOUND", "TEAM_FULL"], "events": ["team.joinRequested"], "phase": 9 },
-    "team.decideJoin":          { "rights": "C", "payload": ["requestId", "approve", "role", "capabilities"], "ack": ["decision"], "versionCheck": "none", "errors": ["TEAM_FULL", "FORBIDDEN"], "events": ["team.membershipChanged"], "phase": 9 },
-    "team.invite.rotate":       { "rights": "C", "payload": ["autoJoinUserIds?"], "ack": ["newCode"], "versionCheck": "none", "errors": ["FORBIDDEN"], "events": ["team.inviteChanged"], "phase": 11 },
-    "team.permissions":         { "rights": "C", "payload": ["memberId", "capabilities", "role"], "ack": ["version"], "versionCheck": "none", "errors": ["FORBIDDEN", "STATE_CONFLICT"], "events": ["team.permissionsChanged"], "phase": 11 },
-    "team.captain.propose":     { "rights": "C", "payload": ["memberId"], "ack": ["pendingHandover"], "versionCheck": "none", "errors": ["STATE_CONFLICT"], "events": ["team.captainProposed"], "phase": 11 },
-    "team.captain.accept":      { "rights": "M(target)", "payload": ["handoverId"], "ack": ["captainId", "epoch"], "versionCheck": "none", "errors": ["NOT_FOUND", "STATE_CONFLICT"], "events": ["team.captainChanged"], "phase": 11 },
-    "team.shortlist.upsert":    { "rights": "can_strategy", "payload": ["playerId", "priority", "note?", "maxPrice?"], "ack": ["entry"], "versionCheck": "none", "errors": ["FORBIDDEN", "NOT_FOUND"], "events": ["team.shortlistChanged"], "phase": 11 },
-    "team.shortlist.vote":      { "rights": "team member", "payload": ["playerId", "value"], "ack": ["recorded"], "versionCheck": "none", "errors": ["FORBIDDEN"], "events": ["team.shortlistVoteChanged"], "phase": 11 },
-    "auction.retention.propose":{ "rights": "C|can_retain_propose", "payload": ["playersAndAllocations"], "ack": ["packageVersion"], "versionCheck": "config", "errors": ["RETENTION_INVALID"], "events": ["team.retentionProposed"], "phase": 9 },
-    "auction.retention.lock":   { "rights": "C", "payload": ["packageId", "version"], "ack": ["retained", "cost", "purse"], "versionCheck": "config", "errors": ["RETENTION_INVALID", "PURSE_INVALID", "VERSION_CONFLICT"], "events": ["auction.retentionLocked", "auction.setupPhaseChanged"], "phase": 9 },
-    "auction.franchiseSelection.close": { "rights": "H", "payload": [], "ack": ["phase"], "versionCheck": "none", "errors": ["FORBIDDEN", "STATE_CONFLICT", "POOL_INSUFFICIENT"], "events": ["auction.setupPhaseChanged"], "phase": 9 },
-    "auction.bid":              { "rights": "BID", "payload": ["nominationId", "nominationVersion", "amountRupees"], "ack": ["commandId", "nominationVersion", "acceptedAmountRupees", "deadline", "stateVersion"], "versionCheck": "nomination", "errors": ["STALE_BID", "ALREADY_LEADING", "BUDGET_RESERVE", "SQUAD_FULL", "OVERSEAS_LIMIT", "XI_INFEASIBLE", "LATE_BID", "GAME_PAUSED", "CONTROL_EPOCH_STALE", "FORBIDDEN", "STATE_CONFLICT"], "events": ["auction.bidAccepted", "auction.timerChanged"], "phase": 10 },
-    "auction.rtm.intent":       { "rights": "C|can_rtm", "payload": ["nominationId", "invoke"], "ack": ["stage"], "versionCheck": "nomination", "errors": ["RTM_UNAVAILABLE", "GAME_PAUSED", "FORBIDDEN", "STALE_BID", "LATE_BID"], "events": ["auction.rtmStageChanged", "auction.playerSold"], "phase": 10 },
-    "auction.rtm.finalOffer":   { "rights": "BID(standing bidder)", "payload": ["nominationId", "amountRupees"], "ack": ["stage"], "versionCheck": "nomination", "errors": ["RTM_UNAVAILABLE", "BUDGET_RESERVE", "GAME_PAUSED", "FORBIDDEN", "STALE_BID", "LATE_BID", "VALIDATION_FAILED"], "events": ["auction.rtmStageChanged"], "phase": 10 },
-    "auction.rtm.match":        { "rights": "C|can_rtm", "payload": ["nominationId", "match"], "ack": ["acquisition", "status"], "versionCheck": "nomination", "errors": ["RTM_UNAVAILABLE", "BUDGET_RESERVE", "SQUAD_FULL", "OVERSEAS_LIMIT", "XI_INFEASIBLE", "GAME_PAUSED", "FORBIDDEN", "STALE_BID", "LATE_BID"], "events": ["auction.playerSold"], "phase": 10 },
-    "auction.pause":            { "rights": "H", "payload": [], "ack": ["boundaryPause"], "versionCheck": "phase", "errors": ["PAUSE_NOT_ALLOWED", "FORBIDDEN"], "events": ["auction.paused"], "phase": 10 },
-    "auction.resume":           { "rights": "H", "payload": [], "ack": ["nextState"], "versionCheck": "phase", "errors": ["STATE_CONFLICT", "FORBIDDEN"], "events": ["auction.resumed"], "phase": 10 },
-    "auction.skip":             { "rights": "H", "payload": ["nominationId"], "ack": ["skipped"], "versionCheck": "phase", "errors": ["STATE_CONFLICT", "FORBIDDEN"], "events": ["auction.playerSkipped"], "phase": 10 },
-    "team.auto.configure":      { "rights": "C|can_manage_limits", "payload": ["strategy", "version"], "ack": ["strategyVersion"], "versionCheck": "none", "errors": ["FORBIDDEN", "VERSION_CONFLICT", "RULE_VIOLATION"], "events": ["team.autoConfigured"], "phase": 12 },
-    "team.auto.takeover":       { "rights": "C|designated controller", "payload": ["currentEpoch"], "ack": ["manual", "newEpoch"], "versionCheck": "none", "errors": ["CONTROL_EPOCH_STALE", "FORBIDDEN"], "events": ["team.controlChanged"], "phase": 12 },
-    "vote.start":               { "rights": "H", "payload": [], "ack": ["voteId", "expiresAt", "threshold"], "versionCheck": "phase", "errors": ["VOTE_IN_PROGRESS", "VOTE_COOLDOWN", "VOTE_LIMIT", "ALREADY_COMPLETED", "STATE_CONFLICT"], "events": ["vote.started"], "phase": 14 },
-    "vote.cast":                { "rights": "frozen representative", "payload": ["voteId", "choice"], "ack": ["receipt"], "versionCheck": "none", "errors": ["VOTE_EXPIRED", "VOTE_ALREADY_CAST", "FORBIDDEN"], "events": ["vote.recorded"], "phase": 14 },
-    "chat.send":                { "rights": "M+channel ACL", "payload": ["channelId", "clientMessageId", "text"], "ack": ["messageId", "createdAt"], "versionCheck": "none", "errors": ["CHAT_FORBIDDEN", "MUTED", "RATE_LIMITED"], "events": ["chat.message"], "phase": 13 },
-    "chat.mute":                { "rights": "H(public)|C(own team)", "payload": ["channelId", "memberId", "durationSeconds", "reason"], "ack": ["expiresAt"], "versionCheck": "none", "errors": ["FORBIDDEN"], "events": ["chat.muted"], "phase": 13 },
-    "chat.remove":              { "rights": "sender|H(public)|C(team)", "payload": ["messageId"], "ack": ["removed"], "versionCheck": "none", "errors": ["FORBIDDEN", "NOT_FOUND"], "events": ["chat.removed"], "phase": 13 },
-    "chat.subscribe":           { "rights": "M+channel ACL", "payload": ["channelId", "afterSeq?"], "ack": ["authorizedCursor"], "versionCheck": "none", "errors": ["CHAT_FORBIDDEN"], "events": [], "phase": 13 },
-    "chat.unsubscribe":         { "rights": "current socket", "payload": ["channelId"], "ack": ["unsubscribed"], "versionCheck": "none", "errors": [], "events": [], "phase": 13 }
+    "room.host.accept": {
+      "rights": "M(target)",
+      "payload": [
+        "handoverId"
+      ],
+      "ack": [
+        "hostId"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "NOT_FOUND",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "room.hostTransferred"
+      ],
+      "phase": 5
+    },
+    "card.selectCategory": {
+      "rights": "M(selector)",
+      "payload": [
+        "comparisonId",
+        "metric"
+      ],
+      "ack": [
+        "comparisonId",
+        "stateVersion"
+      ],
+      "versionCheck": "phase",
+      "errors": [
+        "SELECTOR_ONLY",
+        "STALE_COMPARISON",
+        "VERSION_CONFLICT",
+        "GAME_PAUSED",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "card.comparisonResolved",
+        "card.potChanged",
+        "card.roundOpened",
+        "card.playerEliminated",
+        "game.finalizing"
+      ],
+      "phase": 7
+    },
+    "card.revealAcknowledged": {
+      "rights": "M",
+      "payload": [
+        "comparisonId"
+      ],
+      "ack": [
+        "accepted"
+      ],
+      "versionCheck": "none",
+      "errors": [],
+      "events": [],
+      "phase": 7
+    },
+    "auction.claimFranchise": {
+      "rights": "M",
+      "payload": [
+        "franchiseDefinitionId"
+      ],
+      "ack": [
+        "franchiseId"
+      ],
+      "versionCheck": "config",
+      "errors": [
+        "FRANCHISE_TAKEN",
+        "GAME_STARTED"
+      ],
+      "events": [
+        "team.created"
+      ],
+      "phase": 9
+    },
+    "team.requestJoin": {
+      "rights": "M",
+      "payload": [
+        "franchiseCode"
+      ],
+      "ack": [
+        "requestId",
+        "pending"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "NOT_FOUND",
+        "TEAM_FULL"
+      ],
+      "events": [
+        "team.joinRequested"
+      ],
+      "phase": 9
+    },
+    "team.decideJoin": {
+      "rights": "C",
+      "payload": [
+        "requestId",
+        "approve",
+        "role",
+        "capabilities"
+      ],
+      "ack": [
+        "decision"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "TEAM_FULL",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "team.membershipChanged"
+      ],
+      "phase": 9
+    },
+    "team.invite.rotate": {
+      "rights": "C",
+      "payload": [
+        "autoJoinUserIds?"
+      ],
+      "ack": [
+        "newCode"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "VALIDATION_FAILED"
+      ],
+      "events": [
+        "team.inviteChanged"
+      ],
+      "phase": 11
+    },
+    "team.permissions": {
+      "rights": "C",
+      "payload": [
+        "memberId",
+        "capabilities",
+        "role"
+      ],
+      "ack": [
+        "version"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "STATE_CONFLICT",
+        "RULE_VIOLATION"
+      ],
+      "events": [
+        "team.permissionsChanged"
+      ],
+      "phase": 11
+    },
+    "team.captain.propose": {
+      "rights": "C",
+      "payload": [
+        "memberId"
+      ],
+      "ack": [
+        "pendingHandover"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "team.captainProposed"
+      ],
+      "phase": 11
+    },
+    "team.captain.accept": {
+      "rights": "M(target)",
+      "payload": [
+        "handoverId"
+      ],
+      "ack": [
+        "captainId",
+        "epoch"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "team.captainChanged"
+      ],
+      "phase": 11
+    },
+    "team.shortlist.upsert": {
+      "rights": "can_strategy",
+      "payload": [
+        "playerId",
+        "priority",
+        "note?",
+        "maxPrice?"
+      ],
+      "ack": [
+        "entry"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "VALIDATION_FAILED"
+      ],
+      "events": [
+        "team.shortlistChanged"
+      ],
+      "phase": 11
+    },
+    "team.shortlist.remove": {
+      "rights": "can_strategy",
+      "payload": [
+        "playerId"
+      ],
+      "ack": [
+        "removed"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND"
+      ],
+      "events": [
+        "team.shortlistChanged"
+      ],
+      "phase": 11
+    },
+    "team.shortlist.vote": {
+      "rights": "team member",
+      "payload": [
+        "playerId",
+        "value"
+      ],
+      "ack": [
+        "recorded"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND"
+      ],
+      "events": [
+        "team.shortlistVoteChanged"
+      ],
+      "phase": 11
+    },
+    "auction.retention.propose": {
+      "rights": "C|can_retain_propose",
+      "payload": [
+        "playersAndAllocations"
+      ],
+      "ack": [
+        "packageVersion"
+      ],
+      "versionCheck": "config",
+      "errors": [
+        "RETENTION_INVALID"
+      ],
+      "events": [
+        "team.retentionProposed"
+      ],
+      "phase": 9
+    },
+    "auction.retention.lock": {
+      "rights": "C",
+      "payload": [
+        "packageId",
+        "version"
+      ],
+      "ack": [
+        "retained",
+        "cost",
+        "purse"
+      ],
+      "versionCheck": "config",
+      "errors": [
+        "RETENTION_INVALID",
+        "PURSE_INVALID",
+        "VERSION_CONFLICT"
+      ],
+      "events": [
+        "auction.retentionLocked",
+        "auction.setupPhaseChanged"
+      ],
+      "phase": 9
+    },
+    "auction.franchiseSelection.close": {
+      "rights": "H",
+      "payload": [],
+      "ack": [
+        "phase"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "STATE_CONFLICT",
+        "POOL_INSUFFICIENT"
+      ],
+      "events": [
+        "auction.setupPhaseChanged"
+      ],
+      "phase": 9
+    },
+    "auction.bid": {
+      "rights": "BID",
+      "payload": [
+        "nominationId",
+        "nominationVersion",
+        "amountRupees"
+      ],
+      "ack": [
+        "commandId",
+        "nominationVersion",
+        "acceptedAmountRupees",
+        "deadline",
+        "stateVersion"
+      ],
+      "versionCheck": "nomination",
+      "errors": [
+        "STALE_BID",
+        "ALREADY_LEADING",
+        "BUDGET_RESERVE",
+        "SQUAD_FULL",
+        "OVERSEAS_LIMIT",
+        "XI_INFEASIBLE",
+        "LATE_BID",
+        "GAME_PAUSED",
+        "CONTROL_EPOCH_STALE",
+        "FORBIDDEN",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "auction.bidAccepted",
+        "auction.timerChanged"
+      ],
+      "phase": 10
+    },
+    "auction.rtm.intent": {
+      "rights": "C|can_rtm",
+      "payload": [
+        "nominationId",
+        "invoke"
+      ],
+      "ack": [
+        "stage"
+      ],
+      "versionCheck": "nomination",
+      "errors": [
+        "RTM_UNAVAILABLE",
+        "GAME_PAUSED",
+        "FORBIDDEN",
+        "STALE_BID",
+        "LATE_BID"
+      ],
+      "events": [
+        "auction.rtmStageChanged",
+        "auction.playerSold"
+      ],
+      "phase": 10
+    },
+    "auction.rtm.finalOffer": {
+      "rights": "BID(standing bidder)",
+      "payload": [
+        "nominationId",
+        "amountRupees"
+      ],
+      "ack": [
+        "stage"
+      ],
+      "versionCheck": "nomination",
+      "errors": [
+        "RTM_UNAVAILABLE",
+        "BUDGET_RESERVE",
+        "GAME_PAUSED",
+        "FORBIDDEN",
+        "STALE_BID",
+        "LATE_BID",
+        "VALIDATION_FAILED"
+      ],
+      "events": [
+        "auction.rtmStageChanged"
+      ],
+      "phase": 10
+    },
+    "auction.rtm.match": {
+      "rights": "C|can_rtm",
+      "payload": [
+        "nominationId",
+        "match"
+      ],
+      "ack": [
+        "acquisition",
+        "status"
+      ],
+      "versionCheck": "nomination",
+      "errors": [
+        "RTM_UNAVAILABLE",
+        "BUDGET_RESERVE",
+        "SQUAD_FULL",
+        "OVERSEAS_LIMIT",
+        "XI_INFEASIBLE",
+        "GAME_PAUSED",
+        "FORBIDDEN",
+        "STALE_BID",
+        "LATE_BID"
+      ],
+      "events": [
+        "auction.playerSold"
+      ],
+      "phase": 10
+    },
+    "auction.pause": {
+      "rights": "H",
+      "payload": [],
+      "ack": [
+        "boundaryPause"
+      ],
+      "versionCheck": "phase",
+      "errors": [
+        "PAUSE_NOT_ALLOWED",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "auction.paused"
+      ],
+      "phase": 10
+    },
+    "auction.resume": {
+      "rights": "H",
+      "payload": [],
+      "ack": [
+        "nextState"
+      ],
+      "versionCheck": "phase",
+      "errors": [
+        "STATE_CONFLICT",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "auction.resumed"
+      ],
+      "phase": 10
+    },
+    "auction.skip": {
+      "rights": "H",
+      "payload": [
+        "nominationId"
+      ],
+      "ack": [
+        "skipped"
+      ],
+      "versionCheck": "phase",
+      "errors": [
+        "STATE_CONFLICT",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "auction.playerSkipped"
+      ],
+      "phase": 10
+    },
+    "team.auto.configure": {
+      "rights": "C|can_manage_limits",
+      "payload": [
+        "strategy",
+        "version"
+      ],
+      "ack": [
+        "strategyVersion"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "VERSION_CONFLICT",
+        "RULE_VIOLATION"
+      ],
+      "events": [
+        "team.autoConfigured"
+      ],
+      "phase": 12
+    },
+    "team.auto.takeover": {
+      "rights": "C|designated controller",
+      "payload": [
+        "currentEpoch"
+      ],
+      "ack": [
+        "manual",
+        "newEpoch"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "CONTROL_EPOCH_STALE",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "team.controlChanged"
+      ],
+      "phase": 12
+    },
+    "vote.start": {
+      "rights": "H",
+      "payload": [],
+      "ack": [
+        "voteId",
+        "expiresAt",
+        "threshold"
+      ],
+      "versionCheck": "phase",
+      "errors": [
+        "VOTE_IN_PROGRESS",
+        "VOTE_COOLDOWN",
+        "VOTE_LIMIT",
+        "ALREADY_COMPLETED",
+        "STATE_CONFLICT"
+      ],
+      "events": [
+        "vote.started"
+      ],
+      "phase": 14
+    },
+    "vote.cast": {
+      "rights": "frozen representative",
+      "payload": [
+        "voteId",
+        "choice"
+      ],
+      "ack": [
+        "receipt"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "VOTE_EXPIRED",
+        "VOTE_ALREADY_CAST",
+        "FORBIDDEN"
+      ],
+      "events": [
+        "vote.recorded"
+      ],
+      "phase": 14
+    },
+    "chat.send": {
+      "rights": "M+channel ACL",
+      "payload": [
+        "channelId",
+        "clientMessageId",
+        "text"
+      ],
+      "ack": [
+        "messageId",
+        "createdAt"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "CHAT_FORBIDDEN",
+        "MUTED",
+        "RATE_LIMITED"
+      ],
+      "events": [
+        "chat.message"
+      ],
+      "phase": 13
+    },
+    "chat.mute": {
+      "rights": "H(public)|C(own team)",
+      "payload": [
+        "channelId",
+        "memberId",
+        "durationSeconds",
+        "reason"
+      ],
+      "ack": [
+        "expiresAt"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN"
+      ],
+      "events": [
+        "chat.muted"
+      ],
+      "phase": 13
+    },
+    "chat.remove": {
+      "rights": "sender|H(public)|C(team)",
+      "payload": [
+        "messageId"
+      ],
+      "ack": [
+        "removed"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "FORBIDDEN",
+        "NOT_FOUND"
+      ],
+      "events": [
+        "chat.removed"
+      ],
+      "phase": 13
+    },
+    "chat.subscribe": {
+      "rights": "M+channel ACL",
+      "payload": [
+        "channelId",
+        "afterSeq?"
+      ],
+      "ack": [
+        "authorizedCursor"
+      ],
+      "versionCheck": "none",
+      "errors": [
+        "CHAT_FORBIDDEN"
+      ],
+      "events": [],
+      "phase": 13
+    },
+    "chat.unsubscribe": {
+      "rights": "current socket",
+      "payload": [
+        "channelId"
+      ],
+      "ack": [
+        "unsubscribed"
+      ],
+      "versionCheck": "none",
+      "errors": [],
+      "events": [],
+      "phase": 13
+    }
   },
-  "internalOnly": ["deal", "beginComparison", "transferCards", "resolveTie", "eliminateSeat", "nominatePlayer", "extendTimer", "closeBidding", "sell", "unsell", "botSchedule", "calculateScores", "resolveVote", "mintMedal", "deleteRoom"]
+  "internalOnly": [
+    "deal",
+    "beginComparison",
+    "transferCards",
+    "resolveTie",
+    "eliminateSeat",
+    "nominatePlayer",
+    "extendTimer",
+    "closeBidding",
+    "sell",
+    "unsell",
+    "botSchedule",
+    "calculateScores",
+    "resolveVote",
+    "mintMedal",
+    "deleteRoom"
+  ]
 }

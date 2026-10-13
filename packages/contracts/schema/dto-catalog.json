@@ -129,7 +129,8 @@
       "rtmFinalBidRupees?",
       "publicFranchisePursesAndCounts",
       "ownLegalNextBidRupees?",
-      "ownRejectionReason?"
+      "ownRejectionReason?",
+      "myTarget?"
     ],
     "SquadDTO": [
       "franchiseId",
@@ -332,6 +333,33 @@
       "myAllowedActions",
       "seedCommitment",
       "auditSeed?"
+    ],
+    "TeamViewDTO": [
+      "teamId",
+      "franchiseDefinitionId",
+      "name",
+      "shortName",
+      "primaryHex",
+      "secondaryHex",
+      "lifecycle",
+      "myMemberId",
+      "myRole",
+      "myCapabilities",
+      "controlEpoch",
+      "members",
+      "requests",
+      "joinCode?",
+      "autoJoin?",
+      "pendingHandover?",
+      "collaboratorLimit",
+      "myAllowedActions"
+    ],
+    "ShortlistViewDTO": [
+      "teamId",
+      "entries",
+      "pool",
+      "canEdit",
+      "canSetLimits"
     ]
   },
   "changesFromSpec": [

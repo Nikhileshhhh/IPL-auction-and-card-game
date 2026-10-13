@@ -18,6 +18,7 @@ export const COMMAND_TYPES = [
   'team.captain.propose',
   'team.captain.accept',
   'team.shortlist.upsert',
+  'team.shortlist.remove',
   'team.shortlist.vote',
   'auction.retention.propose',
   'auction.retention.lock',

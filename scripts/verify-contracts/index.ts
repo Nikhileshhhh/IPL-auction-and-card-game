@@ -9,6 +9,23 @@ import { dirname, join } from 'node:path';
 import {
   AUCTION_EVENT_PAYLOADS,
   AUCTION_LIVE_EVENT_PAYLOADS,
+  TEAM_EVENT_PAYLOADS,
+  TeamPermissionsAck,
+  TeamPermissionsPayload,
+  CaptainProposeAck,
+  CaptainProposePayload,
+  CaptainAcceptAck,
+  CaptainAcceptPayload,
+  InviteRotateAck,
+  InviteRotatePayload,
+  ShortlistUpsertAck,
+  ShortlistUpsertPayload,
+  ShortlistRemoveAck,
+  ShortlistRemovePayload,
+  ShortlistVoteAck,
+  ShortlistVotePayload,
+  TeamViewSchema,
+  ShortlistViewSchema,
   AuctionLiveSnapshotSchema,
   BidAck,
   BidPayload,
@@ -108,6 +125,7 @@ for (const [type, schema] of Object.entries({
   ...CARD_EVENT_PAYLOADS,
   ...AUCTION_EVENT_PAYLOADS,
   ...AUCTION_LIVE_EVENT_PAYLOADS,
+  ...TEAM_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -127,6 +145,13 @@ const implementedCommands = {
   'auction.pause': [PausePayload, PauseAck],
   'auction.resume': [ResumePayload, ResumeAck],
   'auction.skip': [SkipPayload, SkipAck],
+  'team.permissions': [TeamPermissionsPayload, TeamPermissionsAck],
+  'team.captain.propose': [CaptainProposePayload, CaptainProposeAck],
+  'team.captain.accept': [CaptainAcceptPayload, CaptainAcceptAck],
+  'team.invite.rotate': [InviteRotatePayload, InviteRotateAck],
+  'team.shortlist.upsert': [ShortlistUpsertPayload, ShortlistUpsertAck],
+  'team.shortlist.remove': [ShortlistRemovePayload, ShortlistRemoveAck],
+  'team.shortlist.vote': [ShortlistVotePayload, ShortlistVoteAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -146,6 +171,8 @@ for (const [name, schema] of [
   ['SquadDTO', SquadDTOSchema],
   ['NominationDTO', NominationSchema],
   ['AuctionLiveSnapshot', AuctionLiveSnapshotSchema],
+  ['TeamViewDTO', TeamViewSchema],
+  ['ShortlistViewDTO', ShortlistViewSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }

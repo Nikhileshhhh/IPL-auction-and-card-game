@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AuctionPlayerSchema, RuleSummarySchema } from './auction';
 import { DecimalString, IsoTimestamp, RupeesString, Uuid } from './primitives';
+import { VoteTallySchema } from './teams';
 
 /**
  * Live auction contracts (phase 10, ADR-025): lots, accepted bids, the RTM
@@ -169,6 +170,16 @@ export const NominationSchema = z
     /** The exact amount this viewer's team may bid next, when it may. */
     ownLegalNextBidRupees: RupeesString.nullable(),
     ownRejectionReason: BidBlockSchema.nullable(),
+    /** This player on the viewer's own team shortlist (private; never another team's). */
+    myTarget: z
+      .object({
+        priority: z.number().int(),
+        maxPriceRupees: RupeesString.nullable(),
+        note: z.string().nullable(),
+        tally: VoteTallySchema,
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 export type Nomination = z.infer<typeof NominationSchema>;
