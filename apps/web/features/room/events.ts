@@ -159,6 +159,15 @@ export function applyEvent(state: RoomState, event: RoomEvent, mySocketId?: stri
           },
         },
       };
+    case 'chat.message':
+    case 'chat.removed':
+    case 'chat.muted':
+      // Chat views keep their own list (RoomConnection.listen); the snapshot is unchanged.
+      return {
+        kind: 'applied',
+        refetch: false,
+        state: { cursors, snapshot: snap },
+      };
     default:
       // Unknown or game events: keep the cursor and let the snapshot catch up.
       refetch = true;

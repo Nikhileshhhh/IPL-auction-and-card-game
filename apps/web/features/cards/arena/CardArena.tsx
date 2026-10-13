@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { METRIC_LABELS, type CardMetric } from '@stumps/contracts';
 import { Button, Skeleton, StatusMessage, cx } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
+import { ChatDrawer } from '@/features/chat/ChatDrawer';
 import { TimerRing } from './ArenaParts';
 import { BattleZone } from './BattleZone';
 import { CategoryControls } from './CategoryControls';
@@ -133,6 +134,7 @@ export function CardArena({ roomId }: { roomId: string }) {
           <Button size="touch" variant="secondary" onClick={() => setSheetOpen(true)}>
             Comparison
           </Button>
+          <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams={false} />
         </div>
       </header>
 

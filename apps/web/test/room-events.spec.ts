@@ -83,6 +83,27 @@ describe('room event application', () => {
     expect(applyEvent(first.state, event('2', 'presence.changed', {})).kind).toBe('duplicate');
   });
 
+  it('chat events advance the cursor without touching the snapshot or refetching', () => {
+    const state = fromSnapshot(snapshot());
+    for (const [seq, type] of [
+      ['4', 'chat.message'],
+      ['5', 'chat.removed'],
+      ['6', 'chat.muted'],
+    ] as const) {
+      const before = state.snapshot;
+      const result = applyEvent(
+        seq === '4'
+          ? state
+          : { ...state, cursors: { ...state.cursors, [PUBLIC]: String(Number(seq) - 1) } },
+        event(seq, type, { channelId: PRIVATE, messageId: GUEST, text: '<b>x</b>' }),
+      );
+      if (result.kind !== 'applied') throw new Error('expected applied');
+      expect(result.refetch).toBe(false);
+      expect(result.state.snapshot).toEqual(before);
+      expect(result.state.cursors[PUBLIC]).toBe(seq);
+    }
+  });
+
   it('reports a gap instead of guessing past a missing seq', () => {
     const result = applyEvent(
       fromSnapshot(snapshot()),

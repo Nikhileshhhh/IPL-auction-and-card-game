@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
+import { ChatDrawer } from '@/features/chat/ChatDrawer';
 import { SquadView } from '../setup/SquadView';
 import { BidControlPanel } from './BidControlPanel';
 import { MissedRecap } from '@/features/reconnect/MissedRecap';
@@ -90,6 +91,7 @@ export function AuctionStage({ roomId }: { roomId: string }) {
             </nav>
           ) : null}
           <HostControls live={live} connection={connection} disabled={disabled} />
+          <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams />
         </div>
       </header>
 

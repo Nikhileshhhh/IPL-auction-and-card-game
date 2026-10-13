@@ -9,6 +9,7 @@ import { useRoom } from '../useRoom';
 import type { RoomConnection } from '../connection';
 import type { RoomState } from '../events';
 import { SettingsDialog } from './SettingsDialog';
+import { ChatDrawer } from '@/features/chat/ChatDrawer';
 
 type Lobby = RoomLobbyDTO;
 
@@ -301,6 +302,19 @@ export function MultiplayerLobby({
           </Badge>
           <Badge>{lobbyOpen ? 'Lobby' : lobby.lifecycle.toLowerCase()}</Badge>
           <span className="text-sm text-ink-2">{status === 'live' ? '● Live' : '◌ Offline'}</span>
+          <span className="ml-auto flex items-center gap-3">
+            {lobbyOpen ? (
+              <Link href={`/friends?room=${roomId}`} className="text-sm underline">
+                Invite friends
+              </Link>
+            ) : null}
+            <ChatDrawer
+              roomId={roomId}
+              connection={connection}
+              status={status}
+              hasTeams={lobby.gameType === 'auction'}
+            />
+          </span>
         </div>
         <h1 className="font-display text-[32px] leading-[38px] font-semibold break-words sm:text-[40px] sm:leading-[46px]">
           {lobby.name}

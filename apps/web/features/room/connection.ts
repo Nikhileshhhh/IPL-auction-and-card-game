@@ -36,6 +36,7 @@ export class RoomConnection {
   private resyncing = false;
   private queue: RoomEvent[] = [];
   private stopped = false;
+  private listeners = new Set<(event: RoomEvent) => void>();
 
   constructor(readonly roomId: string) {
     this.store = createStore<RoomStoreState>(() => ({
@@ -183,6 +184,13 @@ export class RoomConnection {
     }
     this.patch({ room: result.state });
     if (result.refetch) this.scheduleRefetch();
+    for (const listener of this.listeners) listener(event);
+  }
+
+  /** Applied events, in order, for views that keep their own list (chat). */
+  listen(listener: (event: RoomEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /** Replay missed events for one stream; too far behind → fresh snapshot. */

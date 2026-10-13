@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SessionProjection } from '@stumps/contracts';
 import { ConnectionBoundary } from './ConnectionBoundary';
+import { InboxLink } from './InboxLink';
 import { SignOutButton } from './SignOutButton';
 import { Wordmark } from './Wordmark';
 
@@ -45,11 +46,25 @@ export function AppShell({
               ))}
               {session ? (
                 <>
-                  <li
-                    className="px-2 text-ink-2"
-                    aria-label={`Signed in as ${session.displayName}`}
-                  >
-                    <span aria-hidden="true">{session.displayName}</span>
+                  <li>
+                    <Link
+                      href="/friends"
+                      className="inline-flex min-h-11 items-center rounded-lg px-3 text-ink-2 hover:bg-overlay hover:text-ink"
+                    >
+                      Friends
+                    </Link>
+                  </li>
+                  <li>
+                    <InboxLink />
+                  </li>
+                  <li>
+                    <Link
+                      href={`/players/${session.username}`}
+                      className="inline-flex min-h-11 items-center rounded-lg px-3 text-ink-2 hover:bg-overlay hover:text-ink"
+                      aria-label={`Your profile, signed in as ${session.displayName}`}
+                    >
+                      <span aria-hidden="true">{session.displayName}</span>
+                    </Link>
                   </li>
                   <li>
                     <SignOutButton />

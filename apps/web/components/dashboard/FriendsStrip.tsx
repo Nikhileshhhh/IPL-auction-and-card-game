@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { MemberSummaryDTO } from '@stumps/contracts';
 import { Surface } from '@stumps/ui';
 
@@ -9,12 +10,17 @@ export function FriendsStrip({ friends }: { friends: MemberSummaryDTO['friends']
       </h2>
       {friends.accepted === 0 ? (
         <p className="mt-2 text-sm text-ink-2">
-          You have no friends added yet. Share a room code with someone you know to play together;
-          friend lists open with the social features.
+          You have no friends added yet.{' '}
+          <Link href="/friends" className="underline">
+            Find people by username
+          </Link>{' '}
+          and invite them straight into your rooms.
         </p>
       ) : (
         <p className="mt-2 text-sm text-ink-2">
-          {friends.accepted} friend{friends.accepted === 1 ? '' : 's'}
+          <Link href="/friends" className="underline">
+            {friends.accepted} friend{friends.accepted === 1 ? '' : 's'}
+          </Link>
           {friends.pendingIncoming > 0
             ? ` · ${friends.pendingIncoming} request${friends.pendingIncoming === 1 ? '' : 's'} waiting`
             : ''}
