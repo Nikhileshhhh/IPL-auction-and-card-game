@@ -50,7 +50,7 @@ export function createRoomRuntime(pool: pg.Pool, secrets: Secrets): RoomRuntime 
   };
   registerRoomDeadlines(deadlines, { onRoomClosed: (roomId) => onRoomClosed(roomId) });
   const cardProjector = registerCardModule({ starters, deadlines, commands }, secrets);
-  const auctionProjector = registerAuctionModule({ commands }, secrets);
+  const auctionProjector = registerAuctionModule({ starters, deadlines, commands }, secrets);
   // One projector per game type: the snapshot's `game` belongs to the room's game.
   const gameProjector: GameProjector = (tx, room, member) =>
     room.game_type === 'auction'

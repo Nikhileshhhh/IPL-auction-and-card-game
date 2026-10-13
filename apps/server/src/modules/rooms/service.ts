@@ -535,9 +535,9 @@ export async function startRoom(
       );
       const hard = new Date(now.getTime() + (room.game_type === 'card' ? 120 : 480) * 60_000);
       await tx.query(
-        `UPDATE app_private.rooms SET lifecycle = 'RUNNING', phase = $2, started_at = $3, data_version_id = $4,
+        `UPDATE app_private.rooms SET lifecycle = $6, phase = $2, started_at = $3, data_version_id = $4,
             hard_deadline = $5, expires_at = $5 WHERE id = $1`,
-        [room.id, started.phase, now, started.dataVersionId, hard],
+        [room.id, started.phase, now, started.dataVersionId, hard, started.lifecycle ?? 'RUNNING'],
       );
       await tx.query(
         `DELETE FROM app_private.deadline_jobs WHERE room_id = $1 AND kind = 'room.lobby_expiry'`,

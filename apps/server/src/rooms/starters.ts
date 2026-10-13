@@ -15,7 +15,13 @@ export interface GameStarter {
     room: RoomRow,
     players: MemberRow[],
     now: Date,
-  ): Promise<{ phase: string; dataVersionId: string; events: EventDraft[] }>;
+  ): Promise<{
+    phase: string;
+    dataVersionId: string;
+    events: EventDraft[];
+    /** Set when the game already ended while starting (an auction with no buyable lot). */
+    lifecycle?: 'RUNNING' | 'FINALIZING';
+  }>;
 }
 
 export class StarterRegistry {
