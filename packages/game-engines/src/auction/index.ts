@@ -8,3 +8,4 @@ export * from './bids';
 export * from './rtm';
 export * from './nomination';
 export * from './invariants';
+export * from './auto';

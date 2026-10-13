@@ -10,6 +10,13 @@ import {
   AUCTION_EVENT_PAYLOADS,
   AUCTION_LIVE_EVENT_PAYLOADS,
   TEAM_EVENT_PAYLOADS,
+  AUTO_EVENT_PAYLOADS,
+  AutoConfigureAck,
+  AutoConfigurePayload,
+  AutoTakeoverAck,
+  AutoTakeoverPayload,
+  StrategyDTOSchema,
+  AutoViewSchema,
   TeamPermissionsAck,
   TeamPermissionsPayload,
   CaptainProposeAck,
@@ -126,6 +133,7 @@ for (const [type, schema] of Object.entries({
   ...AUCTION_EVENT_PAYLOADS,
   ...AUCTION_LIVE_EVENT_PAYLOADS,
   ...TEAM_EVENT_PAYLOADS,
+  ...AUTO_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -152,6 +160,8 @@ const implementedCommands = {
   'team.shortlist.upsert': [ShortlistUpsertPayload, ShortlistUpsertAck],
   'team.shortlist.remove': [ShortlistRemovePayload, ShortlistRemoveAck],
   'team.shortlist.vote': [ShortlistVotePayload, ShortlistVoteAck],
+  'team.auto.configure': [AutoConfigurePayload, AutoConfigureAck],
+  'team.auto.takeover': [AutoTakeoverPayload, AutoTakeoverAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -173,6 +183,8 @@ for (const [name, schema] of [
   ['AuctionLiveSnapshot', AuctionLiveSnapshotSchema],
   ['TeamViewDTO', TeamViewSchema],
   ['ShortlistViewDTO', ShortlistViewSchema],
+  ['StrategyDTO', StrategyDTOSchema],
+  ['AutoViewDTO', AutoViewSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }

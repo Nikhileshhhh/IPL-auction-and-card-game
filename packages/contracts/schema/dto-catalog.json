@@ -203,6 +203,7 @@
       "openVote?",
       "results?",
       "cursors",
+      "recoveryUntil?",
       "serverNow"
     ],
     "BidAcceptedDTO": [
@@ -360,6 +361,17 @@
       "pool",
       "canEdit",
       "canSetLimits"
+    ],
+    "AutoViewDTO": [
+      "teamId",
+      "strategy?",
+      "control",
+      "remainingPurseRupees",
+      "lifecycle",
+      "canConfigure",
+      "canTakeover",
+      "decisions",
+      "autoPurchases"
     ]
   },
   "changesFromSpec": [

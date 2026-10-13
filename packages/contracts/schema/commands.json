@@ -492,7 +492,8 @@
       "errors": [
         "FORBIDDEN",
         "VERSION_CONFLICT",
-        "RULE_VIOLATION"
+        "RULE_VIOLATION",
+        "NOT_FOUND"
       ],
       "events": [
         "team.autoConfigured"
@@ -511,7 +512,8 @@
       "versionCheck": "none",
       "errors": [
         "CONTROL_EPOCH_STALE",
-        "FORBIDDEN"
+        "FORBIDDEN",
+        "STATE_CONFLICT"
       ],
       "events": [
         "team.controlChanged"

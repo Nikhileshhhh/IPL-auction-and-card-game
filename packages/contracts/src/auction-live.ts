@@ -25,6 +25,8 @@ export const BID_BLOCKS = [
   'BUDGET_RESERVE',
   'XI_INFEASIBLE',
   'NOT_BIDDING',
+  /** The team is automatic or observing: someone resumes manual control first. */
+  'TEAM_NOT_MANUAL',
 ] as const;
 export const BidBlockSchema = z.enum(BID_BLOCKS);
 
@@ -201,6 +203,8 @@ export const LiveTeamSchema = z
       capped: z.number().int(),
       uncapped: z.number().int(),
     }),
+    /** Who is bidding for this team right now (public status, never its limits). */
+    control: z.enum(['MANUAL', 'FAILOVER', 'AUTO', 'OBSERVE']),
     /** Most this team may commit for its next player (purse minus the minimum-squad reserve). */
     maxBidRupees: RupeesString.nullable(),
   })

@@ -5,7 +5,7 @@ import type { ReadinessCheck } from '../http/readiness';
  * Latest migration this build requires. Expand/contract rollouts allow the
  * database to be newer than the code, never older.
  */
-export const REQUIRED_MIGRATION = '080_team_collaboration';
+export const REQUIRED_MIGRATION = '090_auto_control';
 
 export function schemaCheck(
   pool: pg.Pool | undefined,

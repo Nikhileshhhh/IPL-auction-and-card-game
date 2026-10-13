@@ -257,7 +257,7 @@
     {
       "method": "GET",
       "path": "/v1/rooms/:id/franchises/:f/strategy",
-      "rights": "own team can_strategy",
+      "rights": "own team member (others: 404); limits edited via team.auto.configure",
       "phase": 11
     },
     {

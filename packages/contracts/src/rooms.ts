@@ -189,6 +189,8 @@ export const PermittedSnapshotSchema = z
       .strict()
       .nullable(),
     cursors: z.array(StreamCursorSchema),
+    /** Outage recovery pause (ADR-027): gameplay resumes at this time. */
+    recoveryUntil: IsoTimestamp.nullable(),
     serverNow: IsoTimestamp,
   })
   .strict();

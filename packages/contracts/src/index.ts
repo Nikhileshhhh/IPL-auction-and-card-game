@@ -13,3 +13,4 @@ export * from './cards';
 export * from './auction';
 export * from './auction-live';
 export * from './teams';
+export * from './auto';
