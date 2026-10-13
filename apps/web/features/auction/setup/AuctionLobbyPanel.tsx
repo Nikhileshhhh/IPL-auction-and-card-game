@@ -12,7 +12,8 @@ import { useSetupActions } from './useSetup';
 /**
  * S19 auction waiting lobby: every team with its locked squad and public
  * purse, and the start checklist. Each person marks themself ready; another
- * team can never make you ready. Bidding opens in the next update (phase 10).
+ * team can never make you ready. When the host starts, everyone moves to the
+ * live auction stage (S20).
  */
 export function AuctionLobbyPanel({
   ctx,
@@ -87,9 +88,10 @@ export function AuctionLobbyPanel({
             {formatRupees(setup.pool.lowestBasePriceRupees)}
           </li>
         </ul>
-        <StatusMessage tone="info" className="mt-4" title="Bidding opens in the next update">
-          Your squads, purses and right-to-match cards are locked in. The live auction (bids, the
-          right-to-match raise and match, and the timer) is the next part being built.
+        <StatusMessage tone="info" className="mt-4" title="What happens at the start">
+          Players come up one at a time in the real auction sets. Each bid is the next step on the
+          auctioneer’s ladder; a late bid gives everyone 8 more seconds. Previous franchises may use
+          their right-to-match cards after the highest bidder’s one final raise.
         </StatusMessage>
       </Surface>
 

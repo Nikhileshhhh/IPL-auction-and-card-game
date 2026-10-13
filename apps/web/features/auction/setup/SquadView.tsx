@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { AuctionSetupSnapshot, SquadDTO } from '@stumps/contracts';
+import type { SquadDTO } from '@stumps/contracts';
 import { Badge, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { api } from '@/lib/api-client';
-import type { LobbyContext } from '@/features/room/components/MultiplayerLobby';
 import { Crest } from './Crest';
 import { formatRupees, fullRupees } from './money';
 import { PlayerLine } from './PlayerLine';
@@ -17,22 +16,32 @@ const ROLE_ORDER = ['batter', 'wicketkeeper', 'all_rounder', 'bowler'] as const;
  * the reserve kept for the minimum squad and plain-language gaps. Any room
  * member may look at any team; strategy is never shown here.
  */
+export interface SquadTeam {
+  teamId: string;
+  name: string;
+  shortName: string;
+  primaryHex: string;
+  secondaryHex: string;
+}
+
 export function SquadView({
-  ctx,
-  setup,
+  roomId,
+  stateVersion,
+  teams,
+  rules,
   teamId,
 }: {
-  ctx: LobbyContext;
-  setup: AuctionSetupSnapshot;
+  roomId: string;
+  /** Reloads the squad whenever the room moves on. */
+  stateVersion: string;
+  teams: readonly SquadTeam[];
+  rules: { squadMin: number; squadMax: number; overseasMax: number };
   teamId: string | null;
 }) {
-  const roomId = ctx.room.snapshot.room.roomId;
-  const target =
-    teamId ?? setup.myTeam?.teamId ?? setup.teams.find((t) => t.teamId)?.teamId ?? null;
-  const team = setup.teams.find((t) => t.teamId === target);
+  const target = teamId ?? teams[0]?.teamId ?? null;
+  const team = teams.find((t) => t.teamId === target);
   const [squad, setSquad] = useState<SquadDTO | null>(null);
   const [failed, setFailed] = useState(false);
-  const stateVersion = ctx.room.snapshot.room.stateVersion;
   useEffect(() => {
     if (!target) return;
     let live = true;
@@ -84,13 +93,13 @@ export function SquadView({
           <div>
             <dt className="text-ink-3">Players</dt>
             <dd className="font-semibold">
-              {squad.rosterCount} of {setup.rules.squadMin}–{setup.rules.squadMax}
+              {squad.rosterCount} of {rules.squadMin}–{rules.squadMax}
             </dd>
           </div>
           <div>
             <dt className="text-ink-3">Overseas</dt>
             <dd className="font-semibold">
-              {squad.overseasCount} of {setup.rules.overseasMax}
+              {squad.overseasCount} of {rules.overseasMax}
             </dd>
           </div>
         </dl>
@@ -144,8 +153,8 @@ export function SquadView({
       })}
       {squad.acquisitions.length === 0 ? (
         <StatusMessage tone="info">
-          No players yet. This team needs {setup.rules.squadMin} players, up to{' '}
-          {setup.rules.overseasMax} from overseas.
+          No players yet. This team needs {rules.squadMin} players, up to {rules.overseasMax} from
+          overseas.
         </StatusMessage>
       ) : null}
     </div>

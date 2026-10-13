@@ -15,7 +15,7 @@ test.beforeEach(async () => {
   await clearAttempts();
 });
 
-test('two captains claim franchises, lock retentions and reach the auction lobby', async ({
+test('two captains claim franchises, lock retentions and run the live auction', async ({
   browser,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'two-context flow runs once (guest at 360 px)');
@@ -91,7 +91,7 @@ test('two captains claim franchises, lock retentions and reach the auction lobby
   for (const page of [host, guest]) {
     await expect(page).toHaveURL(/\/auction-lobby$/, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: 'Teams and purses' })).toBeVisible();
-    await expect(page.getByText('Bidding opens in the next update')).toBeVisible();
+    await expect(page.getByText('What happens at the start')).toBeVisible();
   }
   await expect(guest.getByText('₹120 cr').first()).toBeVisible(); // the guest kept nobody
   await expectNoSeriousA11yViolations(guest);
@@ -103,6 +103,37 @@ test('two captains claim franchises, lock retentions and reach the auction lobby
   await expect(host.getByText('Kept for minimum squad')).toBeVisible();
   await expect(host.getByText('Need 16 more players')).toBeVisible();
   await expectNoSeriousA11yViolations(host);
+
+  // S20: both mark themselves ready, the host starts, and both land on the live stage.
+  await host.goto(host.url().replace(/\/squad$/, '/auction-lobby'));
+  for (const page of [guest, host]) {
+    await page.getByRole('button', { name: "I'm ready" }).click();
+  }
+  await host.getByRole('button', { name: 'Start game' }).click();
+  for (const page of [host, guest]) {
+    await expect(page).toHaveURL(/\/auction$/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible();
+    await expect(page.getByText(/^Lot 1/)).toBeVisible();
+    // The player under the hammer shows a portrait (ADR-017).
+    await expect(page.locator('[data-portrait]').first()).toBeVisible();
+  }
+  // The host opens at the base price; the guest sees the exact next step.
+  const hostBid = host.getByRole('button', { name: /^Bid ₹/ });
+  await expect(hostBid).toBeEnabled();
+  await hostBid.click();
+  await expect(host.getByText('Your team holds the highest bid.')).toBeVisible();
+  const guestBid = guest.getByRole('button', { name: /^Bid ₹/ });
+  await expect(guestBid).toBeEnabled();
+  await guestBid.click();
+  await expect(host.getByRole('button', { name: /^Bid ₹/ })).toBeEnabled();
+  await expect(guest.getByText('Your team holds the highest bid.')).toBeVisible();
+  await expectNoSeriousA11yViolations(guest);
+  await expectNoHorizontalScroll(guest);
+  // The clock is the server's: the lot sells when it runs out, and the next one opens.
+  await expect(host.getByText(/^(Sold|Right to match) · /).first()).toBeVisible({
+    timeout: 45_000,
+  });
+  await expect(host.getByText(/^Lot 2/)).toBeVisible({ timeout: 20_000 });
 
   await hostContext.close();
   await guestContext.close();

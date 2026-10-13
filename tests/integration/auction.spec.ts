@@ -340,12 +340,15 @@ describe('retentions (rules §8, real IPL charge model)', () => {
       'auction.retentionLocked',
       'auction.setupPhaseChanged',
     ]);
-    // Bidding is phase 10: the room waits in the auction lobby with locked rosters.
+    // With every roster locked, the host starts the live auction (phase 10).
     for (const c of [host, guests[0]!]) {
       await c.mutate('POST', `/v1/rooms/${roomId}/ready`, { ready: true, configVersion });
     }
     const start = await host.mutate('POST', `/v1/rooms/${roomId}/start`, { configVersion });
-    expect(start.body.error!.details).toMatchObject({ reason: 'ENGINE_UNAVAILABLE' });
+    expect(start.status, JSON.stringify(start.body)).toBe(200);
+    const started = await snapshot(host, roomId);
+    expect(started.room.lifecycle).toBe('RUNNING');
+    expect((started.game as unknown as { kind: string }).kind).toBe('auction-live');
   });
 
   it('enforces the retention caps and the purse needed to fill a squad', async () => {

@@ -194,8 +194,8 @@ export function AuctionCreationForm() {
             </dd>
           </dl>
           <p className="mt-4 text-sm text-ink-3">
-            Players and squads come from the published IPL player pool. Bidding opens in the next
-            update; this room takes you through franchises and retentions to the auction lobby.
+            Players and squads come from the published IPL player pool. This room takes you through
+            franchises and retentions to the auction lobby, then the live auction.
           </p>
           {error ? (
             <StatusMessage tone="error" className="mt-4">

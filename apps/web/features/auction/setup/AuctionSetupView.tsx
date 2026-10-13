@@ -76,7 +76,13 @@ export function AuctionSetupView({
         {setup.format === 'fresh' ? ' · Fresh reset (simulator option)' : ''}
       </p>
       {screen === 'squad' ? (
-        <SquadView ctx={ctx} setup={setup} teamId={teamId} />
+        <SquadView
+          roomId={roomId}
+          stateVersion={ctx.room.snapshot.room.stateVersion}
+          teams={setup.teams.flatMap((t) => (t.teamId ? [{ ...t, teamId: t.teamId }] : []))}
+          rules={setup.rules}
+          teamId={teamId ?? setup.myTeam?.teamId ?? null}
+        />
       ) : setup.phase === 'FRANCHISE_SELECTION' ? (
         <FranchiseSelection ctx={ctx} setup={setup} />
       ) : setup.phase === 'RETENTION' ? (

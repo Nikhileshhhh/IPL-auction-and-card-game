@@ -20,7 +20,7 @@
 | Retention deductions | Capped ₹18 / 14 / 11 / 18 / 14 cr in retention order; uncapped ₹4 cr | Reported (franchise FAQs, e.g. Mumbai Indians) |
 | Squad | 18 to 25 players, at most 8 overseas, at most 4 overseas in the XI | Reported (standing auction rules) |
 | Base-price bands | ₹2, 1.5, 1.25, 1 cr, ₹75, 50, 40, 30 lakh | Reported (2025 and 2026 auction lists) |
-| Bid increments | 5 lakh below ₹1 cr, 10 lakh to ₹2 cr, then 20 lakh | Simulator (rules §8.2), to be checked in phase 10 |
+| Bid increments | 5 lakh below ₹1 cr, 10 lakh to ₹2 cr, then 20 lakh | Reported (Business Today 2025 auction guide; checked in phase 10, ADR-025) |
 
 - **Retention charge:** max(Σ capped slabs, Σ negotiated capped salaries) + Σ max(uncapped salary, ₹4 cr).
   - This reproduces the real 2025 charges:

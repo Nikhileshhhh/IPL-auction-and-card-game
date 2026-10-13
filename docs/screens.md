@@ -41,7 +41,7 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S17 | Collaboration approval | `/rooms/:id/team/requests` | (room) | basic `TeamPanel` (join code, teammates, approve/reject) inside S16/S18/S19; capability editor phase 11 | myTeam.requests | drawer | 9 (basic) / 11 |
 | S18 | Retention management | `/rooms/:id/retentions` | (room) | `RetentionManager` (ordered slabs, negotiated salary, server-priced charge, RTM cards, lock dialog) | myTeam.eligible, myTeam.package | → auction-lobby | 9 (built) |
 | S19 | Auction waiting lobby | `/rooms/:id/auction-lobby` | (room) | `AuctionLobbyPanel` (teams and public purses, start checklist); auto consent phase 12 | teams, members | → /rooms/:id/auction (phase 10) | 9 (built) |
-| S20 | Live auction stage | `/rooms/:id/auction` | (room) | `AuctionStage > FranchiseRosterPanel/AuctionPlayerSpotlight/AuctionCountdown/AuctionHistory/BidControlPanel` | NominationDTO | → results | 10 |
+| S20 | Live auction stage | `/rooms/:id/auction` | (room) | `AuctionStage > TeamsRail/LotSpotlight/LotClock/RtmPanel/LotHistory/HostControls/BidControlPanel` (built, phase 10) | AuctionLiveSnapshot (NominationDTO) | → results | 10 |
 | S21 | Auction player detail | `/rooms/:id/auction?player=:id` | (room) | `PlayerDetail > Identity/Statistics/PhaseSkills/SourceInfo/ComparePicker` | PlayerPublicDTO | close → S20 | 10 |
 | S22 | Franchise squad management | `/rooms/:id/squad` | (room) | `SquadView` (purse, reserve, counts, deficits, players by role); provisional XI phase 14 | SquadDTO | page (?team=) | 9 (built) |
 | S23 | Player shortlist | `/rooms/:id/shortlist` | (room) | `TeamShortlist > PlayerSearch/TargetList/RecommendationVotes` | StrategyDTO (own team) | drawer/page | 11 |

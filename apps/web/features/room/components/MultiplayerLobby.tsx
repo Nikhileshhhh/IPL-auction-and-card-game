@@ -158,11 +158,12 @@ export function MultiplayerLobby({
   const [copied, setCopied] = useState(false);
   const started = room?.snapshot.room.lifecycle;
   const gameType = room?.snapshot.room.gameType;
-  // A started card match lives on its own pages (S08 → S09).
+  // A started game lives on its own pages (cards: S08 → S09; auction: S20).
   useEffect(() => {
-    if (gameType === 'card' && started && started !== 'LOBBY') {
-      router.replace(`/rooms/${roomId}/preparing`);
-    }
+    if (!started || started === 'LOBBY') return;
+    router.replace(
+      gameType === 'auction' ? `/rooms/${roomId}/auction` : `/rooms/${roomId}/preparing`,
+    );
   }, [gameType, started, roomId, router]);
 
   if (status === 'unavailable') {
