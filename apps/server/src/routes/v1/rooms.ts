@@ -33,6 +33,7 @@ import {
 import { buildSnapshot, replay, requireMembership, streamAcl } from '../../rooms/projection';
 import { readRoom } from '../../rooms/room-tx';
 import { squadOf } from '../../modules/auctions/squad';
+import { shortlistView, teamView } from '../../modules/teams';
 import type { RuntimeDeps } from '../../runtime';
 
 const RoomParams = z.object({ id: z.uuid() });
@@ -157,6 +158,42 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       { isolation: 'repeatable read', readOnly: true },
     );
     return success(squad, request.id, new Date());
+  });
+
+  /** S17: the viewer's own team (members, capabilities, requests, code, handover). */
+  app.get('/rooms/:id/team', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const view = await withTransaction(
+      deps.pool,
+      async (tx) => {
+        const me = await requireMembership(tx, roomId, ctx.userId);
+        const room = await readRoom(tx, roomId);
+        if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+        return teamView(tx, deps.secrets, room, me, await dbNow(tx));
+      },
+      { isolation: 'repeatable read', readOnly: true },
+    );
+    return success(view, request.id, new Date());
+  });
+
+  /** S23: a team's private shortlist — its own members only; any other team reads as 404. */
+  app.get('/rooms/:id/franchises/:franchiseId/shortlist', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const teamId = Uuid.safeParse((request.params as { franchiseId?: string }).franchiseId);
+    if (!teamId.success) throw new AppError('NOT_FOUND', 'Team not found.');
+    const view = await withTransaction(
+      deps.pool,
+      async (tx) => {
+        const me = await requireMembership(tx, roomId, ctx.userId);
+        const room = await readRoom(tx, roomId);
+        if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+        return shortlistView(tx, room, me.id, teamId.data);
+      },
+      { isolation: 'repeatable read', readOnly: true },
+    );
+    return success(view, request.id, new Date());
   });
 
   app.post('/rooms/:id/ready', async (request) => {

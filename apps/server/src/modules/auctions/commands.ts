@@ -2,8 +2,6 @@ import { randomUUID } from 'node:crypto';
 import {
   ClaimFranchisePayload,
   CloseFranchiseSelectionPayload,
-  DecideJoinPayload,
-  RequestJoinPayload,
   RetentionLockPayload,
   RetentionProposePayload,
   type EventType,
@@ -23,14 +21,14 @@ import {
   listTeams,
   newTeamCode,
   requireSetup,
-  teamCodeHash,
   teamMembership,
   type Setup,
   type TeamMemberRow,
 } from './setup';
 
 /**
- * Auction setup commands (DB/realtime §8.2, ADR-024). Every write runs under
+ * Auction setup commands (DB/realtime §8.2, ADR-024). Join requests and team
+ * permissions live in the teams module (ADR-026). Every write runs under
  * the room lock with an idempotency receipt; the captain is always assigned by
  * the server, a member belongs to at most one team, and the host has no team
  * powers. Validation order: membership → setup phase → team rights → rules.
@@ -62,16 +60,7 @@ async function requireCaptain(tx: Tx, room: RoomRow, member: MemberRow): Promise
   return mine;
 }
 
-async function teamSize(tx: Tx, teamId: string): Promise<number> {
-  const res = await tx.query<{ n: number }>(
-    'SELECT count(*)::int AS n FROM app_private.franchise_members WHERE auction_franchise_id = $1',
-    [teamId],
-  );
-  return res.rows[0]?.n ?? 0;
-}
-
 const team = (franchiseId: string): EventDraft['audience'] => ({ kind: 'team', franchiseId });
-const memberAudience = (memberId: string): EventDraft['audience'] => ({ kind: 'member', memberId });
 
 function run<T>(
   deps: RoomDeps,
@@ -160,176 +149,6 @@ export function registerAuctionCommands(commands: CommandDispatcher, secrets: Se
         bumpState: true,
         touch: true,
         afterCommit: [() => deps.onStreamGranted?.(room.id, member.id, stream)],
-      };
-    });
-  });
-
-  commands.register('team.requestJoin', async (deps, actor, env) => {
-    const payload = RequestJoinPayload.parse(env.payload);
-    return run(deps, actor.userId, env, payload, async ({ tx, room }) => {
-      const member = await requireMembership(tx, room.id, actor.userId);
-      const setup = await requireSetup(tx, room);
-      requirePlayer(member);
-      if (await teamMembership(tx, room.id, member.id)) {
-        throw new AppError('STATE_CONFLICT', 'You are already in a team.', {
-          reason: 'ALREADY_ON_TEAM',
-        });
-      }
-      const invite = (
-        await tx.query<{ auction_franchise_id: string }>(
-          `SELECT auction_franchise_id FROM app_private.franchise_invites
-            WHERE room_id = $1 AND code_hash = $2 AND (expires_at IS NULL OR expires_at > now())`,
-          [room.id, teamCodeHash(secrets, payload.franchiseCode)],
-        )
-      ).rows[0];
-      // A code identifies a pending request, never membership (rules §9).
-      if (!invite) throw new AppError('NOT_FOUND', 'No team in this room uses that code.');
-      const teamId = invite.auction_franchise_id;
-      if ((await teamSize(tx, teamId)) >= setup.settings.collaboratorsPerFranchise) {
-        throw new AppError('TEAM_FULL', 'This team has no free places.', {
-          limit: setup.settings.collaboratorsPerFranchise,
-        });
-      }
-      const request = (
-        await tx.query<{ id: string }>(
-          `INSERT INTO app_private.franchise_join_requests (room_id, auction_franchise_id, member_id)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (auction_franchise_id, member_id) DO UPDATE
-             SET status = 'pending', created_at = now(), decided_at = NULL, decided_by = NULL
-           RETURNING id`,
-          [room.id, teamId, member.id],
-        )
-      ).rows[0];
-      if (!request) throw new AppError('INTERNAL', 'The request was not recorded.');
-      return {
-        reply: { requestId: request.id, pending: true },
-        events: [
-          event(team(teamId), 'team.joinRequested', {
-            requestId: request.id,
-            memberId: member.id,
-            displayName: member.display_name,
-          }),
-          event(memberAudience(member.id), 'team.membershipChanged', {
-            memberId: member.id,
-            role: null,
-            approved: false,
-            epoch: member.control_epoch,
-          }),
-        ],
-        bumpState: true,
-        touch: true,
-      };
-    });
-  });
-
-  commands.register('team.decideJoin', async (deps, actor, env) => {
-    const payload = DecideJoinPayload.parse(env.payload);
-    type Reply = { decision: 'approved' | 'rejected' };
-    return run<Reply>(deps, actor.userId, env, payload, async ({ tx, room }) => {
-      const member = await requireMembership(tx, room.id, actor.userId);
-      const setup = await requireSetup(tx, room);
-      const mine = await requireCaptain(tx, room, member);
-      const request = (
-        await tx.query<{ id: string; member_id: string; status: string }>(
-          `SELECT id, member_id, status FROM app_private.franchise_join_requests
-            WHERE id = $1 AND room_id = $2 AND auction_franchise_id = $3`,
-          [payload.requestId, room.id, mine.auction_franchise_id],
-        )
-      ).rows[0];
-      if (!request) throw new AppError('NOT_FOUND', 'Join request not found.');
-      if (request.status !== 'pending') {
-        throw new AppError('STATE_CONFLICT', 'This request has already been decided.', {
-          status: request.status,
-        });
-      }
-      const requester = await tx.query<{ control_epoch: string; left: boolean }>(
-        `SELECT control_epoch::text, left_at IS NOT NULL AS left FROM app_private.room_members WHERE id = $1`,
-        [request.member_id],
-      );
-      const epoch = requester.rows[0]?.control_epoch ?? '0';
-      const decide = (status: 'approved' | 'rejected') =>
-        tx.query(
-          `UPDATE app_private.franchise_join_requests
-              SET status = $2, decided_at = now(), decided_by = $3 WHERE id = $1`,
-          [request.id, status, member.id],
-        );
-      const rejected = async () => {
-        await decide('rejected');
-        return {
-          reply: { decision: 'rejected' } satisfies Reply,
-          events: [
-            event(memberAudience(request.member_id), 'team.membershipChanged', {
-              memberId: request.member_id,
-              role: null,
-              approved: false,
-              epoch,
-            }),
-          ],
-          bumpState: true,
-          touch: true,
-        };
-      };
-      if (!payload.approve) return rejected();
-      if (requester.rows[0]?.left) {
-        await decide('rejected');
-        throw new AppError('STATE_CONFLICT', 'That player has left the room.');
-      }
-      if (await teamMembership(tx, room.id, request.member_id)) {
-        await decide('rejected');
-        throw new AppError('STATE_CONFLICT', 'That player has already joined a team.', {
-          reason: 'ALREADY_ON_TEAM',
-        });
-      }
-      if (
-        (await teamSize(tx, mine.auction_franchise_id)) >= setup.settings.collaboratorsPerFranchise
-      ) {
-        throw new AppError('TEAM_FULL', 'This team has no free places.', {
-          limit: setup.settings.collaboratorsPerFranchise,
-        });
-      }
-      const c = payload.capabilities;
-      await tx.query(
-        `INSERT INTO app_private.franchise_members
-           (room_id, auction_franchise_id, member_id, role, can_bid, can_invite, can_strategy,
-            can_retain_propose, can_rtm, can_manage_limits)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          room.id,
-          mine.auction_franchise_id,
-          request.member_id,
-          payload.role,
-          c.bid,
-          c.invite,
-          c.strategy,
-          c.retainPropose,
-          c.rtm,
-          c.manageLimits,
-        ],
-      );
-      await decide('approved');
-      // One team per member: their other pending requests lapse.
-      await tx.query(
-        `UPDATE app_private.franchise_join_requests
-            SET status = 'rejected', decided_at = now(), decided_by = NULL
-          WHERE room_id = $1 AND member_id = $2 AND status = 'pending'`,
-        [room.id, request.member_id],
-      );
-      const stream = await streamFor(tx, room.id, team(mine.auction_franchise_id));
-      const changed = {
-        memberId: request.member_id,
-        role: payload.role,
-        approved: true,
-        epoch,
-      };
-      return {
-        reply: { decision: 'approved' } satisfies Reply,
-        events: [
-          event(team(mine.auction_franchise_id), 'team.membershipChanged', changed),
-          event(memberAudience(request.member_id), 'team.membershipChanged', changed),
-        ],
-        bumpState: true,
-        touch: true,
-        afterCommit: [() => deps.onStreamGranted?.(room.id, request.member_id, stream)],
       };
     });
   });

@@ -24,6 +24,7 @@ import { requireMembership, type MemberRow } from '../../rooms/projection';
 import { runRoomCommand, type RoomRow } from '../../rooms/room-tx';
 import type { EventDraft } from '../../rooms/streams';
 import type { CommandDispatcher } from '../commands/dispatcher';
+import { requireCurrentControl } from '../teams/shared';
 import type { RoomDeps } from '../rooms/service';
 import {
   JOBS,
@@ -154,7 +155,13 @@ async function purchaseCheck(tx: Tx, live: Live, lot: LotRow, teamId: string, am
 function run<T>(
   deps: RoomDeps,
   actorUserId: string,
-  env: { roomId: string; commandId: string; type: string; expectedVersion: string },
+  env: {
+    roomId: string;
+    commandId: string;
+    type: string;
+    expectedVersion: string;
+    controlEpoch: string;
+  },
   payload: unknown,
   handler: Parameters<typeof runRoomCommand<T>>[2],
 ) {
@@ -198,6 +205,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'bidding')
         throw new AppError('LATE_BID', 'Bidding on this lot has closed.');
@@ -283,6 +291,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     return run<Reply>(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_intent')
         throw new AppError('RTM_UNAVAILABLE', 'No right-to-match decision is open.');
@@ -323,6 +332,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_raise')
         throw new AppError('RTM_UNAVAILABLE', 'There is no final offer to make.');
@@ -390,6 +400,7 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
     return run<Reply>(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
       const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       const lot = await targetLot(tx, room, payload.nominationId);
       if (lot.stage !== 'rtm_match')
         throw new AppError('RTM_UNAVAILABLE', 'There is no offer to match.');
@@ -454,8 +465,9 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
   commands.register('auction.pause', async (deps, actor, env) => {
     const payload = PausePayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
-      await requireMembership(tx, room.id, actor.userId);
+      const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const live = await loadLive(tx, room);
       if (await openLot(tx, room.id)) {
@@ -502,8 +514,9 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
   commands.register('auction.resume', async (deps, actor, env) => {
     const payload = ResumePayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
-      await requireMembership(tx, room.id, actor.userId);
+      const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const live = await loadLive(tx, room);
       if (!live.game.paused_until)
@@ -527,8 +540,9 @@ export function registerLiveAuctionCommands(commands: CommandDispatcher) {
   commands.register('auction.skip', async (deps, actor, env) => {
     const payload = SkipPayload.parse(env.payload);
     return run(deps, actor.userId, env, payload, async ({ tx, room, now }) => {
-      await requireMembership(tx, room.id, actor.userId);
+      const member = await requireMembership(tx, room.id, actor.userId);
       requireRunning(room);
+      requireCurrentControl(member, env);
       requireHost(room, actor.userId);
       const lot = await targetLot(tx, room, payload.nominationId);
       // Never secretly skip an active high bid (rules §8.1).

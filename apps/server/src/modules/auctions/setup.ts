@@ -151,6 +151,8 @@ export interface TeamMemberRow {
   can_retain_propose: boolean;
   can_rtm: boolean;
   can_manage_limits: boolean;
+  eligible_at_start: boolean;
+  capability_version: string;
 }
 
 /** The viewer's team membership in this room, if any. */
@@ -161,7 +163,7 @@ export async function teamMembership(
 ): Promise<TeamMemberRow | null> {
   const res = await tx.query<TeamMemberRow>(
     `SELECT auction_franchise_id, member_id, role, can_bid, can_invite, can_strategy,
-            can_retain_propose, can_rtm, can_manage_limits
+            can_retain_propose, can_rtm, can_manage_limits, eligible_at_start, capability_version::text
        FROM app_private.franchise_members WHERE room_id = $1 AND member_id = $2`,
     [roomId, memberId],
   );

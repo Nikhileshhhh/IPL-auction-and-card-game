@@ -18,6 +18,7 @@ import {
 import { ruleSummary } from './projection';
 import { poolPlayers, teamMembership, type TeamMemberRow } from './setup';
 import { publicPurses } from './settlement';
+import { shortlistEntries } from '../teams/strategy';
 
 /**
  * Live auction projection (ADR-025). Everyone sees the lot, the public purses,
@@ -118,6 +119,8 @@ function allowedActions(
 ): string[] {
   if (room.lifecycle !== 'RUNNING') return [];
   const actions: string[] = [];
+  // A player without a team may still ask to join one (late joiner: advisor, no medal).
+  if (!mine && member.role === 'player') actions.push('team.requestJoin');
   const myTeamId = mine?.auction_franchise_id ?? null;
   const rtmRight = mine !== null && (mine.role === 'captain' || mine.can_rtm);
   const bidRight = mine !== null && (mine.role === 'captain' || mine.can_bid);
@@ -172,7 +175,21 @@ export async function liveSnapshot(
         rtmFinalBidRupees: lot.rtm_final_bid,
         publicFranchisePursesAndCounts: await publicPurses(tx, room.id),
         ...own,
+        myTarget: null,
       };
+      if (mine) {
+        const entry = (await shortlistEntries(tx, mine.auction_franchise_id)).find(
+          (e) => e.playerId === lot.player_id,
+        );
+        if (entry) {
+          nomination.myTarget = {
+            priority: entry.priority,
+            maxPriceRupees: entry.maxPriceRupees,
+            note: entry.note,
+            tally: entry.tally,
+          };
+        }
+      }
     }
   }
 

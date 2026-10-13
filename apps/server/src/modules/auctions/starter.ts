@@ -102,6 +102,15 @@ export function auctionStarter(secrets: Secrets): GameStarter {
           RNG_VERSION,
         ],
       );
+      // Freeze the medal roster (rules §11): approved and ready now. Anyone
+      // approved later is a late joiner — observer/advisor, no medal this game.
+      await tx.query(
+        `UPDATE app_private.franchise_members fm
+            SET eligible_at_start = (m.ready AND m.left_at IS NULL)
+           FROM app_private.room_members m
+          WHERE fm.room_id = $1 AND m.id = fm.member_id`,
+        [room.id],
+      );
       // The 8-hour ceiling ends the auction at a safe point whatever happens.
       await scheduleJob(
         tx,
