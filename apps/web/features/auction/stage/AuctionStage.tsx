@@ -8,6 +8,7 @@ import { useRoom } from '@/features/room/useRoom';
 import { SquadView } from '../setup/SquadView';
 import { BidControlPanel } from './BidControlPanel';
 import { HostControls } from './HostControls';
+import { LateJoinPanel } from './LateJoinPanel';
 import { LotClock } from './LotClock';
 import { LotHistory } from './LotHistory';
 import { LotSpotlight } from './LotSpotlight';
@@ -71,8 +72,24 @@ export function AuctionStage({ roomId }: { roomId: string }) {
             sold, {progress.unsold} unsold, {progress.remaining} to come
           </p>
         </div>
-        <HostControls live={live} connection={connection} disabled={disabled} />
+        <div className="flex flex-wrap items-center gap-4">
+          {live.myTeamId ? (
+            <nav aria-label="Team pages" className="flex gap-4 text-sm">
+              <Link href={`/rooms/${roomId}/team/requests`} className="underline">
+                Team
+              </Link>
+              <Link href={`/rooms/${roomId}/shortlist`} className="underline">
+                Shortlist
+              </Link>
+            </nav>
+          ) : null}
+          <HostControls live={live} connection={connection} disabled={disabled} />
+        </div>
       </header>
+
+      {live.myAllowedActions.includes('team.requestJoin') ? (
+        <LateJoinPanel connection={connection} disabled={disabled} />
+      ) : null}
 
       {offline ? (
         <StatusMessage tone="warning" title="Reconnecting">

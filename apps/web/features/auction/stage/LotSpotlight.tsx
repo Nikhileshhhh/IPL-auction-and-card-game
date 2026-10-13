@@ -65,6 +65,21 @@ export function LotSpotlight({
               {previous ? <span>· 2026: {previous.shortName}</span> : null}
             </div>
           </div>
+          {lot.myTarget ? (
+            <p className="rounded-lg border border-auction/50 bg-auction/10 px-3 py-2 text-sm">
+              <span className="font-semibold">On your shortlist</span> · priority{' '}
+              {lot.myTarget.priority}
+              {lot.myTarget.maxPriceRupees
+                ? ` · ceiling ${formatRupees(lot.myTarget.maxPriceRupees)}`
+                : ''}
+              {lot.myTarget.tally.up || lot.myTarget.tally.down
+                ? ` · ${lot.myTarget.tally.up} for, ${lot.myTarget.tally.down} against`
+                : ''}
+              {lot.myTarget.note ? (
+                <span className="mt-1 block text-ink-2">“{lot.myTarget.note}”</span>
+              ) : null}
+            </p>
+          ) : null}
           <dl className="grid grid-cols-2 gap-3">
             <div>
               <dt className="text-xs text-ink-3">Base price</dt>

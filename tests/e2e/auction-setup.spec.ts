@@ -104,8 +104,30 @@ test('two captains claim franchises, lock retentions and run the live auction', 
   await expect(host.getByText('Need 16 more players')).toBeVisible();
   await expectNoSeriousA11yViolations(host);
 
+  // S17: the captain's team page with explicit rights and the invitation code.
+  await host.goto(host.url().replace(/\/squad$/, '/team/requests'));
+  await expect(host.getByRole('heading', { name: 'Join requests' })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Team invitation code' })).toBeVisible();
+  await expect(host.getByText('Teammates (1 of')).toBeVisible();
+  await expectNoSeriousA11yViolations(host);
+  // S23: a private target from the pool, with portraits (guest at 360 px).
+  await guest.goto(host.url().replace(/\/team\/requests$/, '/shortlist'));
+  await guest.getByRole('tab', { name: 'Find players' }).click();
+  await guest
+    .getByRole('button', { name: /^Add .* to the shortlist$/ })
+    .first()
+    .click();
+  await expect(guest.getByText('On the list').first()).toBeVisible();
+  await guest.getByRole('tab', { name: /^Targets/ }).click();
+  await expect(
+    guest.getByRole('list', { name: 'Targets in priority order' }).locator('img').first(),
+  ).toBeVisible();
+  await expectNoSeriousA11yViolations(guest);
+  await expectNoHorizontalScroll(guest);
+
   // S20: both mark themselves ready, the host starts, and both land on the live stage.
-  await host.goto(host.url().replace(/\/squad$/, '/auction-lobby'));
+  await host.goto(host.url().replace(/\/team\/requests$/, '/auction-lobby'));
+  await guest.goto(host.url());
   for (const page of [guest, host]) {
     await page.getByRole('button', { name: "I'm ready" }).click();
   }

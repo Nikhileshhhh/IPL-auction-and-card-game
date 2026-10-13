@@ -1,14 +1,12 @@
-import { PlaceholderPanel } from '@/components/shell/PlaceholderPanel';
+import { notFound } from 'next/navigation';
+import { TeamApproval } from '@/features/team/TeamApproval';
+import { isUuid } from '@/features/room/ids';
 
-export const metadata = { title: 'Team requests' };
+export const metadata = { title: 'Your team' };
 
-/** S17 shell — collaboration approval ships with team capabilities. */
-export default function TeamRequestsPage() {
-  return (
-    <PlaceholderPanel title="Team requests" feature="teams">
-      <p className="mt-4 text-ink-2">
-        Captains will approve teammates and choose their permissions here.
-      </p>
-    </PlaceholderPanel>
-  );
+/** S17 — team requests, rights and captaincy. Only the team's own members can open it. */
+export default async function TeamRequestsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!isUuid(id)) notFound();
+  return <TeamApproval roomId={id} />;
 }

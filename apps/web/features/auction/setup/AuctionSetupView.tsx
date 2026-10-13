@@ -66,9 +66,21 @@ export function AuctionSetupView({
             {s.label}
           </span>
         ))}
-        <Link href={`/rooms/${roomId}/squad`} className="ml-auto underline">
-          Squads
-        </Link>
+        <span className="ml-auto flex gap-4">
+          {setup.myTeam ? (
+            <Link href={`/rooms/${roomId}/team/requests`} className="underline">
+              Team
+            </Link>
+          ) : null}
+          {setup.myTeam && setup.phase !== 'FRANCHISE_SELECTION' ? (
+            <Link href={`/rooms/${roomId}/shortlist`} className="underline">
+              Shortlist
+            </Link>
+          ) : null}
+          <Link href={`/rooms/${roomId}/squad`} className="underline">
+            Squads
+          </Link>
+        </span>
       </nav>
       <p className="text-sm text-ink-2">
         {setup.rules.label}

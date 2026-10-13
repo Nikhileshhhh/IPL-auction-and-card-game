@@ -75,8 +75,24 @@ export function auctionHelpers(apiOf: () => TestApi) {
     await duePass();
   }
 
-  /** Two teams (host and guest captains) in a started auction. */
-  async function startedAuction(tag: string, format: 'retention' | 'fresh' = 'fresh') {
+  /**
+   * Two teams (host and guest captains) in a started auction. `mates` extra
+   * players join the room (not a team); `beforeStart` runs in the auction
+   * lobby, before everyone marks themself ready.
+   */
+  async function startedAuction(
+    tag: string,
+    format: 'retention' | 'fresh' = 'fresh',
+    opts: {
+      mates?: number;
+      beforeStart?: (ctx: {
+        roomId: string;
+        host: BffClient;
+        guest: BffClient;
+        mates: BffClient[];
+      }) => Promise<void>;
+    } = {},
+  ) {
     const host = await onboardMember(apiOf(), `${tag}_h`);
     const guest = await onboardMember(apiOf(), `${tag}_g`);
     const created = await host.client.mutate<{ lobby: RoomLobbyDTO; roomCode: string }>(
@@ -85,13 +101,19 @@ export function auctionHelpers(apiOf: () => TestApi) {
       {
         gameType: 'auction',
         name: 'Auction night',
-        settings: { franchiseCount: 2, collaboratorsPerFranchise: 2, format },
+        settings: { franchiseCount: 2, collaboratorsPerFranchise: 3, format },
       },
     );
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const { lobby, roomCode } = created.body.data!;
     const roomId = lobby.roomId;
     await guest.client.mutate('POST', '/v1/rooms/join', { code: roomCode, gameType: 'auction' });
+    const mates: BffClient[] = [];
+    for (let i = 0; i < (opts.mates ?? 0); i += 1) {
+      const m = await onboardMember(apiOf(), `${tag}_m${i}`);
+      await m.client.mutate('POST', '/v1/rooms/join', { code: roomCode, gameType: 'auction' });
+      mates.push(m.client);
+    }
     const teams = [...(await setup(host.client, roomId)).teams].sort(
       (a, b) => b.previousSquadCount - a.previousSquadCount,
     );
@@ -115,8 +137,9 @@ export function auctionHelpers(apiOf: () => TestApi) {
         expect(locked.status, JSON.stringify(locked.body)).toBe(200);
       }
     }
+    await opts.beforeStart?.({ roomId, host: host.client, guest: guest.client, mates });
     const configVersion = (await snapshot(host.client, roomId)).room.configVersion;
-    for (const c of [host.client, guest.client]) {
+    for (const c of [host.client, guest.client, ...mates]) {
       await c.mutate('POST', `/v1/rooms/${roomId}/ready`, { ready: true, configVersion });
     }
     const start = await host.client.mutate('POST', `/v1/rooms/${roomId}/start`, { configVersion });
@@ -129,6 +152,7 @@ export function auctionHelpers(apiOf: () => TestApi) {
       guest: guest.client,
       hostTeam: await teamOf(host.client),
       guestTeam: await teamOf(guest.client),
+      mates,
       view,
     };
   }

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import type { AuctionSetupSnapshot } from '@stumps/contracts';
 import { Badge, Button, Surface } from '@stumps/ui';
@@ -9,9 +10,9 @@ import { formatRupees, fullRupees } from './money';
 import { ROLE_LABELS, type useSetupActions } from './useSetup';
 
 /**
- * S17 (basic, phase 09): the viewer's team with its join code, teammates and
- * pending join requests. Approved collaborators join as advisors; editing
- * capabilities and captain handover arrive in phase 11.
+ * The viewer's team in the lobby: join code, teammates and quick approval of
+ * join requests (as advisors). Rights, captaincy and the auto-join list live
+ * on the full team page (S17).
  */
 export function TeamPanel({
   ctx,
@@ -85,6 +86,13 @@ export function TeamPanel({
       <h3 className="mt-5 text-sm font-semibold text-ink">
         Teammates ({mine.members.length} of {setup.collaboratorLimit})
       </h3>
+      <p className="mt-1 text-sm">
+        <Link href={`/rooms/${ctx.room.snapshot.room.roomId}/team/requests`} className="underline">
+          {mine.role === 'captain'
+            ? 'Choose rights, offer the captaincy and manage the code'
+            : 'See who can do what in your team'}
+        </Link>
+      </p>
       <ul className="mt-2 flex flex-col gap-2">
         {mine.members.map((m) => (
           <li key={m.memberId} className="flex items-center justify-between gap-3 text-sm">
