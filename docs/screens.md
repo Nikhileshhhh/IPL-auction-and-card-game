@@ -47,7 +47,7 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S23 | Player shortlist | `/rooms/:id/shortlist` | (room) | `TeamShortlist > PlayerSearch/TargetList(TargetRow: votes, ↑↓, note, ceiling)` (built, phase 11); S20 spotlight shows the own-team target | ShortlistViewDTO (own team) | page | 11 |
 | S24 | Public auction chat | `/rooms/:id/chat/public` | (room) | `PublicChat > AudienceLabel/MessageList/Composer/ModerationMenu` | chat channel | drawer | 13 |
 | S25 | Private franchise chat | `/rooms/:id/chat/team` | (room) | `TeamChat > PrivateAudienceBanner/ApprovedMemberList/MessageList/Composer` | team channel | drawer | 13 |
-| S26 | Auto mode status | `/rooms/:id/auto` | (room) | `AutoModePanel > ControlStatus/SpendLimits/MissedPurchases/TakeoverAction` | StrategyDTO, control epoch | panel | 12 |
+| S26 | Auto mode status | `/rooms/:id/auto` | (room) | `AutoModePanel > Control/Limits(editor)/BoughtAutomatically/Decisions` (built, phase 12); stage `ControlBanner` + teams-rail control labels | AutoViewDTO (StrategyDTO, control epoch) | page | 12 |
 | S27 | Auction results and analysis | `/rooms/:id/results` | (room) | `AuctionResults > VictoryPodium/FranchiseLeaderboard/ScoreBreakdown/RecommendedXI/MemberCredits` | ResultDTO | → /play | 14 |
 | S28 | End-game voting | `modal over current room` | (room) | `VoteCountdownModal > ElectorateSummary/Countdown/EndButton/ContinueButton/RecordedChoice` | VoteDTO | modal | 14 |
 | S29 | User profile | `/players/:username` | (member) | `ProfileOverview > Identity/MedalStats/AchievementGallery/FriendActions` | ProfileDTO | — | 13 |
@@ -56,7 +56,7 @@ Room drawers: /squad, /shortlist, /team/requests, /chat/public, /chat/team, /aut
 | S32 | Administrator login | `/admin/login` | (admin) | `AdminLogin > Credentials/MFAChallenge/SessionNotice` | admin challenge | → /admin | 3 |
 | S33 | Administrator dashboard | `/admin` | (admin) | `AdminShell > HealthOverview/ActiveRoomTable/CleanupQueue/AuditPreview` | admin overview | → /admin/* | 16 |
 | S34 | Game/data configuration management | `/admin/catalog` | (admin) | `CatalogAdmin > VersionList/SchemaForm/SourceEditor/RightsPanel/ValidationDiff/PublishAction` | drafts, sources, media | — | 6 |
-| S35 | Error, maintenance and disconnection | `global overlays and /status` | (public) | `ConnectionBoundary > StatusBanner/RetryPanel/LastConfirmedState/RecoveryCountdown` | connection FSM | — | 4 |
+| S35 | Error, maintenance and disconnection | `global overlays and /status` | (public) | `ConnectionBoundary > StatusBanner/RetryPanel/LastConfirmedState/RecoveryCountdown`; `RecoveryBanner` (outage countdown) and `MissedRecap` (phase 12) | connection FSM, `recoveryUntil` | — | 4 / 12 |
 
 ## Portrait requirement (ADR-017)
 

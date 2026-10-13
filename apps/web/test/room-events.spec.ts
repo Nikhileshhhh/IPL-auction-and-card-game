@@ -45,6 +45,7 @@ function snapshot(): PermittedSnapshotDTO {
       { streamId: PUBLIC, seq: '3' },
       { streamId: PRIVATE, seq: '0' },
     ],
+    recoveryUntil: null,
     serverNow: '2026-10-10T10:00:00.000Z',
   };
 }

@@ -26,7 +26,7 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-18 | Bidding: exact next step on the increment grid, reserve, overseas, squad caps, XI feasibility, late-bid extension (8 s), exact deadline is late, serial accepted bids | 10 | game-engines/auction/{bids,xi}; server/modules/auctions/{command,settlement,deadlines}; migration 070 (ADR-025) | `packages/game-engines/test/auction-bidding.spec.ts; tests/integration/auction-live.spec.ts; tests/concurrency/auction.spec.ts` | Done (phase 10) |
 | RQ-19 | RTM intent / final raise / match (2025 flow), card accounting, one sale and one purse deduction, unsold second pass, host pause/resume/skip, end to FINALIZING | 10 | game-engines/auction/{rtm,nomination}; server/modules/auctions/{settlement,live}; web S20 (ADR-025) | `tests/integration/auction-live.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 10) |
 | RQ-20 | Multi-user franchises: explicit capabilities (captain only, one co-captain, no second captain), captain handover by consent (60 s), codes never bypass approval, code rotation revokes requests, friend-only auto-join, private shortlist and advisory votes, late joiners advisor-only without medal, control epoch re-checked under the room lock | 11 | server/modules/teams/{permissions,invitations,handover,strategy,view}; migration 080; web features/team (ADR-026) | `tests/integration/teams.spec.ts; tests/security/teams.spec.ts; tests/concurrency/teams.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 11) |
-| RQ-21 | Reconnect/replay, recovery pause after outage, controller takeover, deterministic opt-in auto-bid | 12 | presence/recovery; auctions/auto-bid | `tests/integration/recovery.spec.ts` | Planned |
+| RQ-21 | Reconnect/replay (fresh ticket per connection, cursor replay, snapshot on gap), outage recovery pause with a 10 s countdown, failover (co-captain) after a 30 s grace, controller takeover fenced by the franchise epoch, deterministic opt-in auto-bid within private caps and reserve, participation intervals | 12 | presence/recovery; jobs/recovery; auctions/{auto-bid,auto-control,bidding}; game-engines/auction/auto; migration 090 (ADR-027) | `packages/game-engines/test/auction-auto.spec.ts; tests/integration/auto.spec.ts; apps/web/test/room-events.spec.ts` | Done (phase 12) |
 | RQ-22 | Profiles, friends, blocks, notifications, public + private team chat (plain text, ACL on read/replay) | 13 | server/modules/profiles, friends, chat | `tests/security/chat-acl.spec.ts` | Planned |
 | RQ-23 | 15-second end vote: frozen electorate, one ballot per franchise, strict majority, timer restore | 14 | game-engines/voting; server/modules/voting | `packages/game-engines/test/voting.spec.ts; tests/integration/voting.spec.ts` | Planned |
 | RQ-24 | Exact XI squad evaluator, legality gate, ranking tiebreaks | 14 | game-engines/evaluation; jobs/evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
@@ -56,7 +56,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E11 | 8 | cards | `packages/game-engines/test/card-ties.spec.ts` | Planned |
 | E12 | 7 | cards | `packages/game-engines/test/card-reduce.spec.ts` | Planned |
 | E13 | 5 | rooms | `tests/concurrency/rooms.spec.ts` | Done (phase 05) |
-| E14 | 12 | teams/presence | `tests/integration/recovery.spec.ts` | Planned |
+| E14 | 12 | teams/presence | `tests/integration/auto.spec.ts` (bidder stays connected; co-captain failover; observe) | Done (phase 12) |
 | E15 | 11 | teams/auctions | `tests/integration/teams.spec.ts` (captain + collaborator same bid) | Done (phase 11) |
 | E16 | 10 | auctions | `tests/concurrency/bids.spec.ts` | Planned |
 | E17 | 10 | auctions | `tests/integration/bid-deadline.spec.ts` | Planned |
@@ -65,9 +65,9 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E20 | 10 | auctions | `tests/concurrency/bids.spec.ts` | Planned |
 | E21 | 10 | auctions | `packages/game-engines/test/auction-bids.spec.ts` | Planned |
 | E22 | 9 | auctions | `packages/game-engines/test/auction-retention.spec.ts` | Planned |
-| E23 | 12 | presence | `tests/integration/recovery.spec.ts` | Planned |
-| E24 | 12 | auctions/auto-bid | `tests/integration/auto-bid.spec.ts` | Planned |
-| E25 | 12 | presence | `tests/integration/control-lease.spec.ts` | Planned |
+| E23 | 12 | presence/web | `apps/web/features/reconnect/MissedRecap.tsx`; snapshot on reconnect (phase 05) | Done (phase 12) |
+| E24 | 12 | auctions/auto-bid | `packages/game-engines/test/auction-auto.spec.ts`; `tests/integration/auto.spec.ts` | Done (phase 12) |
+| E25 | 12 | presence | `tests/integration/teams.spec.ts` (tab fencing under the room lock) | Done (phases 05/11) |
 | E26 | 10 | auctions | `tests/integration/bid-fault.spec.ts` | Planned |
 | E27 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
 | E28 | 14 | voting/cards | `tests/integration/voting.spec.ts` | Planned |
@@ -90,9 +90,9 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E45 | 5 | realtime | `apps/web/test/room-events.spec.ts` | Done (phase 05) |
 | E46 | 5 | realtime | `tests/concurrency/rooms.spec.ts; tests/integration/rooms.spec.ts` | Done (phase 05) |
 | E47 | 5 | transaction | `tests/integration/transaction.spec.ts` | Done (phase 05) |
-| E48 | 12 | realtime/web | `tests/e2e/reconnect.spec.ts` | Planned |
+| E48 | 12 | realtime/web | fail-closed connection banner (phase 05); recovery pause `tests/integration/auto.spec.ts` | Done (phase 12) |
 | E49 | 17 | realtime | `tests/load/reconnect-storm.ts` | Planned |
-| E50 | 12 | presence | `tests/integration/recovery.spec.ts` | Planned |
+| E50 | 12 | presence | `tests/integration/auto.spec.ts` (stale tab swept, one grace credited, failover armed) | Done (phase 12) |
 | E51 | 10 | auctions | `tests/integration/bid-deadline.spec.ts` | Planned |
 | E52 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
 | E53 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
@@ -101,8 +101,8 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E56 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
 | E57 | 10 | auctions | `packages/game-engines/test/auction-rtm.spec.ts` | Planned |
 | E58 | 10 | auctions | `packages/game-engines/test/auction-rtm.spec.ts` | Planned |
-| E59 | 12 | auto-bid | `packages/game-engines/test/auto-bid.spec.ts` | Planned |
-| E60 | 12 | auto-bid | `tests/concurrency/takeover.spec.ts` | Planned |
+| E59 | 12 | auto-bid | `packages/game-engines/test/auction-auto.spec.ts`; `tests/integration/auto.spec.ts` (observe, no bids) | Done (phase 12) |
+| E60 | 12 | auto-bid | `tests/integration/auto.spec.ts` (resume racing a due bot attempt) | Done (phase 12) |
 | E61 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
 | E62 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
 | E63 | 14 | evaluation | `tests/integration/evaluation-resume.spec.ts` | Planned |

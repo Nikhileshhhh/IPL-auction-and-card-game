@@ -20,7 +20,8 @@ export interface RoomStoreState {
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
-const PING_MS = 10_000;
+/** Heartbeat every 5 s; a tab is stale after 15 s (rules §1). */
+const PING_MS = 5_000;
 
 /**
  * One room's live link: Socket.IO for pushes and presence, HTTP for snapshot,
@@ -69,6 +70,8 @@ export class RoomConnection {
       if (this.isActive()) this.patch({ status: 'reconnecting' });
     });
     socket.on('room.event', (event: RoomEvent) => this.onEvent(event));
+    // The server restarted after a gap and paused the clocks: take the confirmed state again.
+    socket.on('server.recovering', () => this.refresh());
     socket.on('room.removed', () => this.end('removed'));
     socket.on('room.closed', () => this.end('closed'));
     socket.on('auth.revoked', (p: { reverifyUrl?: string }) => {

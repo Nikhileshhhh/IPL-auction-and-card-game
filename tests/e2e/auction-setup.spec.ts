@@ -125,6 +125,17 @@ test('two captains claim franchises, lock retentions and run the live auction', 
   await expectNoSeriousA11yViolations(guest);
   await expectNoHorizontalScroll(guest);
 
+  // S26: the captain saves automated limits (private; used only if everyone is away).
+  await host.goto(host.url().replace(/\/team\/requests$/, '/auto'));
+  await expect(host.getByRole('heading', { name: 'Control' })).toBeVisible();
+  await expect(host.getByText('People are bidding for your team.')).toBeVisible();
+  await host.getByLabel('Bid automatically while everyone is away').check();
+  await host.getByLabel('Bowler').fill('2');
+  await host.getByRole('button', { name: 'Save limits' }).click();
+  await expect(host.getByText('Spent automatically')).toBeVisible();
+  await expectNoSeriousA11yViolations(host);
+  await host.goto(host.url().replace(/\/auto$/, '/team/requests'));
+
   // S20: both mark themselves ready, the host starts, and both land on the live stage.
   await host.goto(host.url().replace(/\/team\/requests$/, '/auction-lobby'));
   await guest.goto(host.url());

@@ -73,9 +73,14 @@ export function AuctionSetupView({
             </Link>
           ) : null}
           {setup.myTeam && setup.phase !== 'FRANCHISE_SELECTION' ? (
-            <Link href={`/rooms/${roomId}/shortlist`} className="underline">
-              Shortlist
-            </Link>
+            <>
+              <Link href={`/rooms/${roomId}/shortlist`} className="underline">
+                Shortlist
+              </Link>
+              <Link href={`/rooms/${roomId}/auto`} className="underline">
+                Auto bidding
+              </Link>
+            </>
           ) : null}
           <Link href={`/rooms/${roomId}/squad`} className="underline">
             Squads

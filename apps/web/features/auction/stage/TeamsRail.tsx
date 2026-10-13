@@ -1,5 +1,6 @@
 import type { AuctionLiveSnapshot } from '@stumps/contracts';
-import { Surface, cx } from '@stumps/ui';
+import { Badge, Surface, cx } from '@stumps/ui';
+import { MODE_LABELS } from '@/features/team/auto/reasons';
 import { Crest } from '../setup/Crest';
 import { formatRupees, fullRupees } from '../setup/money';
 
@@ -45,6 +46,9 @@ export function TeamsRail({
                 <p className="text-xs text-ink-3">
                   {t.teamId === leader ? 'Highest bid · ' : ''}Captain {t.captainName}
                 </p>
+                {t.control !== 'MANUAL' ? (
+                  <Badge tone="warning">{MODE_LABELS[t.control]}</Badge>
+                ) : null}
               </div>
               <p className="font-semibold tabular-nums" title={fullRupees(t.remainingPurseRupees)}>
                 {formatRupees(t.remainingPurseRupees)}

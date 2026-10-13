@@ -27,6 +27,7 @@ export const BLOCK_REASONS = {
   BUDGET_RESERVE: 'That would leave too little purse to fill your minimum squad.',
   XI_INFEASIBLE: 'Buying this player would leave no legal XI within your squad places.',
   NOT_BIDDING: 'Bidding on this player has closed.',
+  TEAM_NOT_MANUAL: 'Your team is on automatic control. Resume manual control to bid.',
 } as const;
 
 export const END_REASONS = {

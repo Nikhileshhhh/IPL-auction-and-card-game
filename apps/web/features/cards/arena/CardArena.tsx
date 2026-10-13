@@ -14,6 +14,7 @@ import { DeckQueue } from './DeckQueue';
 import { MatchResult } from './MatchResult';
 import { arenaView, seatName, type CardGame } from './model';
 import { RoundWinnerReveal } from './RoundWinnerReveal';
+import { RecoveryBanner } from '@/features/reconnect/RecoveryBanner';
 import { FinishPendingNotice } from '../tie-arena/FinishPendingNotice';
 import { PotHistory } from '../tie-arena/PotHistory';
 import { TieBanner } from '../tie-arena/TieBanner';
@@ -136,6 +137,7 @@ export function CardArena({ roomId }: { roomId: string }) {
       </header>
 
       <FinishPendingNotice game={game} />
+      <RecoveryBanner recoveryUntil={snap.recoveryUntil} serverNow={snap.serverNow} />
 
       {offline ? (
         <StatusMessage tone="warning" title="Reconnecting">

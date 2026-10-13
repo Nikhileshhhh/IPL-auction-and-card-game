@@ -7,6 +7,9 @@ import { Button, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
 import { SquadView } from '../setup/SquadView';
 import { BidControlPanel } from './BidControlPanel';
+import { MissedRecap } from '@/features/reconnect/MissedRecap';
+import { RecoveryBanner } from '@/features/reconnect/RecoveryBanner';
+import { ControlBanner } from './ControlBanner';
 import { HostControls } from './HostControls';
 import { LateJoinPanel } from './LateJoinPanel';
 import { LotClock } from './LotClock';
@@ -81,11 +84,18 @@ export function AuctionStage({ roomId }: { roomId: string }) {
               <Link href={`/rooms/${roomId}/shortlist`} className="underline">
                 Shortlist
               </Link>
+              <Link href={`/rooms/${roomId}/auto`} className="underline">
+                Auto bidding
+              </Link>
             </nav>
           ) : null}
           <HostControls live={live} connection={connection} disabled={disabled} />
         </div>
       </header>
+
+      <RecoveryBanner recoveryUntil={snap.recoveryUntil} serverNow={snap.serverNow} />
+      <ControlBanner live={live} roomId={roomId} connection={connection} disabled={disabled} />
+      <MissedRecap live={live} status={status} />
 
       {live.myAllowedActions.includes('team.requestJoin') ? (
         <LateJoinPanel connection={connection} disabled={disabled} />
