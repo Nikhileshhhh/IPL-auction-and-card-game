@@ -47,13 +47,13 @@ Every rule is enforced by the server. Team chat travels on the team's existing r
 | `pnpm lint` | ✅ |
 | `pnpm typecheck` | ✅ |
 | `pnpm contracts:check` | ✅ 32 commands, 54 events, 67 error codes, 88 HTTP operations |
-| `pnpm test:unit` | ✅ 216 (before the two new chat unit cases; with them the edited files pass 18/18) |
+| `pnpm test:unit` | ✅ 219 |
 | `STUMPS_DB_NAME=stumps_check pnpm db:reset` / `db:lint` | ✅ 17 migrations / 69 tables |
 | `pnpm test:integration` | ✅ 129 |
-| `pnpm test:security` | running |
-| `pnpm test:concurrency` | running |
-| `pnpm build` | running |
-| `pnpm test:e2e` | running (the new `social.spec.ts` passes on its own: 2/2 on desktop) |
+| `pnpm test:security` | ✅ 46 |
+| `pnpm test:concurrency` | ✅ 12 |
+| `pnpm build` | ✅ |
+| `pnpm test:e2e` | ✅ 40 passed, 8 skipped (two-context flows run once, on desktop) |
 
 ## Verified behaviour
 - **Team chat privacy:**
