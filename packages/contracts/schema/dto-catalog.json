@@ -115,6 +115,8 @@
     ],
     "NominationDTO": [
       "id",
+      "lotNumber",
+      "pass",
       "player",
       "stage",
       "status",
@@ -124,6 +126,7 @@
       "bidVersion",
       "deadline?",
       "rtmFranchiseId?",
+      "rtmFinalBidRupees?",
       "publicFranchisePursesAndCounts",
       "ownLegalNextBidRupees?",
       "ownRejectionReason?"
@@ -309,6 +312,26 @@
       "setLabel",
       "portraitUrl",
       "portraitAlt"
+    ],
+    "AuctionLiveSnapshot": [
+      "kind",
+      "status",
+      "finishedReason?",
+      "rules",
+      "pass",
+      "poolProgress",
+      "lot?",
+      "nextLotAt?",
+      "pausedUntil?",
+      "pausesLeft",
+      "teams",
+      "myTeamId?",
+      "myCapabilities",
+      "history",
+      "lotBids",
+      "myAllowedActions",
+      "seedCommitment",
+      "auditSeed?"
     ]
   },
   "changesFromSpec": [

@@ -170,10 +170,11 @@ export const PlayerEliminatedPayload = z
 /** `game.finalizing`: phase 08 uses stage `finish_pending` (an end waits for the chain). */
 export const FinalizingPayload = z
   .object({
-    stage: z.enum(['finish_pending']),
+    /** finish_pending: a card end waits for the chain; evaluation_pending: an auction ended (phase 14 scores it). */
+    stage: z.enum(['finish_pending', 'evaluation_pending']),
     progressPercent: z.number().int().min(0).max(100),
-    reason: z.enum(PENDING_FINISH),
-    deadline: IsoTimestamp,
+    reason: z.enum([...PENDING_FINISH, 'pool_complete', 'no_buyers']),
+    deadline: IsoTimestamp.nullable(),
   })
   .strict();
 

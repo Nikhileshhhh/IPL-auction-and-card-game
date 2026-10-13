@@ -11,3 +11,4 @@ export * from './rooms';
 export * from './catalog';
 export * from './cards';
 export * from './auction';
+export * from './auction-live';

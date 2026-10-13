@@ -11,7 +11,9 @@ import { CRORE, LAKH, type AuctionRules, type IncrementStep, type Provenance } f
  *   deductions ₹18/14/11/18/14 cr for capped players and ₹4 cr per uncapped.
  * - Squad size 18–25 with at most 8 overseas, and the base-price bands, are the
  *   standing IPL auction rules as reported for the 2025 and 2026 auctions.
- * - The bid increment schedule is a simulator choice (rules §8.2).
+ * - Bid increments are as reported for the 2025 auction (₹5 lakh to ₹1 cr,
+ *   ₹10 lakh to ₹2 cr, then ₹20 lakh; reports differ above ₹3–5 cr, where the
+ *   auctioneer may use larger steps, so ₹20 lakh stays the floor).
  */
 export const IPL_MEGA_RULES_2025_27: AuctionRules = {
   name: 'IPL_MEGA_RULES_2025_27',
@@ -46,7 +48,7 @@ export const IPL_MEGA_RULES_2025_27: AuctionRules = {
     squadSize: 'reported',
     overseas: 'reported',
     basePriceBands: 'reported',
-    increments: 'simulator',
+    increments: 'reported',
   } satisfies Record<string, Provenance>,
   sources: [
     {
@@ -59,6 +61,11 @@ export const IPL_MEGA_RULES_2025_27: AuctionRules = {
         'IPL 2025 Auction FAQs: Retentions, RTMs, purse, uncapped rules explained (Mumbai Indians)',
       url: 'https://www.mumbaiindians.com/news/ipl-2025-auction-faqs-retentions-rtms-purse-uncapped-rules-explained',
       published: '2024-09-29',
+    },
+    {
+      title: 'IPL 2025 Mega Auction: everything you need to know (Business Today; bid increments)',
+      url: 'https://www.businesstoday.in/sports/ipl/story/ipl-2025-mega-auction-dates-players-and-team-purses-everything-you-need-to-know-454814-2024-11-23',
+      published: '2024-11-23',
     },
   ],
 };

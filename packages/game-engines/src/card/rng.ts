@@ -12,7 +12,7 @@ import { concat, hmacSha256, sha256, toHex, utf8 } from './sha256';
  *   (no modulo bias); shuffles are Fisher–Yates from the top index down.
  */
 export const RNG_VERSION = 'hmac-sha256-ctr-v1';
-export const STREAM_LABELS = ['deal', 'seats', 'fallback'] as const;
+export const STREAM_LABELS = ['deal', 'seats', 'fallback', 'lots'] as const;
 export type StreamLabel = (typeof STREAM_LABELS)[number];
 
 const TWO_32 = 0x1_0000_0000;
@@ -80,6 +80,7 @@ export function streams(seed: Uint8Array): Record<StreamLabel, RandomStream> {
     deal: new RandomStream(seed, 'deal'),
     seats: new RandomStream(seed, 'seats'),
     fallback: new RandomStream(seed, 'fallback'),
+    lots: new RandomStream(seed, 'lots'),
   };
 }
 

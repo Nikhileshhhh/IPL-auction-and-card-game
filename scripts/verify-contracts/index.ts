@@ -8,6 +8,23 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   AUCTION_EVENT_PAYLOADS,
+  AUCTION_LIVE_EVENT_PAYLOADS,
+  AuctionLiveSnapshotSchema,
+  BidAck,
+  BidPayload,
+  NominationSchema,
+  PauseAck,
+  PausePayload,
+  ResumeAck,
+  ResumePayload,
+  RtmFinalOfferAck,
+  RtmFinalOfferPayload,
+  RtmIntentAck,
+  RtmIntentPayload,
+  RtmMatchAck,
+  RtmMatchPayload,
+  SkipAck,
+  SkipPayload,
   AuctionPlayerSchema,
   AuctionSetupSnapshotSchema,
   CARD_EVENT_PAYLOADS,
@@ -90,6 +107,7 @@ const shapeOf = (schema: { shape: Record<string, unknown> }) => Object.keys(sche
 for (const [type, schema] of Object.entries({
   ...CARD_EVENT_PAYLOADS,
   ...AUCTION_EVENT_PAYLOADS,
+  ...AUCTION_LIVE_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -102,6 +120,13 @@ const implementedCommands = {
   'auction.retention.propose': [RetentionProposePayload, RetentionProposeAck],
   'auction.retention.lock': [RetentionLockPayload, RetentionLockAck],
   'auction.franchiseSelection.close': [CloseFranchiseSelectionPayload, CloseFranchiseSelectionAck],
+  'auction.bid': [BidPayload, BidAck],
+  'auction.rtm.intent': [RtmIntentPayload, RtmIntentAck],
+  'auction.rtm.finalOffer': [RtmFinalOfferPayload, RtmFinalOfferAck],
+  'auction.rtm.match': [RtmMatchPayload, RtmMatchAck],
+  'auction.pause': [PausePayload, PauseAck],
+  'auction.resume': [ResumePayload, ResumeAck],
+  'auction.skip': [SkipPayload, SkipAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -119,6 +144,8 @@ for (const [name, schema] of [
   ['PublicTeamDTO', PublicTeamSchema],
   ['AuctionPlayerDTO', AuctionPlayerSchema],
   ['SquadDTO', SquadDTOSchema],
+  ['NominationDTO', NominationSchema],
+  ['AuctionLiveSnapshot', AuctionLiveSnapshotSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }

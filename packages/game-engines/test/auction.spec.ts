@@ -53,7 +53,7 @@ describe('IPL mega-auction rules (2025–27)', () => {
     expect(RULES.retention.cappedSlabs).toEqual([cr(18), cr(14), cr(11), cr(18), cr(14)]);
     expect(RULES.retention.uncappedFloor).toBe(4n * CRORE);
     expect(RULES.provenance.purse).toBe('official');
-    expect(RULES.provenance.increments).toBe('simulator');
+    expect(RULES.provenance.increments).toBe('reported');
   });
 
   it('round-trip through stored JSON with a stable hash', () => {
