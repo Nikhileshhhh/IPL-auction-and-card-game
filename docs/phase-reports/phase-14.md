@@ -58,10 +58,10 @@ Decisions are recorded in ADR-029.
 | `pnpm test:unit` | ✅ 234 |
 | `STUMPS_DB_NAME=stumps_check pnpm db:reset` / `db:lint` | ✅ 18 migrations / 72 tables |
 | `pnpm test:integration` | ✅ 137 |
-| `pnpm test:security` | running |
-| `pnpm test:concurrency` | running |
-| `pnpm build` | running |
-| `pnpm test:e2e` | running (the new `voting.spec.ts` passed on its own on desktop) |
+| `pnpm test:security` | ✅ 46 |
+| `pnpm test:concurrency` | ✅ 15 |
+| `pnpm build` | ✅ |
+| `pnpm test:e2e` | ✅ 41 passed, 9 skipped (two-context flows run once, on desktop) |
 
 ## Verified behaviour
 - **Voting:**
