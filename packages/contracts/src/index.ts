@@ -16,3 +16,4 @@ export * from './teams';
 export * from './auto';
 export * from './chat';
 export * from './social';
+export * from './results';

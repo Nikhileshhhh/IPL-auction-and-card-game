@@ -5,7 +5,7 @@ import type { ReadinessCheck } from '../http/readiness';
  * Latest migration this build requires. Expand/contract rollouts allow the
  * database to be newer than the code, never older.
  */
-export const REQUIRED_MIGRATION = '100_social_chat';
+export const REQUIRED_MIGRATION = '110_votes_results';
 
 export function schemaCheck(
   pool: pg.Pool | undefined,

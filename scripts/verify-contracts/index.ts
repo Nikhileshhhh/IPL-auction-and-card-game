@@ -12,6 +12,13 @@ import {
   TEAM_EVENT_PAYLOADS,
   AUTO_EVENT_PAYLOADS,
   CHAT_EVENT_PAYLOADS,
+  VOTE_EVENT_PAYLOADS,
+  VoteStartPayload,
+  VoteStartAck,
+  VoteCastPayload,
+  VoteCastAck,
+  VoteDTOSchema,
+  ResultDTOSchema,
   ChatSendPayload,
   ChatSendAck,
   ChatRemovePayload,
@@ -150,6 +157,7 @@ for (const [type, schema] of Object.entries({
   ...TEAM_EVENT_PAYLOADS,
   ...AUTO_EVENT_PAYLOADS,
   ...CHAT_EVENT_PAYLOADS,
+  ...VOTE_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -183,6 +191,8 @@ const implementedCommands = {
   'chat.mute': [ChatMutePayload, ChatMuteAck],
   'chat.subscribe': [ChatSubscribePayload, ChatSubscribeAck],
   'chat.unsubscribe': [ChatUnsubscribePayload, ChatUnsubscribeAck],
+  'vote.start': [VoteStartPayload, VoteStartAck],
+  'vote.cast': [VoteCastPayload, VoteCastAck],
 } as const;
 for (const [type, [payload, ack]] of Object.entries(implementedCommands)) {
   sameSet(`command payload ${type}`, shapeOf(payload), fields(commands[type]?.payload ?? []));
@@ -210,6 +220,8 @@ for (const [name, schema] of [
   ['FriendsViewDTO', FriendsViewSchema],
   ['NotificationsViewDTO', NotificationsViewSchema],
   ['ChatChannelDTO', ChatChannelSchema],
+  ['VoteDTO', VoteDTOSchema],
+  ['ResultDTO', ResultDTOSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }

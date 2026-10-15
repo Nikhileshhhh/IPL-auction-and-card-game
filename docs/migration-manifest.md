@@ -25,7 +25,8 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `080_team_collaboration` | 11 | team_handovers (one pending per team, 60 s expiry, same-team members), team_shortlists (private targets, priority, note, max price), shortlist_votes (advisory ±1), one co-captain per team, capability version (ADR-026) |
 | `090_auto_control` | 12 | auto_strategies (private limits, spend/purchase counters, version), franchise failover member and control reason, room recovery pause (recovery_until, recovery_generation), connection member/expiry index (ADR-027) |
 | `100_social_chat` | 13 | chat_channels (room/team, UQ room/kind/franchise), chat_messages (1–500 code points, UQ sender/clientMessageId, removal), chat_mutes (≤24 h), friendship and invite lookup indexes; all chat cascades from the room (ADR-028) |
-| `070_votes_chat_assets_results_cleanup` | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
+| `110_votes_results` | 14 | end_votes (exactly 15 s, one open vote per room, saved timers), vote_electorate (frozen electors, one representative, immutable ballot before expiry via trigger), room_results (≤300 s, source state hash), card_seats eliminated_at/participation_at_exit, rooms.paused_ms, auction_games evaluation checkpoint (ADR-029) |
+| `070_votes_chat_assets_results_cleanup` (planned name; shipped as 100 and 110, cleanup in 15) | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
 | `080_invariants` | 7–15 (added per feature migration) | (deferred constraint triggers: card conservation, purse sums, single captain, medal mapping) |
 | `090_rls_grants_verify` | 2 (rerun every phase) | (reconcile/verify every table: RLS enabled+forced, backend policy, grants, no browser access) |
 | `100_indexes_seed` | 2+ | (secondary indexes; demo/reference seed lives in supabase/seed, not migrations) |

@@ -178,9 +178,18 @@ export const FinalizingPayload = z
   })
   .strict();
 
+/** An auction's public outcome: franchises in competitive rank order (ADR-029). */
+export const AuctionResultSummarySchema = z
+  .object({
+    reason: z.enum(['pool_complete', 'no_buyers', 'time_limit', 'vote']),
+    standings: z.array(Uuid).min(1).max(10),
+    champion: Uuid.nullable(),
+  })
+  .strict();
+
 export const GameCompletedPayload = z
   .object({
-    publicResult: CardResultSchema,
+    publicResult: z.union([CardResultSchema, AuctionResultSummarySchema]),
     medalStatus: z.enum(['deferred', 'pending', 'awarded', 'none']),
     resultsExpiresAt: IsoTimestamp.nullable(),
     auditSeed: z.string().regex(/^[0-9a-f]{64}$/),

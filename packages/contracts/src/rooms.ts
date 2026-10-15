@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DecimalString, IsoTimestamp, Uuid } from './primitives';
+import { ResultStatusSchema, VoteDTOSchema } from './results';
 
 /** Crockford-style Base32 alphabet (no I, L, O, U): 12 symbols = 60 bits. */
 export const ROOM_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -191,6 +192,10 @@ export const PermittedSnapshotSchema = z
     cursors: z.array(StreamCursorSchema),
     /** Outage recovery pause (ADR-027): gameplay resumes at this time. */
     recoveryUntil: IsoTimestamp.nullable(),
+    /** The open end-game vote (ADR-029), personalised: canVote, own recorded choice. */
+    openVote: VoteDTOSchema.nullable(),
+    /** Evaluation progress, then the temporary results until they expire. */
+    results: ResultStatusSchema.nullable(),
     serverNow: IsoTimestamp,
   })
   .strict();
