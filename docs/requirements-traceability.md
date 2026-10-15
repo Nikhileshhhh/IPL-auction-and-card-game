@@ -20,7 +20,7 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-12 | Normal contest: reveal all tops, selector chooses, timeout policy, pot to winner tail, selector passes | 7 | game-engines/card/reduce; server/modules/cards (commands, deadlines, projection) | `packages/game-engines/test/card.spec.ts; tests/integration/cards.spec.ts; tests/concurrency/cards.spec.ts; tests/e2e/card-match.spec.ts` | Done (phase 07) |
 | RQ-13 | Card conservation N through all transitions (DECK/ACTIVE/POT single location) | 7,8 | game-engines/card/invariants; migration 050 location CHECK + deferred conservation trigger | `tests/property/card-conservation.spec.ts; tests/integration/cards.spec.ts` | Done (phases 07–08; property test covers ties, end requests, grace and restore) |
 | RQ-14 | Ties, repeated ties, exhaustion, sole contributor, fallback, tie cap, elimination after award | 8 | game-engines/card/ties, ranking; server/modules/cards (fallback audit, migration 052) (ADR-023) | `packages/game-engines/test/card-ties.spec.ts; tests/fixtures/cards/tie-scenarios.json; tests/property/card-conservation.spec.ts; apps/web/test/card-arena.spec.ts` | Done (phase 08) |
-| RQ-15 | Card podium, cycle guard, time/vote endings, restoration of unresolved chain | 8,14 | game-engines/card/ranking, termination; server/modules/cards/tie-service (soft limit + 60 s grace, 120 min hard ceiling) (ADR-023) | `packages/game-engines/test/card-ties.spec.ts; tests/property/card-conservation.spec.ts; tests/integration/cards.spec.ts` | Done (phase 08); vote trigger UI in phase 14 |
+| RQ-15 | Card podium, cycle guard, time/vote endings, restoration of unresolved chain | 8,14 | game-engines/card/ranking, termination; server/modules/cards/tie-service (soft limit + 60 s grace, 120 min hard ceiling) (ADR-023) | `packages/game-engines/test/card-ties.spec.ts; tests/property/card-conservation.spec.ts; tests/integration/cards.spec.ts` | Done (phases 08, 14) |
 | RQ-16 | Auction rules: real IPL mega-auction rules 2025–27 (official/reported/simulator provenance), retention and fresh-reset formats, real pool (2026 squads, registered base prices, capped 5-year rule) | 9 | game-engines/auction/{rulesets,retention,roster,pool}; server/modules/auctions/{rulesets,sources}; scripts/data/import-auction (ADR-024) | `packages/game-engines/test/auction.spec.ts; tests/integration/auction.spec.ts` | Done (phase 09) |
 | RQ-17 | Franchise claim (server-assigned captain, one team per member), team code requests with captain approval, retention packages with the real cost model, caps, reserve and lock; public purse projection | 9 (capabilities 11) | server/modules/auctions/{setup,commands,projection,squad}; migration 060 (ADR-024) | `tests/integration/auction.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 09); capability editor and handover done in phase 11 (RQ-20) |
 | RQ-18 | Bidding: exact next step on the increment grid, reserve, overseas, squad caps, XI feasibility, late-bid extension (8 s), exact deadline is late, serial accepted bids | 10 | game-engines/auction/{bids,xi}; server/modules/auctions/{command,settlement,deadlines}; migration 070 (ADR-025) | `packages/game-engines/test/auction-bidding.spec.ts; tests/integration/auction-live.spec.ts; tests/concurrency/auction.spec.ts` | Done (phase 10) |
@@ -28,9 +28,9 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-20 | Multi-user franchises: explicit capabilities (captain only, one co-captain, no second captain), captain handover by consent (60 s), codes never bypass approval, code rotation revokes requests, friend-only auto-join, private shortlist and advisory votes, late joiners advisor-only without medal, control epoch re-checked under the room lock | 11 | server/modules/teams/{permissions,invitations,handover,strategy,view}; migration 080; web features/team (ADR-026) | `tests/integration/teams.spec.ts; tests/security/teams.spec.ts; tests/concurrency/teams.spec.ts; tests/e2e/auction-setup.spec.ts` | Done (phase 11) |
 | RQ-21 | Reconnect/replay (fresh ticket per connection, cursor replay, snapshot on gap), outage recovery pause with a 10 s countdown, failover (co-captain) after a 30 s grace, controller takeover fenced by the franchise epoch, deterministic opt-in auto-bid within private caps and reserve, participation intervals | 12 | presence/recovery; jobs/recovery; auctions/{auto-bid,auto-control,bidding}; game-engines/auction/auto; migration 090 (ADR-027) | `packages/game-engines/test/auction-auto.spec.ts; tests/integration/auto.spec.ts; apps/web/test/room-events.spec.ts` | Done (phase 12) |
 | RQ-22 | Profiles, friends, blocks, notifications, public + private team chat (plain text, ACL on read/replay) | 13 | server/modules/{social,chat}; routes/v1/social; migration 100; web features/{chat,social} (ADR-028) | `tests/security/chat-acl.spec.ts; tests/integration/{chat,social}.spec.ts; tests/e2e/social.spec.ts` | Done (phase 13) |
-| RQ-23 | 15-second end vote: frozen electorate, one ballot per franchise, strict majority, timer restore | 14 | game-engines/voting; server/modules/voting | `packages/game-engines/test/voting.spec.ts; tests/integration/voting.spec.ts` | Planned |
-| RQ-24 | Exact XI squad evaluator, legality gate, ranking tiebreaks | 14 | game-engines/evaluation; jobs/evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
-| RQ-25 | Qualification, top-three medals, team credits, idempotent receipts and summaries | 14 | game-engines/achievements; server/modules/achievements | `tests/integration/finalization.spec.ts` | Planned |
+| RQ-23 | 15-second end vote: frozen electorate, one ballot per franchise, strict majority, timer restore | 14 | game-engines/voting; server/modules/voting (clocks, start/cast/resolve); migration 110 (ADR-029) | `packages/game-engines/test/evaluation.spec.ts` (thresholds, tallies); `tests/integration/voting.spec.ts`; `tests/concurrency/voting.spec.ts`; `tests/e2e/voting.spec.ts` | Done (phase 14) |
+| RQ-24 | Exact XI squad evaluator, legality gate, ranking tiebreaks | 14 | game-engines/evaluation; jobs/evaluation (resumable checkpoints) (ADR-029) | `packages/game-engines/test/evaluation.spec.ts` (BigInt oracle, brute-force optimum, resume); `tests/integration/finalization.spec.ts` | Done (phase 14); ±5 pp sensitivity audit not computed |
+| RQ-25 | Qualification, top-three medals, team credits, idempotent receipts and summaries | 14 | game-engines/achievements; server/modules/achievements (finalize, card, auction, results) (ADR-029) | `tests/integration/finalization.spec.ts`; `packages/game-engines/test/evaluation.spec.ts` (placements, qualification) | Done (phase 14) |
 | RQ-26 | Results TTL then recoverable Storage→DB deletion; abandoned-room handling | 15 | server/modules/cleanup; jobs/cleanup | `tests/integration/cleanup.spec.ts` | Planned |
 | RQ-27 | All 35 screens responsive/accessible, reduced motion, stable bid controls | 4–16 | web features/*; packages/ui | `tests/e2e/*.spec.ts (axe)` | Planned |
 | RQ-28 | Admin catalog editor, operations dashboard, announcements, restrictions, audit | 6,16 | server/modules/admin; web (admin) | `tests/e2e/admin.spec.ts` | Planned |
@@ -69,12 +69,12 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E24 | 12 | auctions/auto-bid | `packages/game-engines/test/auction-auto.spec.ts`; `tests/integration/auto.spec.ts` | Done (phase 12) |
 | E25 | 12 | presence | `tests/integration/teams.spec.ts` (tab fencing under the room lock) | Done (phases 05/11) |
 | E26 | 10 | auctions | `tests/integration/bid-fault.spec.ts` | Planned |
-| E27 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
-| E28 | 14 | voting/cards | `tests/integration/voting.spec.ts` | Planned |
-| E29 | 14 | voting | `packages/game-engines/test/voting.spec.ts` | Planned |
-| E30 | 14 | voting | `packages/game-engines/test/voting.spec.ts` | Planned |
+| E27 | 14 | voting | `tests/integration/voting.spec.ts` (due pass run twice resolves once; original deadline) | Done (phase 14) |
+| E28 | 14 | voting/cards | `packages/game-engines/test/card-ties.spec.ts` (vote passing mid-tie restores the chain); `tests/integration/voting.spec.ts` | Done (phase 14) |
+| E29 | 14 | voting | `packages/game-engines/test/evaluation.spec.ts` (N4 2–2 fails) | Done (phase 14) |
+| E30 | 14 | voting | `packages/game-engines/test/evaluation.spec.ts`; `tests/integration/voting.spec.ts` (no ballots → fails, cooldown) | Done (phase 14) |
 | E31 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
-| E32 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
+| E32 | 14 | achievements | `tests/integration/finalization.spec.ts` (finalizer ×10 and after results removal: one receipt, counters unchanged) | Done (phase 14) |
 | E33 | 13 | chat | `tests/security/chat-acl.spec.ts` (rival read/send/remove/mute/subscribe/replay by known ids; removed member) | Done (phase 13) |
 | E34 | 15 | cleanup/results | `tests/integration/cleanup.spec.ts` | Planned |
 | E35 | 15 | cleanup | `tests/concurrency/cleanup.spec.ts` | Planned |
@@ -94,18 +94,18 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E49 | 17 | realtime | `tests/load/reconnect-storm.ts` | Planned |
 | E50 | 12 | presence | `tests/integration/auto.spec.ts` (stale tab swept, one grace credited, failover armed) | Done (phase 12) |
 | E51 | 10 | auctions | `tests/integration/bid-deadline.spec.ts` | Planned |
-| E52 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
-| E53 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
-| E54 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
-| E55 | 14 | voting | `packages/game-engines/test/voting.spec.ts` | Planned |
-| E56 | 14 | voting | `tests/integration/voting.spec.ts` | Planned |
+| E52 | 14 | voting | `tests/integration/voting.spec.ts` (ballot at expiry → VOTE_EXPIRED; DB trigger refuses cast_at ≥ expiry) | Done (phase 14) |
+| E53 | 14 | voting | rooms/deadline-handlers (host transfer deferred while voting); vote resolves by job, independent of the host | Done (phase 14; not separately tested) |
+| E54 | 14 | voting | `tests/concurrency/voting.spec.ts` (due ending settles first → ALREADY_COMPLETED, room finished) | Done (phase 14) |
+| E55 | 14 | voting | `tests/integration/voting.spec.ts` (electorate counts franchises/seats, offline included) | Done (phase 14) |
+| E56 | 14 | voting | `tests/integration/voting.spec.ts` (frozen representative; co-captain for an absent captain; others FORBIDDEN) | Done (phase 14) |
 | E57 | 10 | auctions | `packages/game-engines/test/auction-rtm.spec.ts` | Planned |
 | E58 | 10 | auctions | `packages/game-engines/test/auction-rtm.spec.ts` | Planned |
 | E59 | 12 | auto-bid | `packages/game-engines/test/auction-auto.spec.ts`; `tests/integration/auto.spec.ts` (observe, no bids) | Done (phase 12) |
 | E60 | 12 | auto-bid | `tests/integration/auto.spec.ts` (resume racing a due bot attempt) | Done (phase 12) |
-| E61 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
-| E62 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` | Planned |
-| E63 | 14 | evaluation | `tests/integration/evaluation-resume.spec.ts` | Planned |
+| E61 | 14 | achievements | `tests/integration/finalization.spec.ts` (late advisor: no receipt, reason late_join) | Done (phase 14) |
+| E62 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts`; `tests/integration/voting.spec.ts` (incomplete squads → no medals, deficits) | Done (phase 14) |
+| E63 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` (interrupted chunked runs = uninterrupted); jobs/evaluation input-hash checkpoint | Done (phase 14) |
 | E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` (published version immutable; new data → new version) | Done (phase 06) |
 | E65 | 6 | media | `apps/server/test/unit/media.spec.ts; tests/integration/catalog.spec.ts` | Done (phase 06) |
 | E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
@@ -114,7 +114,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E69 | 16 | admin | `tests/security/admin-scope.spec.ts` | Planned |
 | E70 | 19 | ops | `docs/runbooks/restore.md drill` | Planned |
 | E71 | 3 | auth | `tests/security/auth-session.spec.ts` | Done (phase 03) |
-| E72 | 14 | achievements | `tests/integration/finalization.spec.ts` | Planned |
+| E72 | 14 | achievements | summaries change only for newly inserted receipts (`tests/integration/finalization.spec.ts`); a rebuild-from-receipts repair job is not built | Partial (phase 14) |
 
 ## 3. Gameplay acceptance vectors (rules §14)
 
@@ -128,7 +128,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | V06 | Three simultaneous zero-card losers → stored elimination tie-break, stable podium | 8 | `packages/game-engines/test/card-termination.spec.ts` | Planned |
 | V07 | Same category command retried → one transition, one receipt, one pot movement | 7 | `tests/integration/card-commands.spec.ts` | Planned |
 | V08 | Cycle state seen three times → time/cycle ranking; no endless repeat | 8 | `packages/game-engines/test/card-termination.spec.ts` | Planned |
-| V09 | Vote passes mid-tie → every contribution restored once | 14 | `tests/integration/voting.spec.ts` | Planned |
+| V09 | Vote passes mid-tie → every contribution restored once | 14 | `packages/game-engines/test/card-ties.spec.ts` | Done (phase 14) |
 | V10 | Two equal opposing bids, same version → exactly one accepted; no double charge | 10 | `tests/concurrency/bids.spec.ts` | Planned |
 | V11 | Bid validated at exact expiry → rejected; timer wins | 10 | `tests/integration/bid-deadline.spec.ts` | Planned |
 | V12 | Accepted bid leaves <8 s → deadline ≥ acceptance+8 s | 10 | `packages/game-engines/test/auction-bids.spec.ts` | Planned |
@@ -136,11 +136,11 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | V14 | RTM holder times out → original bidder buys at binding final offer | 10 | `packages/game-engines/test/auction-rtm.spec.ts` | Planned |
 | V15 | Team cannot preserve reserve → BUDGET_RESERVE with allowed ceiling | 10 | `packages/game-engines/test/auction-bids.spec.ts` | Planned |
 | V16 | Bot command with old epoch after takeover → rejected without spend | 12 | `tests/concurrency/takeover.spec.ts` | Planned |
-| V17 | Electorate 4: 2 Yes, 1 No, 1 abstain → continue; 3 Yes required | 14 | `packages/game-engines/test/voting.spec.ts` | Planned |
-| V18 | Two users of same franchise vote → frozen representative only; one ballot | 14 | `tests/integration/voting.spec.ts` | Planned |
-| V19 | No legal squad at auction end → no qualifying champion or medals | 14 | `packages/game-engines/test/evaluation.spec.ts` | Planned |
-| V20 | Only two eligible squads → gold/silver only | 14 | `packages/game-engines/test/achievements.spec.ts` | Planned |
-| V21 | Crash after medal commit, retry finalizer → no duplicate receipt or counters | 14 | `tests/integration/finalization.spec.ts` | Planned |
+| V17 | Electorate 4: 2 Yes, 1 No, 1 abstain → continue; 3 Yes required | 14 | `packages/game-engines/test/evaluation.spec.ts` | Done (phase 14) |
+| V18 | Two users of same franchise vote → frozen representative only; one ballot | 14 | `tests/integration/voting.spec.ts` | Done (phase 14) |
+| V19 | No legal squad at auction end → no qualifying champion or medals | 14 | `packages/game-engines/test/evaluation.spec.ts`; `tests/integration/voting.spec.ts` | Done (phase 14) |
+| V20 | Only two eligible squads → gold/silver only | 14 | `packages/game-engines/test/evaluation.spec.ts`; `tests/integration/finalization.spec.ts` | Done (phase 14) |
+| V21 | Crash after medal commit, retry finalizer → no duplicate receipt or counters | 14 | `tests/integration/finalization.spec.ts` | Done (phase 14) |
 
 ## 4. Cross-workflow acceptance (master §7.1)
 
@@ -152,12 +152,12 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | Host changes rules → readiness cleared | 5 | `tests/integration/rooms.spec.ts` |
 | Collaborator knows team code → private chat denied before approval | 11, 13 | `tests/security/team-acl.spec.ts`; `tests/security/chat-acl.spec.ts` (room member not on the team: history, send and replay refused) |
 | Captain + collaborator bid same version → never two deductions | 11 | `tests/integration/teams.spec.ts` |
-| Vote during auction fails → no sale during pause, time restored | 14 | `tests/integration/voting.spec.ts` |
-| Franchise wins with 3 eligible members, finalizer retried twice | 14 | `tests/integration/finalization.spec.ts` |
-| Late advisor → no unearned medal | 14 | `tests/integration/finalization.spec.ts` |
+| Vote during auction fails → no sale during pause, time restored | 14 | `tests/integration/voting.spec.ts` (done, phase 14) |
+| Franchise wins with 3 eligible members, finalizer retried twice | 14 | `tests/integration/finalization.spec.ts` (done, phase 14) |
+| Late advisor → no unearned medal | 14 | `tests/integration/finalization.spec.ts` (done, phase 14) |
 | Storage deletion fails → root stays PURGING until objects absent | 15 | `tests/integration/cleanup.spec.ts` |
 | Server dies after commit before ack → original receipt returned | 5 | `tests/integration/idempotency.spec.ts` |
-| Incomplete high-score squad vs legal squad | 14 | `packages/game-engines/test/evaluation.spec.ts` |
+| Incomplete high-score squad vs legal squad | 14 | `packages/game-engines/test/evaluation.spec.ts` (illegal ranked below legal; done, phase 14) |
 
 ## 5. Phase completion log
 
