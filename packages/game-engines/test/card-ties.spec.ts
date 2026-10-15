@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   expireFinishGrace,
+  finishMatch,
   requestFinish,
   selectCategory,
   startMatch,
@@ -168,6 +169,21 @@ describe('requesting an end (rules §6.2)', () => {
     expect(pending.comparison).not.toBeNull(); // the tie comparison is still open
     expect(requestFinish(pending, 'time_limit').events).toEqual([]);
     expect(requestFinish(pending, 'time_limit').state.finishPending).toBe('vote');
+  });
+
+  it('a vote that passes mid-tie restores every contribution to its contributor once (V09)', () => {
+    const sc = fixture.scenarios.find((s) => s.name.startsWith('an end requested'))!;
+    const { states } = run(sc);
+    const midTie = states.find((s) => s.finishPending === 'vote')!;
+    expect(midTie.pot.length + (midTie.comparison ? 1 : 0)).toBeGreaterThan(0);
+    const { state } = finishMatch(midTie, 'vote');
+    expect(state.result?.reason).toBe('vote');
+    expect(state.pot).toEqual([]);
+    expect(state.comparison).toBeNull();
+    // N conserved, and each seat is back to its deck size at the start of the chain.
+    expect(state.seats.reduce((n, seat) => n + seat.deck.length, 0)).toBe(state.totalCards);
+    for (const seat of state.seats) expect(seat.deck.length).toBe(seat.chainStartCount);
+    expect(new Set(state.seats.flatMap((seat) => seat.deck)).size).toBe(state.totalCards);
   });
 
   it('grace expiry without a pending end is refused', () => {

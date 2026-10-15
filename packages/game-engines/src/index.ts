@@ -20,3 +20,6 @@ export * from './ratings/catalog';
 export * from './demo/league';
 export * from './card';
 export * from './auction';
+export * from './voting';
+export * from './evaluation';
+export * from './achievements';
