@@ -1,3 +1,5 @@
+import { resultStatus } from '../modules/achievements/results';
+import { voteView } from '../modules/voting';
 import type {
   PermittedSnapshotDTO,
   RoomLobbyDTO,
@@ -209,6 +211,8 @@ export async function buildSnapshot(
       room.recovery_until && room.recovery_until.getTime() > now.getTime()
         ? room.recovery_until.toISOString()
         : null,
+    openVote: await voteView(tx, room, member),
+    results: await resultStatus(tx, room, now),
     serverNow: now.toISOString(),
     streamIds,
   };

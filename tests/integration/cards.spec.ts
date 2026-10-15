@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CARD_EVENT_PAYLOADS, PermittedCardSnapshotSchema } from '@stumps/contracts';
+import {
+  CARD_EVENT_PAYLOADS,
+  PermittedCardSnapshotSchema,
+  ResultDTOSchema,
+  type ResultDTO,
+} from '@stumps/contracts';
 import { seedCommitment } from '@stumps/game-engines';
 import { runDuePass } from '../../apps/server/src/jobs/deadlines';
 import { ACCESS_CODE, createTestApi, type TestApi } from '../support/api';
@@ -205,7 +210,7 @@ describe('card commands (DB/realtime §8.2)', () => {
     expect(game.result!.standings).toHaveLength(2);
     expect(game.myAllowedActions).toEqual([]);
     const snap = await snapshot(players[1]!.client, roomId);
-    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.room.lifecycle).toBe('RESULTS');
 
     const meta = await api.admin.query<{ room_nonce: string; config_hash: string }>(
       'SELECT room_nonce, config_hash FROM app_private.card_games WHERE room_id = $1',
@@ -223,6 +228,19 @@ describe('card commands (DB/realtime §8.2)', () => {
       if (schema) expect(() => schema.parse(e.payload), e.type).not.toThrow();
     }
     PermittedCardSnapshotSchema.parse(game);
+    // Phase 14: the result is final at once, with medals for eligible players.
+    expect(snap.results).toMatchObject({ status: 'ready', progressPercent: 100 });
+    const results = await players[0]!.client.request<ResultDTO>(
+      'GET',
+      `/v1/rooms/${roomId}/results`,
+    );
+    expect(results.status, JSON.stringify(results.body)).toBe(200);
+    const dto = ResultDTOSchema.parse(results.body.data);
+    expect(dto.rankings.map((r) => r.competitorId)).toEqual(game.result!.standings);
+    expect(dto.seedAudit?.seed).toBe(game.auditSeed);
+    expect((events.at(-1)!.payload as { resultsExpiresAt: string }).resultsExpiresAt).toBe(
+      dto.resultsExpiresAt,
+    );
     // Events carry the state version their own transition produced.
     const versions = events.map((e) => BigInt(e.state_version));
     expect(versions).toEqual([...versions].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
@@ -325,7 +343,7 @@ describe('card deadlines (ADR-007)', () => {
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       snap = await snapshot(players[0]!.client, roomId);
     }
-    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.room.lifecycle).toBe('RESULTS');
     expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
     expect(snap.game!.finishPending).toBeNull();
     expect(snap.game!.seats.reduce((n, s) => n + s.deckCount, 0)).toBe(8);
@@ -343,7 +361,7 @@ describe('card deadlines (ADR-007)', () => {
     await makeDue(roomId, 'card.finish_grace');
     await duePass();
     const snap = await snapshot(players[0]!.client, roomId);
-    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.room.lifecycle).toBe('RESULTS');
     expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
     expect(snap.game!.seats.map((s) => s.deckCount)).toEqual([4, 4]);
     expect(snap.game!.visibleCards).toEqual([]);
@@ -362,7 +380,7 @@ describe('card deadlines (ADR-007)', () => {
     await makeDue(roomId, 'card.hard_limit');
     await duePass();
     const snap = await snapshot(players[0]!.client, roomId);
-    expect(snap.room.lifecycle).toBe('FINALIZING');
+    expect(snap.room.lifecycle).toBe('RESULTS');
     expect(snap.game!.result).toMatchObject({ reason: 'time_limit' });
     expect(snap.game!.seats.map((s) => s.deckCount)).toEqual([4, 4]);
   });

@@ -28,7 +28,7 @@ import { shortlistEntries } from '../teams/strategy';
  * disclosed only once the auction has ended.
  */
 
-const openAuctionSeed = (secrets: Secrets, roomId: string, ciphertext: Buffer) =>
+export const openAuctionSeed = (secrets: Secrets, roomId: string, ciphertext: Buffer) =>
   secrets.encryptor.decrypt(ciphertext.toString('utf8'), `auction-seed:${roomId}`);
 
 async function liveTeams(tx: Tx, live: Live): Promise<LiveTeam[]> {

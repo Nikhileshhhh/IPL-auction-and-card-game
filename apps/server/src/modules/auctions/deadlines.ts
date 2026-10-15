@@ -1,3 +1,4 @@
+import { deferWhileVoting } from '../voting/clocks';
 import type { DeadlineRegistry } from '../../jobs/deadlines';
 import type { RoomRow } from '../../rooms/room-tx';
 import { JOBS, loadLive, openLot, type LotRow } from './live-store';
@@ -65,8 +66,10 @@ export function registerAuctionDeadlines(deadlines: DeadlineRegistry) {
     return { events: [resumed, ...(await openNextLot(tx, room, now))], bumpState: true };
   });
 
-  deadlines.register(JOBS.hardLimit, async (tx, room, _job, now) => {
+  deadlines.register(JOBS.hardLimit, async (tx, room, job, now) => {
     if (!running(room)) return {};
+    // The 8-hour ceiling waits for an open end-game vote to resolve (rules §12).
+    if (await deferWhileVoting(tx, room, job)) return {};
     return { events: await finishAuction(tx, room, 'time_limit', now), bumpState: true };
   });
 }

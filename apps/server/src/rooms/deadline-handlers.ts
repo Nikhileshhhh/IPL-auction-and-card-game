@@ -1,6 +1,7 @@
 import { AppError } from '../http/app-error';
 import type { DeadlineRegistry } from '../jobs/deadlines';
 import { HOST_ABSENCE_MS, LOBBY_INACTIVITY_MS } from '../modules/rooms/service';
+import { deferWhileVoting } from '../modules/voting/clocks';
 import { listMembers } from './projection';
 
 export interface RoomJobHooks {
@@ -35,10 +36,11 @@ export function registerRoomDeadlines(registry: DeadlineRegistry, hooks: RoomJob
     const members = await listMembers(tx, room.id);
     const host = members.find((m) => m.user_id === room.host_user_id);
     if (!host || host.id !== job.subject_id || host.online) return {};
+    // A host transfer waits for an open end-game vote; the vote resolves on its own (E53).
+    if (await deferWhileVoting(tx, room, job)) return {};
     const successor = [...members]
       .filter((m) => m.id !== host.id && m.role === 'player' && m.online)
       .sort((a, b) => a.joined_at.getTime() - b.joined_at.getTime() || (a.id < b.id ? -1 : 1))[0];
-    // Phase 14 adds: defer while an end vote is open.
     if (!successor) {
       await tx.query(
         `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)

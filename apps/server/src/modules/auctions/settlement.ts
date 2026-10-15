@@ -282,10 +282,13 @@ export async function rtmTimeout(tx: Tx, room: RoomRow, lot: LotRow, now: Date) 
   return sell(tx, room, lot, high, final, 'auction', now);
 }
 
+/** Exact squad evaluation after the auction (jobs/evaluation.ts). */
+export const EVALUATE_JOB = 'auction.evaluate';
+
 export async function finishAuction(
   tx: Tx,
   room: RoomRow,
-  reason: 'pool_complete' | 'no_buyers' | 'time_limit',
+  reason: 'pool_complete' | 'no_buyers' | 'time_limit' | 'vote',
   now: Date,
 ): Promise<EventDraft[]> {
   const open = await openLot(tx, room.id);
@@ -303,6 +306,13 @@ export async function finishAuction(
   await tx.query(
     `DELETE FROM app_private.deadline_jobs WHERE room_id = $1 AND kind LIKE 'auction.%'`,
     [room.id],
+  );
+  // Squads are scored by the exact evaluator in resumable chunks (ADR-029).
+  await tx.query(
+    `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
+     VALUES ($1, '${EVALUATE_JOB}', NULL, 0, $2)
+     ON CONFLICT (room_id, kind, subject_id, generation) DO UPDATE SET due_at = EXCLUDED.due_at`,
+    [room.id, now],
   );
   return [
     draft('game.finalizing', {

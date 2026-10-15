@@ -12,6 +12,7 @@ import type { Tx } from '../../db/transaction';
 import { AppError } from '../../http/app-error';
 import type { RoomRow } from '../../rooms/room-tx';
 import type { EventDraft } from '../../rooms/streams';
+import { finalizeCardMatch, recordElimination } from '../achievements/card';
 import { cardsByDefinition } from '../cricket-data/read';
 import { FINISH_GRACE, FINISH_GRACE_SECONDS, persistTransition, type MatchMeta } from './store';
 
@@ -63,14 +64,30 @@ export async function arenaCards(
   return out;
 }
 
+interface Completion {
+  seed: string;
+  medalStatus: 'awarded' | 'none';
+  resultsExpiresAt: string;
+}
+
+async function roomSeed(tx: Tx, secrets: Secrets, room: RoomRow) {
+  const seed = (
+    await tx.query<{ seed_ciphertext: Buffer | null }>(
+      'SELECT seed_ciphertext FROM app_private.rooms WHERE id = $1',
+      [room.id],
+    )
+  ).rows[0]?.seed_ciphertext;
+  return seed ? openSeed(secrets, room, seed) : '';
+}
+
 export function openSeed(secrets: Secrets, room: { id: string }, ciphertext: Buffer): string {
   return secrets.encryptor.decrypt(ciphertext.toString('utf8'), `card-seed:${room.id}`);
 }
 
 /**
  * Persist a transition and translate its engine events into public events
- * (ratings shown as whole numbers 0–100). A finished match moves the room to
- * FINALIZING and discloses the seed for audit.
+ * (ratings shown as whole numbers 0–100). A finished match is finalized at
+ * once (results and medals) and discloses the seed for audit.
  */
 export async function applyTransition(
   tx: Tx,
@@ -105,16 +122,22 @@ export async function applyTransition(
       [room.id, graceDeadline],
     );
   }
+  for (const event of t.events) {
+    if (event.type === 'playerEliminated')
+      await recordElimination(tx, room.id, event.memberId, now);
+  }
+  // A finished match is ranked and its medals committed in this same
+  // transaction (card ranks are immediate, ADR-029); the room enters RESULTS.
+  let completion: Completion | null = null;
+  if (t.state.result) {
+    const seed = await roomSeed(tx, secrets, room);
+    completion = { seed, ...(await finalizeCardMatch(tx, room, t.state, seed, now)) };
+  }
   const drafts: EventDraft[] = [];
   for (const event of t.events)
-    drafts.push(await toDraft(tx, secrets, room, event, cards, deadline, now, graceDeadline));
-  if (t.state.result) {
-    await tx.query(
-      `UPDATE app_private.rooms SET lifecycle = 'FINALIZING', phase = 'FINISHED', match_deadline = NULL
-        WHERE id = $1`,
-      [room.id],
+    drafts.push(
+      await toDraft(tx, secrets, room, event, cards, deadline, now, graceDeadline, completion),
     );
-  }
   return drafts;
 }
 
@@ -127,6 +150,7 @@ async function toDraft(
   deadline: Date | null,
   now: Date,
   graceDeadline: Date | null = null,
+  completion: Completion | null = null,
 ): Promise<EventDraft> {
   switch (event.type) {
     case 'roundOpened':
@@ -200,20 +224,14 @@ async function toDraft(
         },
       };
     case 'finished': {
-      const seed = (
-        await tx.query<{ seed_ciphertext: Buffer }>(
-          'SELECT seed_ciphertext FROM app_private.rooms WHERE id = $1',
-          [room.id],
-        )
-      ).rows[0]?.seed_ciphertext;
       return {
         audience: PUBLIC,
         type: 'game.completed',
         payload: {
           publicResult: event.result,
-          medalStatus: 'deferred',
-          resultsExpiresAt: null,
-          auditSeed: seed ? openSeed(secrets, room, seed) : '',
+          medalStatus: completion?.medalStatus ?? 'none',
+          resultsExpiresAt: completion?.resultsExpiresAt ?? null,
+          auditSeed: completion?.seed ?? (await roomSeed(tx, secrets, room)),
           rngVersion: RNG_VERSION,
         },
       };

@@ -1,3 +1,4 @@
+import { readResults } from '../../modules/achievements/results';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
@@ -230,6 +231,19 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       const room = await readRoom(tx, roomId);
       if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
       return channelView(tx, room, me, kind.data, await dbNow(tx));
+    });
+    return success(view, request.id, new Date());
+  });
+
+  /** S13/S27: temporary results — podium for members, own credits only; 410 once expired. */
+  app.get('/rooms/:id/results', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const view = await withTransaction(deps.pool, async (tx) => {
+      const me = await requireMembership(tx, roomId, ctx.userId);
+      const room = await readRoom(tx, roomId);
+      if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+      return readResults(tx, room, me, await dbNow(tx));
     });
     return success(view, request.id, new Date());
   });

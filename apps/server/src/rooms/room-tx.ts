@@ -27,11 +27,13 @@ export interface RoomRow {
   /** Outage recovery pause: gameplay waits until this time (ADR-027). */
   recovery_until: Date | null;
   recovery_generation: string;
+  /** Set while an end-game vote is open (ADR-029): gameplay is frozen. */
+  saved_phase: { voteId: string; phase: string; expiresAt: string } | null;
 }
 
 const ROOM_COLUMNS = `id, game_type, name, host_user_id, lifecycle, phase, settings, max_members, results_ttl_seconds,
   config_version::text, state_version::text, generation::text, password_hash, code_ciphertext, expires_at,
-  last_activity_at, started_at, data_version_id, ruleset_id, recovery_until, recovery_generation::text`;
+  last_activity_at, started_at, data_version_id, ruleset_id, recovery_until, recovery_generation::text, saved_phase`;
 
 /** Lock order: room row first, always (DB/realtime §3). */
 export async function lockRoom(tx: Tx, roomId: string): Promise<RoomRow> {
@@ -119,8 +121,10 @@ export async function runRoomCommand<T>(
 ): Promise<T> {
   const hash = bodyHash(input.body);
   const after: (() => void)[] = [];
+  let refused: AppError | null = null;
   const reply = await withTransaction(pool, async (tx) => {
     after.length = 0;
+    refused = null;
     // Global locks (e.g. per-user membership limits) are always taken before the room.
     if (options.beforeLock) await options.beforeLock(tx);
     const room = await lockRoom(tx, input.roomId);
@@ -149,7 +153,18 @@ export async function runRoomCommand<T>(
     // state version their transition produced.
     const current = await lockRoom(tx, input.roomId);
     if (dueEvents.length > 0) await appendEvents(tx, room.id, current.state_version, dueEvents);
-    const outcome = await handler({ tx, room: current, now });
+    // A refused command still commits the due work settled above (rules §7):
+    // the refusal rolls back only the handler's own writes.
+    await tx.query('SAVEPOINT room_command');
+    let outcome: CommandOutcome<T>;
+    try {
+      outcome = await handler({ tx, room: current, now });
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      await tx.query('ROLLBACK TO SAVEPOINT room_command');
+      refused = error;
+      return undefined as T;
+    }
     if (outcome.roomDeleted) {
       after.push(...(outcome.afterCommit ?? []));
       return outcome.reply;
@@ -179,14 +194,23 @@ export async function runRoomCommand<T>(
   });
   options.wake?.();
   for (const fn of after) fn();
+  if (refused) throw refused;
   return reply;
 }
 
 /**
- * During an outage recovery pause (ADR-027) gameplay waits for the visible
- * countdown; nothing can be bought or decided while players reconnect.
+ * Gameplay is frozen while an end-game vote is open (ADR-029) and during an
+ * outage recovery pause (ADR-027), which waits for the visible countdown:
+ * nothing can be bought or decided until play resumes.
  */
 export function requireNotRecovering(room: RoomRow, now: Date) {
+  if (room.saved_phase) {
+    // An end-game vote freezes every gameplay action for its 15 seconds (ADR-029).
+    throw new AppError('GAME_PAUSED', 'Play is paused while the room votes on ending the game.', {
+      reason: 'VOTE',
+      until: room.saved_phase.expiresAt,
+    });
+  }
   if (room.recovery_until && room.recovery_until.getTime() > now.getTime()) {
     throw new AppError('GAME_PAUSED', 'The server is recovering; play resumes in a moment.', {
       reason: 'RECOVERY',

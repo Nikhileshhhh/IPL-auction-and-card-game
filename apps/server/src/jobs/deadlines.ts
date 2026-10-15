@@ -3,6 +3,7 @@ import { dbNow, withTransaction, type Tx } from '../db/transaction';
 import { readRoom, type DueSettler, type RoomRow } from '../rooms/room-tx';
 import type { EventDraft } from '../rooms/streams';
 import { appendEvents } from '../rooms/streams';
+import { VOTE_FROZEN_JOBS } from '../modules/voting/clocks';
 
 export interface DeadlineJob {
   id: string;
@@ -42,6 +43,9 @@ export class DeadlineRegistry {
   }
 }
 
+/** End-game vote resolution runs before gameplay jobs due at the same instant. */
+export const VOTE_RESOLVE_JOB = 'room.vote_resolve';
+
 /** Settle every due job of an already-locked room, in due order. */
 export async function settleDueJobs(
   registry: DeadlineRegistry,
@@ -56,7 +60,8 @@ export async function settleDueJobs(
 }> {
   const jobs = await tx.query<DeadlineJob>(
     `SELECT id, room_id, kind, subject_id, generation::text, due_at FROM app_private.deadline_jobs
-      WHERE room_id = $1 AND due_at <= $2 ORDER BY due_at, id`,
+      WHERE room_id = $1 AND due_at <= $2
+      ORDER BY due_at, (kind = '${VOTE_RESOLVE_JOB}') DESC, id`,
     [room.id, now],
   );
   const events: EventDraft[] = [];
@@ -64,10 +69,33 @@ export async function settleDueJobs(
   let bumpState = false;
   for (const job of jobs.rows) {
     const handler = registry.get(job.kind);
-    await tx.query('DELETE FROM app_private.deadline_jobs WHERE id = $1', [job.id]);
-    if (!handler) continue;
+    // An earlier handler may have cancelled or moved this job (a vote freeze,
+    // a finished game): only run it if it is still there and still due.
+    const claimed = await tx.query(
+      'DELETE FROM app_private.deadline_jobs WHERE id = $1 AND due_at <= $2',
+      [job.id, now],
+    );
+    if (!claimed.rowCount || !handler) continue;
     const current = await readRoom(tx, room.id);
     if (!current) return { events: [], afterCommit, roomDeleted: true, bumpState };
+    // While an end-game vote is open no gameplay clock may act (rules §12):
+    // an overdue one waits for the resolution, which restores or ends it.
+    if (current.saved_phase && VOTE_FROZEN_JOBS.includes(job.kind)) {
+      await tx.query(
+        `INSERT INTO app_private.deadline_jobs (room_id, kind, subject_id, generation, due_at)
+         VALUES ($1, $2, $3, $4, GREATEST($5::timestamptz, $6::timestamptz))
+         ON CONFLICT (room_id, kind, subject_id, generation) DO NOTHING`,
+        [
+          room.id,
+          job.kind,
+          job.subject_id,
+          job.generation,
+          job.due_at,
+          current.saved_phase.expiresAt,
+        ],
+      );
+      continue;
+    }
     const result = await handler(tx, current, job, now);
     events.push(...(result.events ?? []));
     afterCommit.push(...(result.afterCommit ?? []));

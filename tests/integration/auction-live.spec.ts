@@ -162,11 +162,12 @@ describe('live bidding (ADR-025)', () => {
         stage: 'evaluation_pending',
         reason: 'pool_complete',
       });
-      const jobs = await api.admin.query(
-        `SELECT 1 FROM app_private.deadline_jobs WHERE room_id = $1 AND kind LIKE 'auction.%'`,
+      // Only the squad evaluation is left to run (phase 14).
+      const jobs = await api.admin.query<{ kind: string }>(
+        `SELECT kind FROM app_private.deadline_jobs WHERE room_id = $1 AND kind LIKE 'auction.%'`,
         [roomId],
       );
-      expect(jobs.rowCount).toBe(0);
+      expect(jobs.rows.map((j) => j.kind)).toEqual(['auction.evaluate']);
     },
   );
 
