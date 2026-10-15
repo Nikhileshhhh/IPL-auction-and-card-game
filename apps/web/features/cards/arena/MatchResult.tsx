@@ -13,7 +13,9 @@ export function MatchResult({
   result,
   members,
   me,
+  roomId,
 }: {
+  roomId: string;
   game: CardGame;
   result: NonNullable<CardGame['result']>;
   members: readonly RoomMemberSummary[];
@@ -70,9 +72,14 @@ export function MatchResult({
           <dd className="text-ink">{game.auditSeed ?? 'Not yet available'}</dd>
         </dl>
       </details>
-      <Link href="/play/cards" className="text-sm text-card underline">
-        Back to Card Battle
-      </Link>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <Link href={`/rooms/${roomId}/results`} className="font-semibold text-card underline">
+          Results and medals
+        </Link>
+        <Link href="/play/cards" className="text-card underline">
+          Back to Card Battle
+        </Link>
+      </div>
     </Surface>
   );
 }

@@ -7,6 +7,7 @@ import { METRIC_LABELS, type CardMetric } from '@stumps/contracts';
 import { Button, Skeleton, StatusMessage, cx } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
 import { ChatDrawer } from '@/features/chat/ChatDrawer';
+import { EndGameVote } from '@/features/voting/EndGameVote';
 import { TimerRing } from './ArenaParts';
 import { BattleZone } from './BattleZone';
 import { CategoryControls } from './CategoryControls';
@@ -134,6 +135,7 @@ export function CardArena({ roomId }: { roomId: string }) {
           <Button size="touch" variant="secondary" onClick={() => setSheetOpen(true)}>
             Comparison
           </Button>
+          <EndGameVote snapshot={snap} connection={connection} status={status} />
           <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams={false} />
         </div>
       </header>
@@ -157,7 +159,7 @@ export function CardArena({ roomId }: { roomId: string }) {
       <RoundWinnerReveal game={game} members={members} me={me} />
 
       {game.result ? (
-        <MatchResult game={game} result={game.result} members={members} me={me} />
+        <MatchResult roomId={roomId} game={game} result={game.result} members={members} me={me} />
       ) : (
         <>
           <section

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Button, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
 import { ChatDrawer } from '@/features/chat/ChatDrawer';
+import { EndGameVote } from '@/features/voting/EndGameVote';
 import { SquadView } from '../setup/SquadView';
 import { BidControlPanel } from './BidControlPanel';
 import { MissedRecap } from '@/features/reconnect/MissedRecap';
@@ -91,6 +92,7 @@ export function AuctionStage({ roomId }: { roomId: string }) {
             </nav>
           ) : null}
           <HostControls live={live} connection={connection} disabled={disabled} />
+          <EndGameVote snapshot={snap} connection={connection} status={status} />
           <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams />
         </div>
       </header>
@@ -124,8 +126,20 @@ export function AuctionStage({ roomId }: { roomId: string }) {
           </h2>
           <p className="mt-1 text-ink-2">
             {live.finishedReason ? END_REASONS[live.finishedReason] : 'The auction has ended.'}{' '}
-            {progress.sold} players sold. Squads are being evaluated next.
+            {progress.sold} players sold.
           </p>
+          {snap.results?.status === 'finalizing' ? (
+            <p className="mt-2 text-sm text-ink-2" role="status">
+              Evaluating every squad&apos;s best legal XI… {snap.results.progressPercent}%
+            </p>
+          ) : (
+            <Link
+              href={`/rooms/${roomId}/results`}
+              className="mt-3 inline-flex min-h-11 items-center font-semibold text-auction underline"
+            >
+              Results, scores and medals
+            </Link>
+          )}
           {live.auditSeed ? (
             <details className="mt-3 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer">Check the lot order</summary>
