@@ -36,7 +36,7 @@ export function Dialog({
           onEscapeKeyDown={(e) => (dismissible ? undefined : e.preventDefault())}
           onPointerDownOutside={(e) => (dismissible ? undefined : e.preventDefault())}
           className={cx(
-            'fixed z-50 border border-line bg-overlay p-6 text-ink shadow-[var(--shadow-overlay)] focus:outline-none',
+            'fixed z-50 max-h-[100dvh] overflow-y-auto border border-line bg-overlay p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-ink shadow-[var(--shadow-overlay)] focus:outline-none sm:pb-6',
             'inset-x-0 bottom-0 rounded-t-[var(--radius-panel)] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[480px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[var(--radius-panel)]',
           )}
         >

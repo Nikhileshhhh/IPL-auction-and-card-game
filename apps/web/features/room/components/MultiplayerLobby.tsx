@@ -304,7 +304,10 @@ export function MultiplayerLobby({
           <span className="text-sm text-ink-2">{status === 'live' ? '● Live' : '◌ Offline'}</span>
           <span className="ml-auto flex items-center gap-3">
             {lobbyOpen ? (
-              <Link href={`/friends?room=${roomId}`} className="text-sm underline">
+              <Link
+                href={`/friends?room=${roomId}`}
+                className="inline-flex min-h-11 items-center text-sm underline"
+              >
                 Invite friends
               </Link>
             ) : null}
@@ -420,7 +423,7 @@ export function MultiplayerLobby({
         )
       ) : null}
 
-      <div className="sticky bottom-0 -mx-[var(--gutter)] flex flex-wrap items-center gap-3 border-t border-line bg-midnight px-[var(--gutter)] py-4">
+      <div className="sticky bottom-0 -mx-[var(--gutter)] flex flex-wrap items-center gap-3 border-t border-line bg-midnight px-[var(--gutter)] pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {lobbyOpen && readyPhase && mine?.role === 'player' ? (
           <Button
             aria-pressed={mine.ready}

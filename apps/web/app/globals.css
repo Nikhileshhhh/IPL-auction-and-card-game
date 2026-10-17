@@ -40,13 +40,21 @@ body {
   outline-offset: 2px;
 }
 
+/* Reduced motion (UI spec §3, ADR-031): the device setting applies unless the
+   member chose "Full motion"; "Reduce motion" applies on any device. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-motion='full']) *,
+  :root:not([data-motion='full']) *::before,
+  :root:not([data-motion='full']) *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
   }
+}
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 1ms !important;
+  transition-duration: 1ms !important;
 }
 
 /* ------------------------------------------------------------------ cards
@@ -412,23 +420,81 @@ body {
   }
 }
 
+/* Static frames: reduced motion (device or member choice) and low-data mode
+   keep the rarity colour and a static glow but drop every animation. */
 @media (prefers-reduced-motion: reduce) {
-  .stumps-card,
-  .stumps-card::before,
-  .stumps-card-shine::after,
-  .stumps-card-holo,
-  .stumps-card-sparkle,
-  .arena-selector,
-  .arena-deal-in,
-  .arena-pick,
-  .arena-banner-in {
+  :root:not([data-motion='full']) .stumps-card,
+  :root:not([data-motion='full']) .stumps-card::before,
+  :root:not([data-motion='full']) .stumps-card-shine::after,
+  :root:not([data-motion='full']) .stumps-card-holo,
+  :root:not([data-motion='full']) .stumps-card-sparkle,
+  :root:not([data-motion='full']) .arena-selector,
+  :root:not([data-motion='full']) .arena-deal-in,
+  :root:not([data-motion='full']) .arena-pick,
+  :root:not([data-motion='full']) .arena-banner-in,
+  :root:not([data-motion='full']) .podium-step {
     animation: none !important;
   }
-  .stumps-card-shine,
-  .stumps-card-sparkle {
+  :root:not([data-motion='full']) .stumps-card-shine,
+  :root:not([data-motion='full']) .stumps-card-sparkle {
     display: none;
   }
-  .stumps-card[data-shine='true']::before {
+  :root:not([data-motion='full']) .stumps-card[data-shine='true']::before {
     opacity: 0.55;
+  }
+}
+:root[data-motion='reduce'] .stumps-card,
+:root[data-motion='reduce'] .stumps-card::before,
+:root[data-motion='reduce'] .stumps-card-shine::after,
+:root[data-motion='reduce'] .stumps-card-holo,
+:root[data-motion='reduce'] .stumps-card-sparkle,
+:root[data-motion='reduce'] .arena-selector,
+:root[data-motion='reduce'] .arena-deal-in,
+:root[data-motion='reduce'] .arena-pick,
+:root[data-motion='reduce'] .arena-banner-in,
+:root[data-motion='reduce'] .podium-step {
+  animation: none !important;
+}
+:root[data-motion='reduce'] .stumps-card-shine,
+:root[data-motion='reduce'] .stumps-card-sparkle {
+  display: none;
+}
+:root[data-motion='reduce'] .stumps-card[data-shine='true']::before {
+  opacity: 0.55;
+}
+:root[data-low-data='true'] .stumps-card,
+:root[data-low-data='true'] .stumps-card::before,
+:root[data-low-data='true'] .stumps-card-shine::after,
+:root[data-low-data='true'] .stumps-card-holo,
+:root[data-low-data='true'] .stumps-card-sparkle,
+:root[data-low-data='true'] .arena-selector,
+:root[data-low-data='true'] .arena-deal-in,
+:root[data-low-data='true'] .arena-pick,
+:root[data-low-data='true'] .arena-banner-in,
+:root[data-low-data='true'] .podium-step {
+  animation: none !important;
+}
+:root[data-low-data='true'] .stumps-card-shine,
+:root[data-low-data='true'] .stumps-card-sparkle {
+  display: none;
+}
+:root[data-low-data='true'] .stumps-card[data-shine='true']::before {
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------------- podium
+   S13/S27 ceremony: each step rises once (bronze, silver, then gold) within
+   1.8 s. Content is present from the start; nothing waits for it. */
+.podium-step {
+  animation: podium-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes podium-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

@@ -92,7 +92,7 @@ export function CardCollection() {
           their best skill rated 90–100; every other player has a Bronze card rated up to 89;
           Platinum is for legendary pairs.
         </p>
-        <div className="-mx-[var(--gutter)] mt-4 flex snap-x gap-4 overflow-x-auto px-[var(--gutter)] pb-3">
+        <div className="relative -mx-[var(--gutter)] mt-4 flex snap-x gap-4 overflow-x-auto px-[var(--gutter)] pb-3">
           {showcase
             ? showcase.items.map((card, i) => (
                 <button

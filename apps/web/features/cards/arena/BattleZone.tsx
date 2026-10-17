@@ -107,7 +107,7 @@ export function BattleZone({
         <div
           role="tablist"
           aria-label="Opponent cards"
-          className="flex gap-2 overflow-x-auto sm:hidden"
+          className="relative flex gap-2 overflow-x-auto sm:hidden"
         >
           {opponents.map((o) => (
             <button

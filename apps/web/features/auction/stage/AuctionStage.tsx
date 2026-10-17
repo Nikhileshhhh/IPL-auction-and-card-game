@@ -1,13 +1,15 @@
 'use client';
 
+import { SoundToggle } from '@/features/preferences/SoundToggle';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { useRoom } from '@/features/room/useRoom';
 import { ChatDrawer } from '@/features/chat/ChatDrawer';
 import { EndGameVote } from '@/features/voting/EndGameVote';
 import { SquadView } from '../setup/SquadView';
+import { AuctionCues } from './AuctionCues';
 import { BidControlPanel } from './BidControlPanel';
 import { MissedRecap } from '@/features/reconnect/MissedRecap';
 import { RecoveryBanner } from '@/features/reconnect/RecoveryBanner';
@@ -17,6 +19,7 @@ import { LateJoinPanel } from './LateJoinPanel';
 import { LotClock } from './LotClock';
 import { LotHistory } from './LotHistory';
 import { LotSpotlight } from './LotSpotlight';
+import { PlayerDetail } from './PlayerDetail';
 import { END_REASONS, liveOf } from './model';
 import { RtmPanel } from './RtmPanel';
 import { TeamsRail } from './TeamsRail';
@@ -30,6 +33,12 @@ export function AuctionStage({ roomId }: { roomId: string }) {
   const router = useRouter();
   const { status, room, connection } = useRoom(roomId);
   const [squadTeam, setSquadTeam] = useState<string | null>(null);
+  // S21 lives in the URL (?player=) so it can be linked and survives refresh.
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const inspected = search.get('player');
+  const inspect = (playerId: string | null) =>
+    router.replace(playerId ? `${pathname}?player=${playerId}` : pathname, { scroll: false });
   const lifecycle = room?.snapshot.room.lifecycle;
   useEffect(() => {
     if (lifecycle === 'LOBBY') router.replace(`/rooms/${roomId}/lobby`);
@@ -67,6 +76,15 @@ export function AuctionStage({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <AuctionCues live={live} />
+      {inspected && /^[0-9a-f-]{36}$/.test(inspected) ? (
+        <PlayerDetail
+          roomId={roomId}
+          playerId={inspected}
+          live={live}
+          onClose={() => inspect(null)}
+        />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold tracking-wide text-ink uppercase sm:text-3xl">
@@ -93,6 +111,7 @@ export function AuctionStage({ roomId }: { roomId: string }) {
           ) : null}
           <HostControls live={live} connection={connection} disabled={disabled} />
           <EndGameVote snapshot={snap} connection={connection} status={status} />
+          <SoundToggle />
           <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams />
         </div>
       </header>
@@ -174,8 +193,11 @@ export function AuctionStage({ roomId }: { roomId: string }) {
         </Surface>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-5">
+      {/* Televised layout (UI spec §4): franchise rail 240 px on the left, the
+          stage in the middle and lot activity in a 320 px column from 1280 px;
+          at 1024–1279 px activity drops under the stage; phones stack. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(480px,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-1">
           {lot ? (
             <>
               <LotSpotlight
@@ -184,11 +206,11 @@ export function AuctionStage({ roomId }: { roomId: string }) {
                 serverNow={snap.serverNow}
                 openingSeconds={openingSeconds}
                 rtmSeconds={rtmSeconds}
+                onInspect={inspect}
               />
               <RtmPanel live={live} lot={lot} connection={connection} disabled={disabled} />
             </>
           ) : null}
-          <LotHistory live={live} />
           {squadTeam ? (
             <section aria-label="Squad" className="flex flex-col gap-3">
               <Button
@@ -209,7 +231,15 @@ export function AuctionStage({ roomId }: { roomId: string }) {
             </section>
           ) : null}
         </div>
-        <TeamsRail live={live} onSquad={setSquadTeam} />
+        <aside
+          aria-label="Lot activity"
+          className="min-w-0 lg:col-start-2 lg:row-start-2 xl:col-start-3 xl:row-start-1"
+        >
+          <LotHistory live={live} onInspect={inspect} />
+        </aside>
+        <div className="min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:row-span-1">
+          <TeamsRail live={live} onSquad={setSquadTeam} />
+        </div>
       </div>
 
       {lot ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import type { AuctionLiveSnapshot, Nomination } from '@stumps/contracts';
-import { Badge, Surface } from '@stumps/ui';
+import { Badge, Button, Surface } from '@stumps/ui';
 import { PortraitImage } from '@/components/cards/PortraitImage';
 import { Crest } from '../setup/Crest';
 import { formatRupees, fullRupees } from '../setup/money';
@@ -20,12 +20,15 @@ export function LotSpotlight({
   serverNow,
   openingSeconds,
   rtmSeconds,
+  onInspect,
 }: {
   live: AuctionLiveSnapshot;
   lot: Nomination;
   serverNow: string;
   openingSeconds: number;
   rtmSeconds: number;
+  /** Opens S21 for this player. */
+  onInspect: (playerId: string) => void;
 }) {
   const p = lot.player;
   const leader = teamById(live, lot.highFranchiseId);
@@ -64,6 +67,14 @@ export function LotSpotlight({
               {p.overseas ? <Badge tone="warning">Overseas</Badge> : null}
               {previous ? <span>· 2026: {previous.shortName}</span> : null}
             </div>
+            <Button
+              size="touch"
+              variant="tertiary"
+              className="mt-1 -ml-3"
+              onClick={() => onInspect(p.playerId)}
+            >
+              Player details
+            </Button>
           </div>
           {lot.myTarget ? (
             <p className="rounded-lg border border-auction/50 bg-auction/10 px-3 py-2 text-sm">

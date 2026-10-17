@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { METRIC_LABELS, type CardMetric, type RoomMemberSummary } from '@stumps/contracts';
 import { Button, cx } from '@stumps/ui';
 import { PortraitImage } from '@/components/cards/PortraitImage';
+import { playCue } from '@/features/audio/sfx';
+import { usePreferences } from '@/features/preferences/store';
 import { fallbackText } from '../tie-arena/fallback';
 import { seatName, type CardGame } from './model';
 
@@ -62,6 +64,11 @@ export function RoundWinnerReveal({
       portrait: player ? { src: player.portraitUrl, alt: player.portraitAlt } : null,
       explain: fallbackText(last, members),
     });
+    playCue(
+      last.winnerId ? 'roundWon' : 'reveal',
+      last.comparisonId,
+      usePreferences.getState().prefs.soundEffects,
+    );
   }, [game, members]);
 
   useEffect(() => {

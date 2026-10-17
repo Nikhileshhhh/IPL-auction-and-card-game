@@ -4,7 +4,14 @@ import { formatRupees, fullRupees } from '../setup/money';
 import { OUTCOME_LABELS, teamById } from './model';
 
 /** Bids on the current lot and the latest results (newest first). */
-export function LotHistory({ live }: { live: AuctionLiveSnapshot }) {
+export function LotHistory({
+  live,
+  onInspect,
+}: {
+  live: AuctionLiveSnapshot;
+  /** Opens S21 for a settled player. */
+  onInspect: (playerId: string) => void;
+}) {
   return (
     <Surface aria-labelledby="history-heading" className="p-4">
       {live.lotBids.length > 0 ? (
@@ -41,7 +48,14 @@ export function LotHistory({ live }: { live: AuctionLiveSnapshot }) {
             return (
               <li key={h.nominationId} className="flex flex-wrap justify-between gap-x-3">
                 <span className="min-w-0">
-                  <span className="text-ink-3">#{h.lotNumber}</span> {h.name}
+                  <span className="text-ink-3">#{h.lotNumber}</span>{' '}
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center underline decoration-dotted underline-offset-4"
+                    onClick={() => onInspect(h.playerId)}
+                  >
+                    {h.name}
+                  </button>
                 </span>
                 <span className="text-ink-2">
                   {OUTCOME_LABELS[h.outcome]}

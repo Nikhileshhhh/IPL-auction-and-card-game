@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SessionProjection } from '@stumps/contracts';
+import { PreferencesBoot } from '@/features/preferences/PreferencesBoot';
 import { ConnectionBoundary } from './ConnectionBoundary';
 import { InboxLink } from './InboxLink';
 import { SignOutButton } from './SignOutButton';
@@ -21,6 +22,7 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
+      <PreferencesBoot signedIn={Boolean(session)} />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-lg focus:bg-raised focus:px-4 focus:py-2"

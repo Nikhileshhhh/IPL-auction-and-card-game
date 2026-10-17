@@ -83,7 +83,7 @@ export function AuctionCreationForm() {
           </dl>
           <a
             href={IPL_RULES_SOURCE.url}
-            className="text-sm text-ink-2 underline"
+            className="inline-flex min-h-11 items-center text-sm text-ink-2 underline"
             target="_blank"
             rel="noreferrer"
           >

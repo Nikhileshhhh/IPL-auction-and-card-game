@@ -31,7 +31,7 @@ export function ComparisonSheet({
     >
       <div className="flex flex-col gap-5 text-sm">
         {game.visibleCards.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <caption className="pb-2 text-left font-semibold text-ink">
                 Revealed now (comparison {game.comparisonIndex + 1})

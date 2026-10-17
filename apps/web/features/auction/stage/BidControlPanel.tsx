@@ -59,7 +59,7 @@ export function BidControlPanel({
     <div
       role="region"
       aria-label="Bid"
-      className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-midnight/95 px-4 py-3 sm:-mx-6 sm:px-6"
+      className="sticky bottom-0 z-20 -mx-4 border-t border-line bg-midnight/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6"
     >
       <div className="flex flex-wrap items-center gap-3">
         <Button

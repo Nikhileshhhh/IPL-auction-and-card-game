@@ -38,7 +38,7 @@ export function DeckQueue({
       </div>
       <ol
         aria-label="Your deck in play order"
-        className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-3"
+        className="relative -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pt-2 pb-3"
       >
         {queue.map(({ card, inPlay: live }, i) => (
           <li key={card.instanceId} className="relative snap-start">

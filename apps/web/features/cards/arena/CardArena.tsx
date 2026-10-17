@@ -1,5 +1,6 @@
 'use client';
 
+import { SoundToggle } from '@/features/preferences/SoundToggle';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -123,7 +124,7 @@ export function CardArena({ roomId }: { roomId: string }) {
             {game.totalCards} cards · contest {game.completedContests + (game.comparisonId ? 1 : 0)}
           </p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="flex items-center gap-2 rounded-full border border-card/50 bg-black/40 px-3 py-1.5 text-sm text-ink">
             <span
               aria-hidden="true"
@@ -136,6 +137,7 @@ export function CardArena({ roomId }: { roomId: string }) {
             Comparison
           </Button>
           <EndGameVote snapshot={snap} connection={connection} status={status} />
+          <SoundToggle />
           <ChatDrawer roomId={roomId} connection={connection} status={status} hasTeams={false} />
         </div>
       </header>

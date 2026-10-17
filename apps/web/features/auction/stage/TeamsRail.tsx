@@ -54,7 +54,7 @@ export function TeamsRail({
                 {formatRupees(t.remainingPurseRupees)}
               </p>
             </div>
-            <dl className="mt-2 grid grid-cols-4 gap-2 text-xs">
+            <dl className="mt-2 grid grid-cols-4 gap-2 text-xs lg:grid-cols-2">
               <div>
                 <dt className="text-ink-3">Squad</dt>
                 <dd className="font-semibold">

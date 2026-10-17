@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import type { FriendsView, ProfileDTO } from '@stumps/contracts';
 import { Badge, Button, MedalBadge, Skeleton, StatusMessage, Surface, TextField } from '@stumps/ui';
 import { api } from '@/lib/api-client';
+import { PreferencesPanel } from '@/features/preferences/PreferencesPanel';
 import { Avatar } from './Avatar';
 
 const VISIBILITY = {
@@ -264,6 +265,7 @@ export function ProfileView({ username }: { username: string }) {
           </div>
         )
       ) : null}
+      {own ? <PreferencesPanel /> : null}
     </div>
   );
 }

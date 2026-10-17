@@ -18,7 +18,7 @@ export function PlayerLine({
         <PortraitImage src={player.portraitUrl} alt={player.portraitAlt} sizes="44px" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-ink">{player.name}</p>
+        <p className="line-clamp-2 font-semibold break-words text-ink">{player.name}</p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
           <span>{PLAYER_ROLE_LABELS[player.role]}</span>
           <Badge tone={player.cappedStatus === 'capped' ? 'auction' : 'neutral'}>

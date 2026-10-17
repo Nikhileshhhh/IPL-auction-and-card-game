@@ -427,7 +427,8 @@ function PlayersTab({
         <span className="text-sm text-ink-3">{data ? `${data.total} players` : 'Loading…'}</span>
       </div>
       {message ? <StatusMessage tone="info">{message}</StatusMessage> : null}
-      <div className="overflow-x-auto">
+      {/* `relative` keeps absolutely positioned sr-only labels inside the scroller. */}
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs tracking-wide text-ink-3 uppercase">
             <tr>
@@ -742,7 +743,7 @@ export function CatalogAdmin() {
                 type="button"
                 onClick={() => setSelectedId(v.id)}
                 aria-pressed={v.id === selectedId}
-                className={`flex w-full flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-left ${v.id === selectedId ? 'border-card' : 'border-line'}`}
+                className={`flex min-h-11 w-full flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-left ${v.id === selectedId ? 'border-card' : 'border-line'}`}
               >
                 <span className="font-medium">{v.label}</span>
                 <Badge
@@ -820,7 +821,7 @@ export function CatalogAdmin() {
               ))}
             </ul>
           ) : null}
-          <div role="tablist" aria-label="Version views" className="mt-6 flex gap-2">
+          <div role="tablist" aria-label="Version views" className="mt-6 flex flex-wrap gap-2">
             {(['players', 'cards'] as const).map((t) => (
               <button
                 key={t}

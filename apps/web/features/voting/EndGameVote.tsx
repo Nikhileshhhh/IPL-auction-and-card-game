@@ -5,6 +5,7 @@ import type { PermittedSnapshotDTO, VoteChoice } from '@stumps/contracts';
 import { Button, Dialog, StatusMessage } from '@stumps/ui';
 import type { LinkStatus, RoomConnection } from '@/features/room/connection';
 import { useServerNow } from '@/features/cards/arena/useServerClock';
+import { useCue } from '@/features/audio/useCue';
 
 const CHOICE_LABEL: Record<VoteChoice, string> = {
   end: 'End the game',
@@ -36,6 +37,7 @@ export function EndGameVote({
   const [pending, setPending] = useState<VoteChoice | 'start' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
+  useCue('vote', vote?.id);
 
   // The outcome of a vote, announced once (the snapshot then shows the game).
   useEffect(
@@ -100,7 +102,7 @@ export function EndGameVote({
       ) : null}
 
       {outcome ? (
-        <div className="fixed inset-x-4 bottom-4 z-50 sm:left-auto sm:max-w-sm">
+        <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 sm:left-auto sm:max-w-sm">
           <StatusMessage tone="info" title="Vote result">
             {outcome}{' '}
             <button type="button" className="underline" onClick={() => setOutcome(null)}>

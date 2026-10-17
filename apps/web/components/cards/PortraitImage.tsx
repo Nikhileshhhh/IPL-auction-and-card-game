@@ -2,6 +2,8 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { usePreferences } from '@/features/preferences/store';
+import { lowDataSrc } from './portrait-src';
 
 export const SILHOUETTE = '/original-assets/silhouette.svg';
 
@@ -24,9 +26,10 @@ export function PortraitImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const lowData = usePreferences((s) => s.prefs.lowData);
   return (
     <Image
-      src={failed ? SILHOUETTE : src}
+      src={failed ? SILHOUETTE : lowData ? lowDataSrc(src) : src}
       alt={failed ? `${alt} (photo not available)` : alt}
       fill
       unoptimized

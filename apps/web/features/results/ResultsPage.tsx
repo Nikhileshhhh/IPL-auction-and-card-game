@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { ResultDTO } from '@stumps/contracts';
-import { Badge, Skeleton, StatusMessage, Surface, cx } from '@stumps/ui';
+import { Badge, Skeleton, StatusMessage, Surface } from '@stumps/ui';
 import { api } from '@/lib/api-client';
 import { useRoom } from '@/features/room/useRoom';
 import { useServerNow } from '@/features/cards/arena/useServerClock';
 import { PortraitImage } from '@/components/cards/PortraitImage';
+import { Podium } from './Podium';
 
 type Ranking = ResultDTO['rankings'][number];
 type Report = NonNullable<ResultDTO['publicScoreReports']>[number];
@@ -23,11 +24,6 @@ const REASONS: Record<ResultDTO['completionReason'], string> = {
 };
 
 const MEDAL_TEXT = { gold: 'Gold', silver: 'Silver', bronze: 'Bronze' } as const;
-const MEDAL_STYLE = {
-  gold: 'border-[#ffd36b]/70 bg-[#ffd36b]/10',
-  silver: 'border-[#cfd8dc]/70 bg-[#cfd8dc]/10',
-  bronze: 'border-[#d7a17a]/70 bg-[#d7a17a]/10',
-} as const;
 const NO_CREDIT = {
   late_join: 'joined after the start',
   not_ready: 'not ready at the start',
@@ -190,23 +186,7 @@ export function ResultsPage({ roomId }: { roomId: string }) {
       </Surface>
 
       {podium.length ? (
-        <section aria-labelledby="podium-heading">
-          <h2 id="podium-heading" className="sr-only">
-            Podium
-          </h2>
-          <ol className="grid gap-3 sm:grid-cols-3">
-            {podium.map((r) => (
-              <li
-                key={r.competitorId}
-                className={cx('rounded-xl border p-4', MEDAL_STYLE[r.medal ?? 'gold'])}
-              >
-                <p className="text-sm font-semibold uppercase">{medalLabel(r, team)}</p>
-                <p className="mt-1 text-xl font-bold break-words">{r.displayName}</p>
-                <p className="text-sm text-ink-2">{r.summary}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <Podium roomId={roomId} podium={podium} team={team} myMedal={Boolean(myCredit?.medal)} />
       ) : null}
 
       <Surface aria-labelledby="ranking-heading">
