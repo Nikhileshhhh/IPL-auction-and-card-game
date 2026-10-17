@@ -14,8 +14,8 @@ phase → test mapping lives in `docs/requirements-traceability.md`.
 
 ## Commands
 `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm contracts:check`, `pnpm test:unit`,
-`pnpm test:integration`, `pnpm test:security`, `pnpm test:concurrency`, `pnpm test:e2e`,
-`pnpm test:load`, `pnpm build`, `pnpm db:reset`, `pnpm db:lint`.
+`pnpm test:integration`, `pnpm test:security`, `pnpm test:concurrency`, `pnpm test:e2e`, `pnpm test:visual`,
+`pnpm test:load`, `pnpm build`, `pnpm db:reset`, `pnpm db:lint`, `pnpm design:contrast`.
 Local PostgreSQL: `scripts/db/local-pg.sh start` (port 54329, no Docker needed).
 
 ## Non-negotiables
