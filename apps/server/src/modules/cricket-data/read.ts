@@ -239,63 +239,76 @@ export async function cardDetail(
   const card = toCardDTO(row);
   const players = [];
   for (const p of card.players) {
-    const stats = await pool.query<{ metric: string; value: string | null }>(
-      `SELECT metric, value::text FROM app_private.player_statistics
-        WHERE data_version_id = $1 AND player_id = $2 AND segment = 'overall'`,
-      [row.data_version_id, p.id],
-    );
-    const phases = await pool.query<{ metric: string; points: number }>(
-      `SELECT metric, points FROM app_private.player_ratings
-        WHERE data_version_id = $1 AND player_id = $2 AND metric LIKE '%\\_b%ing' ESCAPE '\\'`,
-      [row.data_version_id, p.id],
-    );
-    const raw: Record<string, unknown> = { scopeLabel: card.dataLabel, bestBowling: null };
-    for (const key of Object.values(STAT_KEYS)) raw[key] = null;
-    for (const s of stats.rows) {
-      const key = STAT_KEYS[s.metric];
-      if (!key) continue;
-      const scaled = key.endsWith('X100');
-      raw[key] =
-        s.value === null ? null : scaled ? Math.round(Number(s.value) * 100) : Number(s.value);
-    }
-    for (const k of [
-      'matches',
-      'innings',
-      'runs',
-      'ballsFaced',
-      'notOuts',
-      'fours',
-      'sixes',
-      'ballsBowled',
-      'runsConceded',
-      'wickets',
-      'catches',
-      'runOuts',
-      'stumpings',
-    ]) {
-      raw[k] ??= 0;
-    }
     players.push({
       playerId: p.id,
-      raw: stats.rowCount ? (raw as RawStatsDTO) : null,
-      phases: Object.fromEntries(phases.rows.map((r) => [r.metric, displayRating(r.points)])),
+      ...(await playerStatistics(pool, row.data_version_id, p.id, card.dataLabel)),
     });
   }
-  const source = await pool.query<{ publisher: string; licence_label: string; url: string }>(
+  return { card, players, source: await versionSource(pool, row.data_version_id) };
+}
+
+/** Raw totals and phase ratings for one player in one data version (S10, S21). */
+export async function playerStatistics(
+  db: Queryable,
+  dataVersionId: string,
+  playerId: string,
+  scopeLabel: string,
+): Promise<{ raw: RawStatsDTO | null; phases: Record<string, number> }> {
+  const stats = await db.query<{ metric: string; value: string | null }>(
+    `SELECT metric, value::text FROM app_private.player_statistics
+      WHERE data_version_id = $1 AND player_id = $2 AND segment = 'overall'`,
+    [dataVersionId, playerId],
+  );
+  const phases = await db.query<{ metric: string; points: number }>(
+    `SELECT metric, points FROM app_private.player_ratings
+      WHERE data_version_id = $1 AND player_id = $2 AND metric LIKE '%\\_b%ing' ESCAPE '\\'`,
+    [dataVersionId, playerId],
+  );
+  const raw: Record<string, unknown> = { scopeLabel, bestBowling: null };
+  for (const key of Object.values(STAT_KEYS)) raw[key] = null;
+  for (const s of stats.rows) {
+    const key = STAT_KEYS[s.metric];
+    if (!key) continue;
+    const scaled = key.endsWith('X100');
+    raw[key] =
+      s.value === null ? null : scaled ? Math.round(Number(s.value) * 100) : Number(s.value);
+  }
+  for (const k of [
+    'matches',
+    'innings',
+    'runs',
+    'ballsFaced',
+    'notOuts',
+    'fours',
+    'sixes',
+    'ballsBowled',
+    'runsConceded',
+    'wickets',
+    'catches',
+    'runOuts',
+    'stumpings',
+  ]) {
+    raw[k] ??= 0;
+  }
+  return {
+    raw: stats.rowCount ? (raw as RawStatsDTO) : null,
+    phases: Object.fromEntries(phases.rows.map((r) => [r.metric, displayRating(r.points)])),
+  };
+}
+
+/** Publisher, licence and link of a data version's statistics source. */
+export async function versionSource(db: Queryable, dataVersionId: string) {
+  const source = await db.query<{ publisher: string; licence_label: string; url: string }>(
     `SELECT s.publisher, s.licence_label, s.url FROM app_private.player_seasons ps
        JOIN app_private.data_sources s ON s.id = ps.source_id
       WHERE ps.data_version_id = $1 LIMIT 1`,
-    [row.data_version_id],
+    [dataVersionId],
   );
   const src = source.rows[0];
   return {
-    card,
-    players,
-    source: {
-      publisher: src?.publisher ?? 'Unknown',
-      licence: src?.licence_label ?? 'Unknown',
-      url: src?.url ?? '',
-    },
+    publisher: src?.publisher ?? 'Unknown',
+    licence: src?.licence_label ?? 'Unknown',
+    url: src?.url ?? '',
   };
 }
 

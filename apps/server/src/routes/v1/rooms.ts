@@ -36,6 +36,7 @@ import {
 } from '../../modules/rooms/service';
 import { buildSnapshot, replay, requireMembership, streamAcl } from '../../rooms/projection';
 import { readRoom } from '../../rooms/room-tx';
+import { auctionPlayerDetail } from '../../modules/auctions/player-detail';
 import { squadOf } from '../../modules/auctions/squad';
 import { shortlistView, teamView } from '../../modules/teams';
 import { autoView } from '../../modules/auctions';
@@ -175,6 +176,25 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       { isolation: 'repeatable read', readOnly: true },
     );
     return success(squad, request.id, new Date());
+  });
+
+  /** S21 auction player detail: public player, frozen statistics and source. */
+  app.get('/rooms/:id/players/:playerId', async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const playerId = Uuid.safeParse((request.params as { playerId?: string }).playerId);
+    if (!playerId.success) throw new AppError('NOT_FOUND', 'Player not found.');
+    const detail = await withTransaction(
+      deps.pool,
+      async (tx) => {
+        await requireMembership(tx, roomId, ctx.userId);
+        const room = await readRoom(tx, roomId);
+        if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+        return auctionPlayerDetail(tx, room, playerId.data);
+      },
+      { isolation: 'repeatable read', readOnly: true },
+    );
+    return success(detail, request.id, new Date());
   });
 
   /** S17: the viewer's own team (members, capabilities, requests, code, handover). */

@@ -49,6 +49,16 @@ export function attachGateway(httpServer: HttpServer, options: GatewayOptions): 
   });
 
   options.bus?.on((signal) => {
+    // A suspended member loses every socket on this instance at once.
+    if (signal.kind === 'user.suspended') {
+      for (const socket of io.sockets.sockets.values()) {
+        if (socket.data.principal?.userId === signal.userId) {
+          socket.emit('auth.revoked', { reason: 'account.suspended', reverifyUrl: '/auth' });
+          socket.disconnect(true);
+        }
+      }
+      return;
+    }
     if (signal.kind !== 'access.revoked' || !options.pool) return;
     const sockets = [...io.sockets.sockets.values()];
     const grantIds = [...new Set(sockets.map((s) => s.data.principal?.grantId).filter(Boolean))];

@@ -1,9 +1,14 @@
 import type { FastifyInstance } from 'fastify';
-import { OnboardingRequestSchema, UsernameSchema } from '@stumps/contracts';
+import {
+  OnboardingRequestSchema,
+  UiPreferencesPatchSchema,
+  UsernameSchema,
+} from '@stumps/contracts';
 import { success } from '../../http/envelope';
 import { requireIngress } from '../../http/ingress';
 import { parseBody } from '../../http/validation';
 import { authenticateMember } from '../../modules/auth/service';
+import { readPreferences, updatePreferences } from '../../modules/preferences';
 import { completeOnboarding, usernameAvailable } from '../../modules/profiles/onboarding';
 import { activeAnnouncements, memberSummary } from '../../modules/profiles/summary';
 import { consumeRate, RATE_RULES } from '../../modules/security/rate-limit';
@@ -20,6 +25,18 @@ export async function profileRoutes(app: FastifyInstance, deps: RuntimeDeps) {
   app.get('/announcements', async (request) => {
     await authenticateMember(deps, requireIngress(request));
     return success({ items: await activeAnnouncements(deps.pool) }, request.id, new Date());
+  });
+
+  /** Noncritical UI preferences (motion, sound, low data); no gameplay effect. */
+  app.get('/me/preferences', async (request) => {
+    const ctx = await authenticateMember(deps, requireIngress(request));
+    return success(await readPreferences(deps.pool, ctx.userId), request.id, new Date());
+  });
+
+  app.patch('/me/preferences', async (request) => {
+    const ctx = await authenticateMember(deps, requireIngress(request));
+    const body = parseBody(UiPreferencesPatchSchema, request.body);
+    return success(await updatePreferences(deps.pool, ctx.userId, body), request.id, new Date());
   });
 
   app.get('/profiles/availability', async (request) => {

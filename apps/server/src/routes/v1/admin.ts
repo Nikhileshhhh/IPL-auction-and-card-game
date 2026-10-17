@@ -2,6 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import {
   AccessRotationRequestSchema,
   AdminAbortSchema,
+  AdminRestrictionSchema,
+  AdminUserLookupQuery,
+  AnnouncementCreateSchema,
   Uuid,
   AdminChallengeRequestSchema,
   AdminMfaRequestSchema,
@@ -22,6 +25,14 @@ import {
   requireAdmin,
 } from '../../modules/admin/service';
 import { logout } from '../../modules/auth/service';
+import {
+  adminFindUser,
+  adminOverview,
+  adminRooms,
+  archiveAnnouncement,
+  createAnnouncement,
+  restrictUser,
+} from '../../modules/admin/operations';
 import { adminAbort, cleanupQueue, retryCleanup } from '../../modules/cleanup/admin';
 import { redirectOrigin, type RuntimeDeps } from '../../runtime';
 
@@ -142,6 +153,60 @@ export async function adminRoutes(app: FastifyInstance, deps: RuntimeDeps) {
         rotationPolicy: row.rotation_policy,
         rotatedAt: row.rotated_at?.toISOString() ?? null,
       },
+      request.id,
+      new Date(),
+    );
+  });
+
+  /** S33 HealthOverview and AuditPreview: measured aggregates, safe fields only. */
+  app.get('/admin/overview', async (request) => {
+    await requireAdmin(deps, requireIngress(request), { aal2: true });
+    return success(await adminOverview(deps.pool), request.id, new Date());
+  });
+
+  /** S33 ActiveRoomTable: lifecycle, counts and timestamps; no room content. */
+  app.get('/admin/rooms', async (request) => {
+    await requireAdmin(deps, requireIngress(request), { aal2: true });
+    return success(await adminRooms(deps.pool), request.id, new Date());
+  });
+
+  /** Exact username lookup for restrictions (never email or prefix search). */
+  app.get('/admin/users', async (request) => {
+    await requireAdmin(deps, requireIngress(request), { aal2: true });
+    const query = AdminUserLookupQuery.safeParse(request.query);
+    if (!query.success) throw new AppError('VALIDATION_FAILED', 'Enter an exact username.');
+    return success(await adminFindUser(deps.pool, query.data.username), request.id, new Date());
+  });
+
+  /** Suspend or lift a suspension: admin + AAL2 + step-up; sessions revoked. */
+  app.post('/admin/users/:id/restrictions', async (request) => {
+    const ctx = await requireAdmin(deps, requireIngress(request), { aal2: true, stepUp: true });
+    const userId = Uuid.safeParse((request.params as { id: string }).id);
+    if (!userId.success) throw new AppError('NOT_FOUND', 'No member has that ID.');
+    const body = parseBody(AdminRestrictionSchema, request.body);
+    const user = await restrictUser(
+      deps.pool,
+      ctx.userId,
+      userId.data,
+      body.suspendedUntil ? new Date(body.suspendedUntil) : null,
+      body.reason,
+    );
+    if (user.suspendedUntil) deps.bus.emit({ kind: 'user.suspended', userId: user.userId });
+    return success(user, request.id, new Date());
+  });
+
+  app.post('/admin/announcements', async (request) => {
+    const ctx = await requireAdmin(deps, requireIngress(request), { aal2: true });
+    const body = parseBody(AnnouncementCreateSchema, request.body);
+    return success(await createAnnouncement(deps.pool, ctx.userId, body), request.id, new Date());
+  });
+
+  app.post('/admin/announcements/:id/archive', async (request) => {
+    const ctx = await requireAdmin(deps, requireIngress(request), { aal2: true });
+    const id = Uuid.safeParse((request.params as { id: string }).id);
+    if (!id.success) throw new AppError('NOT_FOUND', 'No open announcement has that ID.');
+    return success(
+      await archiveAnnouncement(deps.pool, ctx.userId, id.data),
       request.id,
       new Date(),
     );
