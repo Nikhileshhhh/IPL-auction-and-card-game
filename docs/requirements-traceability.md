@@ -31,7 +31,7 @@ STUMPS v1.0. Every mandatory requirement maps to an implementing phase, module a
 | RQ-23 | 15-second end vote: frozen electorate, one ballot per franchise, strict majority, timer restore | 14 | game-engines/voting; server/modules/voting (clocks, start/cast/resolve); migration 110 (ADR-029) | `packages/game-engines/test/evaluation.spec.ts` (thresholds, tallies); `tests/integration/voting.spec.ts`; `tests/concurrency/voting.spec.ts`; `tests/e2e/voting.spec.ts` | Done (phase 14) |
 | RQ-24 | Exact XI squad evaluator, legality gate, ranking tiebreaks | 14 | game-engines/evaluation; jobs/evaluation (resumable checkpoints) (ADR-029) | `packages/game-engines/test/evaluation.spec.ts` (BigInt oracle, brute-force optimum, resume); `tests/integration/finalization.spec.ts` | Done (phase 14); ±5 pp sensitivity audit not computed |
 | RQ-25 | Qualification, top-three medals, team credits, idempotent receipts and summaries | 14 | game-engines/achievements; server/modules/achievements (finalize, card, auction, results) (ADR-029) | `tests/integration/finalization.spec.ts`; `packages/game-engines/test/evaluation.spec.ts` (placements, qualification) | Done (phase 14) |
-| RQ-26 | Results TTL then recoverable Storage→DB deletion; abandoned-room handling | 15 | server/modules/cleanup; jobs/cleanup | `tests/integration/cleanup.spec.ts` | Planned |
+| RQ-26 | Results TTL then recoverable Storage→DB deletion; abandoned-room handling | 15 | server/modules/cleanup; jobs/room-workers; migration 120 | `tests/integration/cleanup.spec.ts`; `tests/e2e/voting.spec.ts` (expiry) | Done (phase 15) |
 | RQ-27 | All 35 screens responsive/accessible, reduced motion, stable bid controls | 4–16 | web features/*; packages/ui | `tests/e2e/*.spec.ts (axe)` | Planned |
 | RQ-28 | Admin catalog editor, operations dashboard, announcements, restrictions, audit | 6,16 | server/modules/admin; web (admin) | `tests/e2e/admin.spec.ts` | Planned |
 | RQ-29 | Rate limits, CSRF/Origin, ticket one-use, redacted logs, no secrets in browser bundles | 3,17 | server/observability; realtime/tickets | `tests/security/*.spec.ts` | Planned |
@@ -73,11 +73,11 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E28 | 14 | voting/cards | `packages/game-engines/test/card-ties.spec.ts` (vote passing mid-tie restores the chain); `tests/integration/voting.spec.ts` | Done (phase 14) |
 | E29 | 14 | voting | `packages/game-engines/test/evaluation.spec.ts` (N4 2–2 fails) | Done (phase 14) |
 | E30 | 14 | voting | `packages/game-engines/test/evaluation.spec.ts`; `tests/integration/voting.spec.ts` (no ballots → fails, cooldown) | Done (phase 14) |
-| E31 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
+| E31 | 15 | cleanup | `tests/integration/cleanup.spec.ts` (Storage failure, backoff, retry) | Done |
 | E32 | 14 | achievements | `tests/integration/finalization.spec.ts` (finalizer ×10 and after results removal: one receipt, counters unchanged) | Done (phase 14) |
 | E33 | 13 | chat | `tests/security/chat-acl.spec.ts` (rival read/send/remove/mute/subscribe/replay by known ids; removed member) | Done (phase 13) |
-| E34 | 15 | cleanup/results | `tests/integration/cleanup.spec.ts` | Planned |
-| E35 | 15 | cleanup | `tests/concurrency/cleanup.spec.ts` | Planned |
+| E34 | 15 | cleanup/results | `tests/integration/cleanup.spec.ts` (card + auction purge; 410 after expiry) | Done |
+| E35 | 15 | cleanup | `tests/integration/cleanup.spec.ts` (two cleaners at once) | Done |
 | E36 | 12 | auth/realtime | `tests/security/revocation.spec.ts` | Planned |
 | E37 | 5 | rooms | `tests/integration/rooms.spec.ts` | Done (phase 05) |
 | E38 | 5 | rooms | `tests/integration/rooms.spec.ts; tests/e2e/rooms.spec.ts` | Done (phase 05) |
@@ -108,11 +108,11 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | E63 | 14 | evaluation | `packages/game-engines/test/evaluation.spec.ts` (interrupted chunked runs = uninterrupted); jobs/evaluation input-hash checkpoint | Done (phase 14) |
 | E64 | 6 | cricket-data | `tests/integration/catalog.spec.ts` (published version immutable; new data → new version) | Done (phase 06) |
 | E65 | 6 | media | `apps/server/test/unit/media.spec.ts; tests/integration/catalog.spec.ts` | Done (phase 06) |
-| E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` | Planned |
+| E66 | 15 | cleanup | `tests/integration/cleanup.spec.ts` (in-flight upload, late object) | Done |
 | E67 | 13 | friends | `tests/integration/social.spec.ts` (block cancels the pending invite; unblock restores nothing) | Done (phase 13) |
 | E68 | 13 | chat | `tests/integration/chat.spec.ts` (rate limit, mute, verbatim markup); `tests/e2e/social.spec.ts` (script text inert) | Done (phase 13) |
 | E69 | 16 | admin | `tests/security/admin-scope.spec.ts` | Planned |
-| E70 | 19 | ops | `docs/runbooks/restore.md drill` | Planned |
+| E70 | 15/19 | cleanup/ops | `tests/integration/cleanup.spec.ts` (restore sweep); `pnpm ops:audit-room-deletion --sweep`; restore drill runbook in phase 19 | Partial (sweep done; drill phase 19) |
 | E71 | 3 | auth | `tests/security/auth-session.spec.ts` | Done (phase 03) |
 | E72 | 14 | achievements | summaries change only for newly inserted receipts (`tests/integration/finalization.spec.ts`); a rebuild-from-receipts repair job is not built | Partial (phase 14) |
 
@@ -155,7 +155,7 @@ Test names include the ID (e.g. `it('E17 bid exactly at deadline is rejected')`)
 | Vote during auction fails → no sale during pause, time restored | 14 | `tests/integration/voting.spec.ts` (done, phase 14) |
 | Franchise wins with 3 eligible members, finalizer retried twice | 14 | `tests/integration/finalization.spec.ts` (done, phase 14) |
 | Late advisor → no unearned medal | 14 | `tests/integration/finalization.spec.ts` (done, phase 14) |
-| Storage deletion fails → root stays PURGING until objects absent | 15 | `tests/integration/cleanup.spec.ts` |
+| Storage deletion fails → root stays PURGING until objects absent | 15 | `tests/integration/cleanup.spec.ts` (done, phase 15) |
 | Server dies after commit before ack → original receipt returned | 5 | `tests/integration/idempotency.spec.ts` |
 | Incomplete high-score squad vs legal squad | 14 | `packages/game-engines/test/evaluation.spec.ts` (illegal ranked below legal; done, phase 14) |
 
