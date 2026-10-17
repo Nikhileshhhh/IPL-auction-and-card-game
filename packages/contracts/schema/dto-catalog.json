@@ -1,5 +1,5 @@
 {
-  "$comment": "Server-produced DTO field catalogue (DB/realtime \u00a710). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
+  "$comment": "Server-produced DTO field catalogue (DB/realtime §10). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
   "specVersion": "1.0",
   "envelopes": {
     "success": [
@@ -399,9 +399,47 @@
       "total",
       "overdue",
       "failing"
+    ],
+    "UiPreferencesDTO": [
+      "motion",
+      "soundEffects",
+      "lowData"
+    ],
+    "AdminOverviewDTO": [
+      "generatedAt",
+      "health",
+      "rooms",
+      "liveConnections",
+      "cleanup",
+      "security",
+      "announcements",
+      "audit"
+    ],
+    "AdminRoomsDTO": [
+      "rooms",
+      "total"
+    ],
+    "AdminUserDTO": [
+      "userId",
+      "username",
+      "displayName",
+      "onboarded",
+      "suspendedUntil",
+      "isAdmin",
+      "createdAt"
+    ],
+    "AuctionPlayerDetailDTO": [
+      "player",
+      "poolStatus",
+      "ownerTeamId",
+      "ratings",
+      "raw",
+      "dataLabel",
+      "source"
     ]
   },
   "changesFromSpec": [
-    "PublicCardPlayer.portraitUrl and PlayerPublicDTO.portraitUrl are REQUIRED (spec lists them optional). Decision ADR-017: every published card/pool player has an approved portrait asset; an original silhouette asset is the explicit fallback, never an absent image."
+    "PublicCardPlayer.portraitUrl and PlayerPublicDTO.portraitUrl are REQUIRED (spec lists them optional). Decision ADR-017: every published card/pool player has an approved portrait asset; an original silhouette asset is the explicit fallback, never an absent image.",
+    "Admin catalog drafts (spec PATCH /admin/catalog/:kind/:id and POST /admin/catalog/:kind/:id/archive) are served per kind as PATCH /v1/admin/catalog/players/:id and POST /v1/admin/catalog/versions/:id/archive, plus the player sheet POST /v1/admin/catalog/player-sheet (phase 06 follow-up, ADR-019); the HTTP catalog lists the served paths (phase 16, ADR-031)."
   ]
 }

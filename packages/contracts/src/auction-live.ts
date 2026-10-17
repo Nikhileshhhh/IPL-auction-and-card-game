@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AuctionPlayerSchema, RuleSummarySchema } from './auction';
 import { DecimalString, IsoTimestamp, RupeesString, Uuid } from './primitives';
+import { RawStatsSchema } from './catalog';
 import { VoteTallySchema } from './teams';
 
 /**
@@ -264,3 +265,26 @@ export const AuctionLiveSnapshotSchema = z
   })
   .strict();
 export type AuctionLiveSnapshot = z.infer<typeof AuctionLiveSnapshotSchema>;
+
+// ------------------------------------------------------- S21 player detail
+export const POOL_STATUSES = ['available', 'retained', 'sold', 'unsold', 'skipped'] as const;
+
+/**
+ * S21 auction player detail (phase 16): the public player, the frozen data
+ * version's statistics and its source. Read only; bids still go through the
+ * live controls with the current version.
+ */
+export const AuctionPlayerDetailSchema = z
+  .object({
+    player: AuctionPlayerSchema,
+    poolStatus: z.enum(POOL_STATUSES),
+    /** The team that holds the player (retained or bought), if any. */
+    ownerTeamId: Uuid.nullable(),
+    /** Display ratings 0–100 (Sachin's owner-set cards aside) for every metric the data has. */
+    ratings: z.record(z.string(), z.number().int().min(0).max(101)),
+    raw: RawStatsSchema.nullable(),
+    dataLabel: z.string(),
+    source: z.object({ publisher: z.string(), licence: z.string(), url: z.string() }).strict(),
+  })
+  .strict();
+export type AuctionPlayerDetail = z.infer<typeof AuctionPlayerDetailSchema>;

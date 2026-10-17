@@ -15,6 +15,11 @@ import {
   VOTE_EVENT_PAYLOADS,
   ROOM_LIFECYCLE_EVENT_PAYLOADS,
   CleanupQueueSchema,
+  UiPreferencesSchema,
+  AdminOverviewSchema,
+  AdminRoomsSchema,
+  AdminUserSchema,
+  AuctionPlayerDetailSchema,
   VoteStartPayload,
   VoteStartAck,
   VoteCastPayload,
@@ -226,6 +231,11 @@ for (const [name, schema] of [
   ['VoteDTO', VoteDTOSchema],
   ['ResultDTO', ResultDTOSchema],
   ['CleanupQueueDTO', CleanupQueueSchema],
+  ['UiPreferencesDTO', UiPreferencesSchema],
+  ['AdminOverviewDTO', AdminOverviewSchema],
+  ['AdminRoomsDTO', AdminRoomsSchema],
+  ['AdminUserDTO', AdminUserSchema],
+  ['AuctionPlayerDetailDTO', AuctionPlayerDetailSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }
