@@ -5,6 +5,7 @@ import {
   expectNoSeriousA11yViolations,
   onboardThroughUi,
   setAccessCode,
+  withDb,
 } from './support';
 
 const CODE = 'e2e-voting-code';
@@ -19,7 +20,7 @@ test('the host asks to end; both vote within 15 s; the match ends and results sh
   browser,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'two-context flow runs once (guest at 360 px)');
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   const suffix = Date.now() % 100000;
   const host = await (
     await browser.newContext({ viewport: { width: 1440, height: 900 } })
@@ -90,4 +91,37 @@ test('the host asks to end; both vote within 15 s; the match ends and results sh
   await expectNoSeriousA11yViolations(guest);
   await expectNoHorizontalScroll(guest);
   await guest.screenshot({ path: testInfo.outputPath('results-mobile.png'), fullPage: true });
+
+  // When the results period ends the server deletes the room (ADR-030):
+  // the page shows the expired state; medals stay on the profile.
+  const roomId = /\/rooms\/([0-9a-f-]{36})\//.exec(guest.url())![1]!;
+  await withDb(async (c) => {
+    await c.query(
+      `UPDATE app_private.room_results SET created_at = now() - interval '200 s', expires_at = now() - interval '1 s' WHERE room_id = $1`,
+      [roomId],
+    );
+    await c.query(
+      `UPDATE app_private.rooms SET result_expires_at = now() - interval '1 s' WHERE id = $1`,
+      [roomId],
+    );
+    await c.query(
+      `UPDATE app_private.cleanup_tasks SET next_attempt_at = now() - interval '1 s' WHERE room_id = $1`,
+      [roomId],
+    );
+  });
+  await expect
+    .poll(
+      async () =>
+        withDb(
+          async (c) =>
+            (await c.query('SELECT 1 FROM app_private.rooms WHERE id = $1', [roomId])).rowCount,
+        ),
+      { timeout: 60_000, intervals: [2_000] },
+    )
+    .toBe(0);
+  await guest.reload();
+  await expect(guest.getByText('Detailed match results expired')).toBeVisible();
+  await expect(
+    guest.getByText('Medals you earned stay on your profile.', { exact: false }),
+  ).toBeVisible();
 });

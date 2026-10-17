@@ -221,7 +221,9 @@ describe('card commands (DB/realtime §8.2)', () => {
       game.seedCommitment,
     );
     const events = await publicEvents(roomId);
-    expect(events.at(-1)!.type).toBe('game.completed');
+    // Phase 15: the results-expiry notice follows the completion.
+    expect(events.slice(-2).map((e) => e.type)).toEqual(['game.completed', 'room.expiring']);
+    const completed = events.at(-2)!;
     // Every card event matches its published payload schema.
     for (const e of events) {
       const schema = CARD_EVENT_PAYLOADS[e.type as keyof typeof CARD_EVENT_PAYLOADS];
@@ -238,9 +240,13 @@ describe('card commands (DB/realtime §8.2)', () => {
     const dto = ResultDTOSchema.parse(results.body.data);
     expect(dto.rankings.map((r) => r.competitorId)).toEqual(game.result!.standings);
     expect(dto.seedAudit?.seed).toBe(game.auditSeed);
-    expect((events.at(-1)!.payload as { resultsExpiresAt: string }).resultsExpiresAt).toBe(
+    expect((completed.payload as { resultsExpiresAt: string }).resultsExpiresAt).toBe(
       dto.resultsExpiresAt,
     );
+    expect(events.at(-1)!.payload).toMatchObject({
+      expiresAt: dto.resultsExpiresAt,
+      reason: 'results',
+    });
     // Events carry the state version their own transition produced.
     const versions = events.map((e) => BigInt(e.state_version));
     expect(versions).toEqual([...versions].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
