@@ -41,6 +41,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 360, height: 800 } } },
+    // Phase 16 visual review: every screen at every target size (docs/design-review.md).
+    {
+      name: 'visual',
+      testDir: 'tests/visual',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
   ],
   webServer: [
     {

@@ -34,6 +34,13 @@ test('an administrator enrolls MFA and rotates the access code securely', async 
   await page.getByLabel('Authenticator code').fill(totp(secret));
   await page.getByRole('button', { name: 'Confirm authenticator' }).click();
   await expect(page).toHaveURL(/\/admin$/);
+  // S33 overview: measured health, room counts and recent actions.
+  await expect(page.getByRole('heading', { name: 'Operations', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible();
+  await expect(page.getByText('Answering')).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
+
+  await page.getByRole('link', { name: 'Access', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Website access code' })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
