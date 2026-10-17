@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { ResultDTO } from '@stumps/contracts';
 import type { Tx } from '../../db/transaction';
 import type { RoomRow } from '../../rooms/room-tx';
+import type { EventDraft } from '../../rooms/streams';
+import { enqueueCleanup } from '../cleanup';
 
 /**
  * Finalization (DB/realtime §7, rules §13, ADR-029). Runs under the room lock
@@ -119,7 +121,11 @@ export async function completeRoom(
   const expiresAt = new Date(now.getTime() + room.results_ttl_seconds * 1000);
   if (already.rowCount) {
     // A retried finalizer after a committed one: nothing to do (E32).
-    return { medalStatus: 'none' as const, resultsExpiresAt: expiresAt.toISOString() };
+    return {
+      medalStatus: 'none' as const,
+      resultsExpiresAt: expiresAt.toISOString(),
+      expiring: null,
+    };
   }
   const minted = await commitAwards(tx, room, result.gameType, awards, versions, now);
   const hash = createHash('sha256').update(JSON.stringify(sourceState)).digest('hex');
@@ -135,8 +141,15 @@ export async function completeRoom(
       WHERE id = $1`,
     [room.id, now, expiresAt],
   );
+  // Deletion is queued with the results (ADR-030): it runs once they expire.
+  await enqueueCleanup(tx, room.id, 'results', expiresAt);
   return {
     medalStatus: minted > 0 ? ('awarded' as const) : ('none' as const),
     resultsExpiresAt: expiresAt.toISOString(),
+    expiring: {
+      audience: { kind: 'public' },
+      type: 'room.expiring',
+      payload: { expiresAt: expiresAt.toISOString(), reason: 'results', profileUrl: '/play' },
+    } satisfies EventDraft as EventDraft,
   };
 }

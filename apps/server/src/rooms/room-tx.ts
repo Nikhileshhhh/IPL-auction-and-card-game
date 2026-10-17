@@ -128,6 +128,10 @@ export async function runRoomCommand<T>(
     // Global locks (e.g. per-user membership limits) are always taken before the room.
     if (options.beforeLock) await options.beforeLock(tx);
     const room = await lockRoom(tx, input.roomId);
+    // A room being deleted (or aborted) accepts no more writes of any kind.
+    if (room.lifecycle === 'PURGING' || room.lifecycle === 'ABORTED') {
+      throw new AppError('ROOM_GONE', 'This room has closed.');
+    }
     const prior = await tx.query<{ body_hash: Buffer; response: T }>(
       'SELECT body_hash, response FROM app_private.room_commands WHERE room_id = $1 AND actor_key = $2 AND command_id = $3',
       [input.roomId, input.actorKey, input.commandId],

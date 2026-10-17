@@ -122,6 +122,9 @@ async function main() {
       rooms: runtime.rooms,
       instanceId,
       onError: () => app.log.warn('room worker pass failed'),
+      media: runtime.media,
+      // Cleanup logs carry no room content (ADR-030); sockets get only the notice.
+      onRoomClosed: (roomId, notice) => evictFromRoom(io, roomId, undefined, notice),
       onRecovered: (rooms) => {
         app.log.warn({ rooms: rooms.length }, 'recovery pause after coordinator outage');
         for (const r of rooms) {

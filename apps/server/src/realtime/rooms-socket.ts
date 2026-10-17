@@ -287,13 +287,19 @@ export function joinStream(io: Server, roomId: string, memberId: string, streamI
   }
 }
 
-export function evictFromRoom(io: Server, roomId: string, memberId?: string) {
+export function evictFromRoom(
+  io: Server,
+  roomId: string,
+  memberId?: string,
+  notice?: { expiresAt: string; reason: string; profileUrl: string },
+) {
   for (const socket of io.sockets.sockets.values()) {
     const entry = socket.data.rooms?.get(roomId);
     if (!entry || (memberId && entry.memberId !== memberId)) continue;
     for (const stream of entry.streams) void socket.leave(stream);
     socket.data.rooms?.delete(roomId);
-    socket.emit(memberId ? 'room.removed' : 'room.closed', { roomId });
+    // No recoverable room payload: only when, why, and where the medals are.
+    socket.emit(memberId ? 'room.removed' : 'room.closed', { roomId, ...notice });
   }
 }
 

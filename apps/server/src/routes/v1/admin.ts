@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import {
   AccessRotationRequestSchema,
+  AdminAbortSchema,
+  Uuid,
   AdminChallengeRequestSchema,
   AdminMfaRequestSchema,
   LoginRequestSchema,
@@ -20,6 +22,7 @@ import {
   requireAdmin,
 } from '../../modules/admin/service';
 import { logout } from '../../modules/auth/service';
+import { adminAbort, cleanupQueue, retryCleanup } from '../../modules/cleanup/admin';
 import { redirectOrigin, type RuntimeDeps } from '../../runtime';
 
 export async function adminRoutes(app: FastifyInstance, deps: RuntimeDeps) {
@@ -139,6 +142,33 @@ export async function adminRoutes(app: FastifyInstance, deps: RuntimeDeps) {
         rotationPolicy: row.rotation_policy,
         rotatedAt: row.rotated_at?.toISOString() ?? null,
       },
+      request.id,
+      new Date(),
+    );
+  });
+
+  /** S33 operations cleanup queue (safe fields only). */
+  app.get('/admin/cleanup', async (request) => {
+    await requireAdmin(deps, requireIngress(request), { aal2: true });
+    return success(await cleanupQueue(deps.pool), request.id, new Date());
+  });
+
+  /** Retry a stuck cleanup now (expired, aborted or purging rooms only). */
+  app.post('/admin/cleanup/:roomId/retry', async (request) => {
+    const ctx = await requireAdmin(deps, requireIngress(request), { aal2: true });
+    const roomId = Uuid.safeParse((request.params as { roomId: string }).roomId);
+    if (!roomId.success) throw new AppError('NOT_FOUND', 'Room not found.');
+    return success(await retryCleanup(deps.pool, ctx.userId, roomId.data), request.id, new Date());
+  });
+
+  /** Integrity abort: admin + AAL2 + step-up; no medals, no results period. */
+  app.post('/admin/rooms/:id/abort', async (request) => {
+    const ctx = await requireAdmin(deps, requireIngress(request), { aal2: true, stepUp: true });
+    const roomId = Uuid.safeParse((request.params as { id: string }).id);
+    if (!roomId.success) throw new AppError('NOT_FOUND', 'Room not found.');
+    const body = parseBody(AdminAbortSchema, request.body);
+    return success(
+      await adminAbort(deps.pool, ctx.userId, roomId.data, body.reason),
       request.id,
       new Date(),
     );

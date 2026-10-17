@@ -68,6 +68,7 @@ interface Completion {
   seed: string;
   medalStatus: 'awarded' | 'none';
   resultsExpiresAt: string;
+  expiring: EventDraft | null;
 }
 
 async function roomSeed(tx: Tx, secrets: Secrets, room: RoomRow) {
@@ -138,6 +139,7 @@ export async function applyTransition(
     drafts.push(
       await toDraft(tx, secrets, room, event, cards, deadline, now, graceDeadline, completion),
     );
+  if (completion?.expiring) drafts.push(completion.expiring);
   return drafts;
 }
 

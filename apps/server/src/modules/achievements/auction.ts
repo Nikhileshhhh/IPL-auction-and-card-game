@@ -296,5 +296,6 @@ export async function finalizeAuctionRoom(
         rngVersion: RNG_VERSION,
       },
     },
+    ...(done.expiring ? [done.expiring] : []),
   ];
 }

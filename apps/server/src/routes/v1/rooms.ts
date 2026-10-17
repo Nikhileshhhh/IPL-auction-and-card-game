@@ -1,4 +1,6 @@
 import { readResults } from '../../modules/achievements/results';
+import { uploadRoomAsset } from '../../modules/cleanup/assets';
+import { MAX_UPLOAD_BYTES } from '../../modules/media/pipeline';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import {
@@ -12,6 +14,7 @@ import {
   SettingsPatchRequestSchema,
   StartRequestSchema,
   Uuid,
+  RoomAssetUploadSchema,
 } from '@stumps/contracts';
 import { AppError } from '../../http/app-error';
 import { success } from '../../http/envelope';
@@ -57,6 +60,16 @@ function idempotencyKeyOf(request: FastifyRequest): string {
     throw new AppError('VALIDATION_FAILED', 'An Idempotency-Key UUID header is required.');
   }
   return parsed.data;
+}
+
+/** A room being deleted (or aborted) is gone for its former members (410). */
+// A 2 MiB image as base64 inside JSON.
+const ROOM_ASSET_BODY_LIMIT = Math.ceil((MAX_UPLOAD_BYTES * 4) / 3) + 4096;
+
+function requireOpen(room: { lifecycle: string }) {
+  if (room.lifecycle === 'PURGING' || room.lifecycle === 'ABORTED') {
+    throw new AppError('ROOM_GONE', 'This room has closed.');
+  }
 }
 
 export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
@@ -105,6 +118,7 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
         const room = await readRoom(tx, roomId);
         if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
         const me = await requireMembership(tx, roomId, ctx.userId);
+        requireOpen(room);
         const { streamIds: _ids, ...dto } = await buildSnapshot(
           tx,
           deps.secrets,
@@ -243,9 +257,24 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
       const me = await requireMembership(tx, roomId, ctx.userId);
       const room = await readRoom(tx, roomId);
       if (!room) throw new AppError('NOT_FOUND', 'Room not found.');
+      if (room.lifecycle === 'PURGING' || room.lifecycle === 'ABORTED') {
+        throw new AppError('RESULTS_EXPIRED', 'Detailed match results expired.');
+      }
       return readResults(tx, room, me, await dbNow(tx));
     });
     return success(view, request.id, new Date());
+  });
+
+  /** Room image upload, proxied and re-encoded; registered in the deletion manifest first. */
+  app.post('/rooms/:id/assets', { bodyLimit: ROOM_ASSET_BODY_LIMIT }, async (request) => {
+    const ctx = await member(request);
+    const roomId = roomIdOf(request);
+    const body = parseBody(RoomAssetUploadSchema, request.body);
+    return success(
+      await uploadRoomAsset(deps.pool, deps.media, ctx.userId, roomId, body.imageBase64),
+      request.id,
+      new Date(),
+    );
   });
 
   app.post('/rooms/:id/ready', async (request) => {
@@ -350,6 +379,7 @@ export async function roomRoutes(app: FastifyInstance, deps: RuntimeDeps) {
          FROM app_private.room_members m JOIN app_private.rooms r ON r.id = m.room_id
         WHERE m.user_id = $1 AND m.left_at IS NULL
           AND r.lifecycle IN ('LOBBY', 'RUNNING', 'FINALIZING', 'RESULTS')
+        AND (r.lifecycle <> 'RESULTS' OR r.result_expires_at > now())
         ORDER BY m.joined_at DESC LIMIT 10`,
       [ctx.userId],
     );

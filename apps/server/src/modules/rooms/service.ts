@@ -1,3 +1,4 @@
+import { deleteOrEnqueue } from '../cleanup';
 import type pg from 'pg';
 import {
   AuctionSettingsSchema,
@@ -77,6 +78,7 @@ async function assertMembershipLimit(tx: Tx, userId: string, excludingRoomId?: s
     `SELECT count(*)::int AS active, count(*) FILTER (WHERE r.lifecycle = 'RUNNING')::int AS running
        FROM app_private.room_members m JOIN app_private.rooms r ON r.id = m.room_id
       WHERE m.user_id = $1 AND m.left_at IS NULL AND r.lifecycle IN ('LOBBY', 'RUNNING', 'FINALIZING', 'RESULTS')
+        AND (r.lifecycle <> 'RESULTS' OR r.result_expires_at > now())
         AND ($2::uuid IS NULL OR r.id <> $2::uuid)`,
     [userId, excludingRoomId ?? null],
   );
@@ -611,12 +613,16 @@ export async function leaveRoom(
       }
       const remaining = members.filter((m) => m.id !== me.id);
       if (remaining.length === 0) {
-        await tx.query('DELETE FROM app_private.rooms WHERE id = $1', [room.id]);
-        return {
-          reply: { departed: true },
-          roomDeleted: true,
-          afterCommit: [() => deps.onRoomClosed?.(room.id)],
-        };
+        // An empty lobby goes at once, unless it has Storage objects to remove first.
+        if ((await deleteOrEnqueue(tx, room.id, 'lobby', now)) === 'deleted') {
+          return {
+            reply: { departed: true },
+            roomDeleted: true,
+            afterCommit: [() => deps.onRoomClosed?.(room.id)],
+          };
+        }
+        await tx.query('DELETE FROM app_private.room_members WHERE id = $1', [me.id]);
+        return { reply: { departed: true }, afterCommit: [() => deps.onRoomClosed?.(room.id)] };
       }
       await tx.query('DELETE FROM app_private.room_members WHERE id = $1', [me.id]);
       const events: EventDraft[] = [

@@ -1,6 +1,7 @@
 import { AppError } from '../http/app-error';
 import type { DeadlineRegistry } from '../jobs/deadlines';
 import { HOST_ABSENCE_MS, LOBBY_INACTIVITY_MS } from '../modules/rooms/service';
+import { deleteOrEnqueue } from '../modules/cleanup';
 import { deferWhileVoting } from '../modules/voting/clocks';
 import { listMembers } from './projection';
 
@@ -14,8 +15,9 @@ export function registerRoomDeadlines(registry: DeadlineRegistry, hooks: RoomJob
     if (room.lifecycle !== 'LOBBY') return {};
     const inactiveSince = room.last_activity_at.getTime() + LOBBY_INACTIVITY_MS;
     if (now.getTime() >= inactiveSince || now >= room.expires_at) {
-      // A lobby has no external objects or achievements to preserve.
-      await tx.query('DELETE FROM app_private.rooms WHERE id = $1', [room.id]);
+      // A lobby has no achievements to preserve; Storage objects, if any, are
+      // removed first by the recoverable cleanup task (ADR-030).
+      if ((await deleteOrEnqueue(tx, room.id, 'lobby', now)) === 'queued') return {};
       return { roomDeleted: true, afterCommit: [() => hooks.onRoomClosed?.(room.id)] };
     }
     await tx.query(

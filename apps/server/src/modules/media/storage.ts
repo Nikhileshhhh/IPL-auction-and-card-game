@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 
 /**
@@ -9,6 +9,8 @@ export interface MediaStorage {
   put(key: string, bytes: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   remove(keys: readonly string[]): Promise<void>;
+  /** Every object key under a prefix (room cleanup re-lists until empty). */
+  list(prefix: string): Promise<string[]>;
 }
 
 const KEY = /^[a-z0-9][a-z0-9/_.-]{2,240}$/;
@@ -46,6 +48,24 @@ export class LocalDiskStorage implements MediaStorage {
 
   async remove(keys: readonly string[]) {
     await Promise.all(keys.map((k) => rm(this.path(k), { force: true })));
+  }
+
+  async list(prefix: string) {
+    const base = this.path(prefix.replace(/\/$/, ''));
+    try {
+      const entries = await readdir(base, { recursive: true, withFileTypes: true });
+      return entries
+        .filter((e) => e.isFile())
+        .map((e) =>
+          join(e.parentPath, e.name)
+            .slice(this.root.length + 1)
+            .split(sep)
+            .join('/'),
+        )
+        .sort();
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -96,5 +116,32 @@ export class SupabaseStorage implements MediaStorage {
       signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) throw new Error(`storage remove failed (${res.status})`);
+  }
+
+  async list(prefix: string): Promise<string[]> {
+    const folder = prefix.replace(/\/$/, '');
+    assertKey(folder);
+    const out: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const res = await fetch(
+        `${this.url.replace(/\/$/, '')}/storage/v1/object/list/${this.bucket}`,
+        {
+          method: 'POST',
+          headers: this.headers({ 'content-type': 'application/json' }),
+          body: JSON.stringify({ prefix: folder, limit: 1000, offset }),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!res.ok) throw new Error(`storage list failed (${res.status})`);
+      const page = (await res.json()) as { name: string; id: string | null }[];
+      for (const item of page) {
+        const key = `${folder}/${item.name}`;
+        // Folders have no id: walk into them.
+        if (item.id === null) out.push(...(await this.list(key)));
+        else out.push(key);
+      }
+      if (page.length < 1000) break;
+    }
+    return out.sort();
   }
 }

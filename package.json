@@ -27,6 +27,7 @@
     "dev:mailbox": "tsx scripts/dev/mailbox.ts",
     "ops:set-access-code": "tsx --env-file-if-exists=.env scripts/bootstrap-admin/set-access-code.ts",
     "ops:bootstrap-admin": "tsx --env-file-if-exists=.env scripts/bootstrap-admin/index.ts",
+    "ops:audit-room-deletion": "tsx --env-file-if-exists=.env scripts/audit-room-deletion/index.ts",
     "data:fetch": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/fetch-cricsheet.ts",
     "data:photos": "NODE_USE_ENV_PROXY=1 tsx --env-file-if-exists=.env scripts/data/import-photos.ts",
     "data:import": "tsx --env-file-if-exists=.env scripts/data/import-cricsheet.ts",

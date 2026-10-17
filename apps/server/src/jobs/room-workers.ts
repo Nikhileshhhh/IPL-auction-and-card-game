@@ -1,4 +1,6 @@
 import type pg from 'pg';
+import { runCleanupPass, scanRooms, type ClosedNotice } from '../modules/cleanup';
+import type { MediaStorage } from '../modules/media/storage';
 import type { RoomRuntime } from '../modules/rooms/runtime';
 import { sweepStaleConnections } from '../realtime/rooms-socket';
 import { CoordinatorLease, runDuePass } from './deadlines';
@@ -12,6 +14,12 @@ export interface RoomWorkerOptions {
   onError?: (error: unknown) => void;
   /** Rooms paused for recovery after an outage (sockets get `server.recovering`). */
   onRecovered?: (rooms: RecoveredRoom[]) => void;
+  /** Room Storage, for the recoverable cleanup (ADR-030). */
+  media?: MediaStorage;
+  /** Former members are told the room closed when its deletion starts. */
+  onRoomClosed?: (roomId: string, notice: ClosedNotice) => void;
+  /** Cleanup poll (DB/realtime §4: every 30 seconds, bounded batches). */
+  cleanupMs?: number;
 }
 
 /**
@@ -26,6 +34,9 @@ export function startRoomWorkers(options: RoomWorkerOptions): () => Promise<void
   let stopped = false;
   let running: Promise<void> | undefined;
   let lastSweep = 0;
+  // 0 runs the stranded-state scan and due cleanup on the first tick (startup reconciliation).
+  let lastCleanup = 0;
+  const cleanupMs = options.cleanupMs ?? 30_000;
 
   const tick = async () => {
     if (!(await lease.tryAcquire())) return;
@@ -51,6 +62,15 @@ export function startRoomWorkers(options: RoomWorkerOptions): () => Promise<void
     if (Date.now() - lastSweep >= 5_000) {
       lastSweep = Date.now();
       await sweepStaleConnections({ pool: options.pool, rooms: options.rooms.deps });
+    }
+    if (options.media && Date.now() - lastCleanup >= cleanupMs) {
+      lastCleanup = Date.now();
+      await scanRooms(options.pool, options.media);
+      await runCleanupPass(
+        options.pool,
+        options.media,
+        options.onRoomClosed ? { onRoomClosed: options.onRoomClosed } : {},
+      );
     }
   };
 
