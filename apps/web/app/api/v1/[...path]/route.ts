@@ -12,6 +12,7 @@ const MAX_BODY = 16 * 1024;
 const MAX_IMPORT_BODY = 5 * 1024 * 1024;
 // Admin portrait and member avatar uploads: 2 MiB image as base64 inside JSON.
 const MAX_MEDIA_BODY = 3 * 1024 * 1024;
+const ROOM_ASSET = /^rooms\/[0-9a-f-]{36}\/assets$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function failure(status: number, code: string, message: string) {
@@ -56,7 +57,8 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       ? MAX_IMPORT_BODY
       : joined === 'admin/catalog/media' ||
           joined === 'admin/catalog/player-sheet' ||
-          joined === 'profiles/me/avatar'
+          joined === 'profiles/me/avatar' ||
+          ROOM_ASSET.test(joined)
         ? MAX_MEDIA_BODY
         : MAX_BODY;
   const declared = Number(request.headers.get('content-length') ?? '0');

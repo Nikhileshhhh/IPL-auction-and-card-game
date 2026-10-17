@@ -35,6 +35,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               Player catalog
             </Link>
           </li>
+          <li>
+            <Link
+              href="/admin/cleanup"
+              className="inline-flex min-h-11 items-center rounded-lg px-3 hover:bg-overlay"
+            >
+              Room cleanup
+            </Link>
+          </li>
         </ul>
         <div className="mt-4">
           <SignOutButton scope="admin" />
