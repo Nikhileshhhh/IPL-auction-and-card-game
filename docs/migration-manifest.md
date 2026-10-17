@@ -27,6 +27,7 @@ Retention classes: **P** persistent catalog/profile · **S** security with expli
 | `100_social_chat` | 13 | chat_channels (room/team, UQ room/kind/franchise), chat_messages (1–500 code points, UQ sender/clientMessageId, removal), chat_mutes (≤24 h), friendship and invite lookup indexes; all chat cascades from the room (ADR-028) |
 | `110_votes_results` | 14 | end_votes (exactly 15 s, one open vote per room, saved timers), vote_electorate (frozen electors, one representative, immutable ballot before expiry via trigger), room_results (≤300 s, source state hash), card_seats eliminated_at/participation_at_exit, rooms.paused_ms, auction_games evaluation checkpoint (ADR-029) |
 | `120_cleanup` | 15 | room_assets (external deletion manifest, key under rooms/<room>/, upload lease), cleanup_tasks (one per room, stage freeze/assets/rows, backoff, lease), rooms results-expiry index; card member/comparison FKs made DEFERRABLE INITIALLY DEFERRED so a started card room deletes by cascade (ADR-030) |
+| `130_ui_preferences` | 16 | ui_preferences (motion system/reduce/full, sound effects, low data; noncritical, cascades with the profile; FORCE RLS) (ADR-031) |
 | `070_votes_chat_assets_results_cleanup` (planned name; shipped as 100, 110 and 120) | 13–15 | end_votes, vote_electorate, chat_channels, chat_mutes, chat_messages, room_assets, room_results, cleanup_tasks |
 | `080_invariants` | 7–15 (added per feature migration) | (deferred constraint triggers: card conservation, purse sums, single captain, medal mapping) |
 | `090_rls_grants_verify` | 2 (rerun every phase) | (reconcile/verify every table: RLS enabled+forced, backend policy, grants, no browser access) |
@@ -55,6 +56,7 @@ Database-enforced invariants added: published data versions/rulesets and all the
 | Table | Class | TTL / deletion owner | Owner module |
 |---|---|---|---|
 | `profiles` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | profiles |
+| `ui_preferences` | P | Persistent UI settings; cascade with the profile (account erasure); no gameplay effect | profiles |
 | `admin_assignments` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | admin |
 | `access_config` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | access-gate |
 | `app_config` | P | Persistent; catalog versions archived, never deleted while referenced; account erasure for user-owned rows | admin |
