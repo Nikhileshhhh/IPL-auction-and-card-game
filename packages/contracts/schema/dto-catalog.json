@@ -1,5 +1,5 @@
 {
-  "$comment": "Server-produced DTO field catalogue (DB/realtime §10). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
+  "$comment": "Server-produced DTO field catalogue (DB/realtime \u00a710). Fields suffixed '?' are optional; arrays are empty, never null. IDs UUID; versions and money are decimal strings; dates ISO-8601 UTC. portraitUrl is a short-lived authorized URL (or public original-asset path for DEMO portraits).",
   "specVersion": "1.0",
   "envelopes": {
     "success": [
@@ -393,6 +393,12 @@
       "canSend",
       "mutedUntil?",
       "canModerate"
+    ],
+    "CleanupQueueDTO": [
+      "tasks",
+      "total",
+      "overdue",
+      "failing"
     ]
   },
   "changesFromSpec": [

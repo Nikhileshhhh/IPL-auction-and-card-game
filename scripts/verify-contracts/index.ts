@@ -13,6 +13,8 @@ import {
   AUTO_EVENT_PAYLOADS,
   CHAT_EVENT_PAYLOADS,
   VOTE_EVENT_PAYLOADS,
+  ROOM_LIFECYCLE_EVENT_PAYLOADS,
+  CleanupQueueSchema,
   VoteStartPayload,
   VoteStartAck,
   VoteCastPayload,
@@ -158,6 +160,7 @@ for (const [type, schema] of Object.entries({
   ...AUTO_EVENT_PAYLOADS,
   ...CHAT_EVENT_PAYLOADS,
   ...VOTE_EVENT_PAYLOADS,
+  ...ROOM_LIFECYCLE_EVENT_PAYLOADS,
 })) {
   sameSet(`event payload ${type}`, shapeOf(schema), fields(events[type]?.payload ?? []));
 }
@@ -222,6 +225,7 @@ for (const [name, schema] of [
   ['ChatChannelDTO', ChatChannelSchema],
   ['VoteDTO', VoteDTOSchema],
   ['ResultDTO', ResultDTOSchema],
+  ['CleanupQueueDTO', CleanupQueueSchema],
 ] as const) {
   sameSet(`dto ${name}`, shapeOf(schema), fields(dtos[name] ?? []));
 }
